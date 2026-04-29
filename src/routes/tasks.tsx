@@ -210,20 +210,41 @@ function TasksPage() {
       </header>
 
       {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <Filter className="h-4 w-4 text-muted-foreground" />
-        {[
-          { v: "all", l: "Todas" },
-          { v: "mine", l: "Minhas" },
-          { v: "todo", l: "A fazer" },
-          { v: "doing", l: "Em andamento" },
-          { v: "done", l: "Concluídas" },
-          { v: "overdue", l: "Atrasadas" },
-        ].map((f) => (
-          <button key={f.v} onClick={() => setFilter(f.v)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${filter === f.v ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}>
-            {f.l}
-          </button>
-        ))}
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <Filter className="h-4 w-4 text-muted-foreground" />
+          <Input placeholder="Buscar tarefa…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs h-9" />
+          <Select value={priorityFilter} onValueChange={setPriorityFilter}>
+            <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas prioridades</SelectItem>
+              {PRIORITIES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={projectFilter} onValueChange={setProjectFilter}>
+            <SelectTrigger className="w-[170px] h-9"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos projetos</SelectItem>
+              <SelectItem value="none">Sem projeto</SelectItem>
+              {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          {[
+            { v: "all", l: "Todas" },
+            { v: "mine", l: "Minhas" },
+            { v: "todo", l: "A fazer" },
+            { v: "doing", l: "Em andamento" },
+            { v: "review", l: "Revisão" },
+            { v: "done", l: "Concluídas" },
+            { v: "overdue", l: "Atrasadas" },
+          ].map((f) => (
+            <button key={f.v} onClick={() => setFilter(f.v)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${filter === f.v ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}>
+              {f.l}
+            </button>
+          ))}
+        </div>
       </div>
 
       <Card className="divide-y shadow-card">
@@ -233,7 +254,7 @@ function TasksPage() {
         {filtered.map((t) => {
           const overdue = isOverdue(t.due_date, t.status);
           return (
-            <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-muted/30 transition group">
+            <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-muted/30 transition">
               <Checkbox checked={t.status === "done"} onCheckedChange={() => toggle(t)} />
               <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: priorityColor(t.priority) }} />
               <div className="flex-1 min-w-0">
@@ -244,13 +265,61 @@ function TasksPage() {
                   <span className={overdue ? "text-destructive font-medium" : ""}>{formatDate(t.due_date)}</span>
                 </div>
               </div>
-              <button onClick={() => remove(t.id)} className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-destructive transition">
-                <Trash2 className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setEditing({ ...t, due_date: t.due_date ? t.due_date.slice(0, 10) : "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                  <Pencil className="h-4 w-4" />
+                </button>
+                <button onClick={() => remove(t.id)} aria-label="Excluir" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition">
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           );
         })}
       </Card>
+
+      {/* Edit dialog */}
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar tarefa</DialogTitle></DialogHeader>
+          {editing && (
+            <div className="space-y-3">
+              <div><Label>Título</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
+              <div><Label>Descrição</Label><Textarea value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Prioridade</Label>
+                  <Select value={editing.priority} onValueChange={(v) => setEditing({ ...editing, priority: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status</Label>
+                  <Select value={editing.status} onValueChange={(v) => setEditing({ ...editing, status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{STATUSES.map((s) => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div><Label>Prazo</Label><Input type="date" value={editing.due_date || ""} onChange={(e) => setEditing({ ...editing, due_date: e.target.value })} /></div>
+                <div>
+                  <Label>Projeto</Label>
+                  <Select value={editing.project_id || "none"} onValueChange={(v) => setEditing({ ...editing, project_id: v === "none" ? null : v })}>
+                    <SelectTrigger><SelectValue placeholder="Sem projeto" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem projeto</SelectItem>
+                      {projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
