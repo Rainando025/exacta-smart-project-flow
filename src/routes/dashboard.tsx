@@ -38,9 +38,17 @@ function Dashboard() {
 
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
-  const overdue = tasks.filter((t) => isOverdue(t.due_date, t.status)).length;
+  const overdue = tasks.filter((t) => isOverdue(t.due_date, t.status));
   const myTasks = tasks.filter((t) => t.assignee_id === user?.id && t.status !== "done").slice(0, 5);
   const productivity = total ? Math.round((done / total) * 100) : 0;
+  const now = new Date();
+  const in3days = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  const dueSoon = tasks.filter((t) => {
+    if (!t.due_date || t.status === "done") return false;
+    const d = new Date(t.due_date);
+    return d >= now && d <= in3days;
+  });
+  const alerts = [...overdue, ...dueSoon].slice(0, 6);
 
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-7xl mx-auto">
@@ -57,7 +65,7 @@ function Dashboard() {
         <StatCard icon={CheckSquare} label="Tarefas totais" value={total} accent="primary" />
         <StatCard icon={TrendingUp} label="Concluídas" value={done} accent="success" />
         <StatCard icon={Clock} label="Em andamento" value={tasks.filter((t) => t.status !== "done").length} accent="accent" />
-        <StatCard icon={AlertTriangle} label="Atrasadas" value={overdue} accent="destructive" />
+        <StatCard icon={AlertTriangle} label="Atrasadas" value={overdue.length} accent="destructive" />
       </div>
 
       {/* Productivity */}
