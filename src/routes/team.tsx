@@ -3,6 +3,9 @@ import { AppShell } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Filter } from "lucide-react";
 
 export const Route = createFileRoute("/team")({
   component: () => <AppShell><TeamPage /></AppShell>,
@@ -12,6 +15,8 @@ function TeamPage() {
   const [members, setMembers] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [roles, setRoles] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState("all");
 
   useEffect(() => {
     (async () => {
@@ -26,6 +31,13 @@ function TeamPage() {
     })();
   }, []);
 
+  const filtered = members.filter((m) => {
+    const role = roles[m.id] || "colaborador";
+    if (roleFilter !== "all" && role !== roleFilter) return false;
+    if (search.trim() && !(m.full_name || "").toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
+  });
+
   return (
     <div className="p-6 lg:p-10 max-w-6xl mx-auto space-y-6">
       <header>
@@ -34,8 +46,28 @@ function TeamPage() {
         <p className="text-muted-foreground mt-2">Veja quem está fazendo o quê.</p>
       </header>
 
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Filter className="h-4 w-4 text-muted-foreground" />
+        <Input placeholder="Buscar membro…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs h-9" />
+        <Select value={roleFilter} onValueChange={setRoleFilter}>
+          <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos cargos</SelectItem>
+            <SelectItem value="admin">Admin</SelectItem>
+            <SelectItem value="gestor">Gestor</SelectItem>
+            <SelectItem value="colaborador">Colaborador</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {members.map((m) => {
+        {filtered.length === 0 && (
+          <Card className="col-span-full p-12 text-center text-muted-foreground border-dashed">
+            Nenhum membro encontrado.
+          </Card>
+        )}
+        {filtered.map((m) => {
           const mine = tasks.filter((t) => t.assignee_id === m.id);
           const done = mine.filter((t) => t.status === "done").length;
           const pct = mine.length ? Math.round((done / mine.length) * 100) : 0;
