@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Sparkles, Filter } from "lucide-react";
+import { Plus, Trash2, Sparkles, Filter, Pencil } from "lucide-react";
 import { PRIORITIES, STATUSES, priorityColor, priorityLabel, formatDate, isOverdue } from "@/lib/exacta";
 import { toast } from "sonner";
 
@@ -24,10 +24,14 @@ function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("all");
+  const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  const [editing, setEditing] = useState<any | null>(null);
   const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
 
   const load = async () => {
@@ -65,7 +69,25 @@ function TasksPage() {
   };
 
   const remove = async (id: string) => {
-    await supabase.from("tasks").delete().eq("id", id);
+    if (!confirm("Excluir esta tarefa?")) return;
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else { toast.success("Tarefa excluída"); load(); }
+  };
+
+  const saveEdit = async () => {
+    if (!editing) return;
+    const { error } = await supabase.from("tasks").update({
+      title: editing.title,
+      description: editing.description || null,
+      priority: editing.priority,
+      status: editing.status,
+      due_date: editing.due_date || null,
+      project_id: editing.project_id || null,
+    }).eq("id", editing.id);
+    if (error) return toast.error(error.message);
+    toast.success("Tarefa atualizada");
+    setEditing(null);
     load();
   };
 
