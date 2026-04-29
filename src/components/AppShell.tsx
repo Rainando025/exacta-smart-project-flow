@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { NotificationsBell } from "@/components/NotificationsBell";
 import logo from "@/assets/exacta-logo.png";
 import { cn } from "@/lib/utils";
 
@@ -83,7 +84,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-sidebar-border p-3 space-y-1">
-          <div className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm">
+          <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent font-bold text-accent-foreground text-xs">
               {(profile?.full_name || user.email || "U").slice(0, 2).toUpperCase()}
             </div>
@@ -91,6 +92,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               <p className="truncate text-xs font-semibold">{profile?.full_name || user.email}</p>
               <p className="truncate text-[10px] text-sidebar-foreground/60">{profile?.job_title || "Colaborador"}</p>
             </div>
+            <NotificationsBell />
           </div>
           <button
             onClick={signOut}
@@ -108,9 +110,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <img src={logo} alt="EXACTA" className="h-8 w-8 rounded object-contain bg-white/5 p-0.5" />
             <span className="font-display font-bold">EXACTA</span>
           </div>
-          <button onClick={signOut} className="text-xs">
-            <LogOut className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-1">
+            <NotificationsBell />
+            <button onClick={signOut} aria-label="Sair" className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-sidebar-accent/50">
+              <LogOut className="h-4 w-4" />
+            </button>
+          </div>
         </header>
 
         {/* Mobile nav */}
