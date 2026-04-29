@@ -86,6 +86,36 @@ function Dashboard() {
         </div>
       </Card>
 
+      {/* Alerts */}
+      <Card className="p-6 shadow-card border-l-4 border-l-destructive">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-destructive" />
+            <h3 className="font-display text-lg font-bold">Alertas de prazo</h3>
+          </div>
+          <span className="text-xs text-muted-foreground">{overdue.length} atrasada(s) • {dueSoon.length} vence(m) em breve</span>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-2">
+          {alerts.length === 0 && (
+            <p className="text-sm text-muted-foreground py-4 col-span-full text-center">Nenhum alerta. Você está em dia! ✨</p>
+          )}
+          {alerts.map((t) => {
+            const od = isOverdue(t.due_date, t.status);
+            return (
+              <Link key={t.id} to="/tasks" className="flex items-center gap-3 rounded-lg border p-3 hover:bg-muted/50 transition">
+                <div className={`h-2 w-2 rounded-full shrink-0 ${od ? "bg-destructive" : "bg-accent"}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{t.title}</p>
+                  <p className={`text-xs ${od ? "text-destructive" : "text-muted-foreground"}`}>
+                    {od ? "Atrasada" : "Vence"} • {formatDate(t.due_date)}
+                  </p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </Card>
+
       <div className="grid lg:grid-cols-2 gap-6">
         {/* My tasks */}
         <Card className="p-6 shadow-card">
