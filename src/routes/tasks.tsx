@@ -125,10 +125,13 @@ function TasksPage() {
   };
 
   const filtered = tasks.filter((t) => {
-    if (filter === "all") return true;
-    if (filter === "mine") return t.assignee_id === user?.id;
-    if (filter === "overdue") return isOverdue(t.due_date, t.status);
-    return t.status === filter;
+    if (filter === "mine" && t.assignee_id !== user?.id) return false;
+    if (filter === "overdue" && !isOverdue(t.due_date, t.status)) return false;
+    if (["todo", "doing", "review", "done"].includes(filter) && t.status !== filter) return false;
+    if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+    if (projectFilter !== "all" && (projectFilter === "none" ? t.project_id : t.project_id !== projectFilter)) return false;
+    if (search.trim() && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
+    return true;
   });
 
   return (
