@@ -32,6 +32,7 @@ function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [filesProject, setFilesProject] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
