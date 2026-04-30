@@ -313,18 +313,31 @@ function TasksPage() {
         )}
         {filtered.map((t) => {
           const overdue = isOverdue(t.due_date, t.status);
+          const c = counts[t.id];
           return (
             <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-muted/30 transition">
               <Checkbox checked={t.status === "done"} onCheckedChange={() => toggle(t)} />
               <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: priorityColor(t.priority) }} />
-              <div className="flex-1 min-w-0">
+              <button onClick={() => setDetail(t)} className="flex-1 min-w-0 text-left">
                 <p className={`font-medium text-sm ${t.status === "done" ? "line-through text-muted-foreground" : ""}`}>{t.title}</p>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   <span>{priorityLabel(t.priority)}</span>
                   <span>•</span>
                   <span className={overdue ? "text-destructive font-medium" : ""}>{formatDate(t.due_date)}</span>
+                  {c && c.total > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1"><ListChecks className="h-3 w-3" />{c.done}/{c.total}</span>
+                    </>
+                  )}
+                  {c && c.files > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1"><Paperclip className="h-3 w-3" />{c.files}</span>
+                    </>
+                  )}
                 </div>
-              </div>
+              </button>
               <div className="flex items-center gap-1">
                 <button onClick={() => setEditing({ ...t, due_date: t.due_date ? t.due_date.slice(0, 10) : "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Pencil className="h-4 w-4" />
