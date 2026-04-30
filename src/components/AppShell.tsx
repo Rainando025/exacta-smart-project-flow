@@ -10,6 +10,7 @@ import {
   Users,
   LogOut,
   Bell,
+  MessageSquareHeart,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
