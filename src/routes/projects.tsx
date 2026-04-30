@@ -148,6 +148,9 @@ function ProjectsPage() {
                 {p.name.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex items-center gap-1">
+                <button onClick={() => setFilesProject(p)} aria-label="Arquivos" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                  <Paperclip className="h-4 w-4" />
+                </button>
                 <button onClick={() => setEditing({ ...p, due_date: p.due_date || "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Pencil className="h-4 w-4" />
                 </button>
