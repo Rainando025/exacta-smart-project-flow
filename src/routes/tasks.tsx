@@ -11,9 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Sparkles, Filter, Pencil } from "lucide-react";
+import { Plus, Trash2, Sparkles, Filter, Pencil, ListChecks, Paperclip } from "lucide-react";
 import { PRIORITIES, STATUSES, priorityColor, priorityLabel, formatDate, isOverdue } from "@/lib/exacta";
 import { toast } from "sonner";
+import { SubtasksPanel } from "@/components/SubtasksPanel";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
+import { notify } from "@/lib/notify";
+
+interface SubtaskCount { task_id: string; total: number; done: number; }
 
 export const Route = createFileRoute("/tasks")({
   component: () => <AppShell><TasksPage /></AppShell>,
@@ -32,16 +37,49 @@ function TasksPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [detail, setDetail] = useState<any | null>(null);
+  const [counts, setCounts] = useState<Record<string, { total: number; done: number; files: number }>>({});
   const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
 
   const load = async () => {
     const { data } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
-    if (data) setTasks(data);
+    if (data) {
+      setTasks(data);
+      // Carrega contagens de subtarefas e anexos
+      const ids = data.map((t: any) => t.id);
+      if (ids.length > 0) {
+        const [{ data: subs }, { data: atts }] = await Promise.all([
+          supabase.from("subtasks").select("task_id,completed").in("task_id", ids),
+          supabase.from("attachments").select("task_id").in("task_id", ids),
+        ]);
+        const map: Record<string, { total: number; done: number; files: number }> = {};
+        (subs || []).forEach((s: any) => {
+          if (!map[s.task_id]) map[s.task_id] = { total: 0, done: 0, files: 0 };
+          map[s.task_id].total++;
+          if (s.completed) map[s.task_id].done++;
+        });
+        (atts || []).forEach((a: any) => {
+          if (!a.task_id) return;
+          if (!map[a.task_id]) map[a.task_id] = { total: 0, done: 0, files: 0 };
+          map[a.task_id].files++;
+        });
+        setCounts(map);
+      }
+    }
     const p = await supabase.from("projects").select("id,name,color");
     if (p.data) setProjects(p.data);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Realtime: recarrega ao mudar subtasks/attachments
+    const ch = supabase
+      .channel("tasks-related")
+      .on("postgres_changes", { event: "*", schema: "public", table: "subtasks" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "attachments" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const create = async () => {
     if (!form.title.trim() || !user) return;
@@ -76,7 +114,8 @@ function TasksPage() {
   };
 
   const saveEdit = async () => {
-    if (!editing) return;
+    if (!editing || !user) return;
+    const original = tasks.find((t) => t.id === editing.id);
     const { error } = await supabase.from("tasks").update({
       title: editing.title,
       description: editing.description || null,
@@ -84,8 +123,29 @@ function TasksPage() {
       status: editing.status,
       due_date: editing.due_date || null,
       project_id: editing.project_id || null,
+      assignee_id: editing.assignee_id || null,
     }).eq("id", editing.id);
     if (error) return toast.error(error.message);
+    // Notificações
+    if (original && editing.assignee_id && original.assignee_id !== editing.assignee_id && editing.assignee_id !== user.id) {
+      await notify({
+        user_id: editing.assignee_id,
+        type: "task_assigned",
+        title: `Nova tarefa atribuída: ${editing.title}`,
+        message: editing.due_date ? `Prazo: ${formatDate(editing.due_date)}` : undefined,
+        link: "/tasks",
+        task_id: editing.id,
+      });
+    } else if (original && original.status !== editing.status && editing.assignee_id && editing.assignee_id !== user.id) {
+      await notify({
+        user_id: editing.assignee_id,
+        type: "task_updated",
+        title: `Status atualizado: ${editing.title}`,
+        message: `Novo status: ${STATUSES.find((s) => s.value === editing.status)?.label || editing.status}`,
+        link: "/tasks",
+        task_id: editing.id,
+      });
+    }
     toast.success("Tarefa atualizada");
     setEditing(null);
     load();
@@ -253,18 +313,31 @@ function TasksPage() {
         )}
         {filtered.map((t) => {
           const overdue = isOverdue(t.due_date, t.status);
+          const c = counts[t.id];
           return (
             <div key={t.id} className="flex items-center gap-3 p-4 hover:bg-muted/30 transition">
               <Checkbox checked={t.status === "done"} onCheckedChange={() => toggle(t)} />
               <div className="h-2 w-2 rounded-full shrink-0" style={{ backgroundColor: priorityColor(t.priority) }} />
-              <div className="flex-1 min-w-0">
+              <button onClick={() => setDetail(t)} className="flex-1 min-w-0 text-left">
                 <p className={`font-medium text-sm ${t.status === "done" ? "line-through text-muted-foreground" : ""}`}>{t.title}</p>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   <span>{priorityLabel(t.priority)}</span>
                   <span>•</span>
                   <span className={overdue ? "text-destructive font-medium" : ""}>{formatDate(t.due_date)}</span>
+                  {c && c.total > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1"><ListChecks className="h-3 w-3" />{c.done}/{c.total}</span>
+                    </>
+                  )}
+                  {c && c.files > 0 && (
+                    <>
+                      <span>•</span>
+                      <span className="inline-flex items-center gap-1"><Paperclip className="h-3 w-3" />{c.files}</span>
+                    </>
+                  )}
                 </div>
-              </div>
+              </button>
               <div className="flex items-center gap-1">
                 <button onClick={() => setEditing({ ...t, due_date: t.due_date ? t.due_date.slice(0, 10) : "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Pencil className="h-4 w-4" />
@@ -320,6 +393,43 @@ function TasksPage() {
           <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Detail dialog: subtasks + attachments */}
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: priorityColor(detail?.priority) }} />
+              {detail?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {detail && (
+            <div className="space-y-6">
+              {detail.description && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{detail.description}</p>
+              )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 rounded bg-muted">{priorityLabel(detail.priority)}</span>
+                <span className="px-2 py-1 rounded bg-muted">
+                  {STATUSES.find((s) => s.value === detail.status)?.label}
+                </span>
+                {detail.due_date && (
+                  <span className={`px-2 py-1 rounded bg-muted ${isOverdue(detail.due_date, detail.status) ? "text-destructive" : ""}`}>
+                    Prazo: {formatDate(detail.due_date)}
+                  </span>
+                )}
+              </div>
+              <div className="border-t pt-4">
+                <SubtasksPanel taskId={detail.id} />
+              </div>
+              <div className="border-t pt-4">
+                <AttachmentsPanel taskId={detail.id} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+

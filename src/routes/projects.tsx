@@ -11,9 +11,10 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter } from "lucide-react";
+import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip } from "lucide-react";
 import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 
 const COLORS = ["#1e3a8a", "#0891b2", "#7c3aed", "#059669", "#dc2626", "#d97706"];
 const STATUSES = [
@@ -31,6 +32,7 @@ function ProjectsPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [filesProject, setFilesProject] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
@@ -146,6 +148,9 @@ function ProjectsPage() {
                 {p.name.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex items-center gap-1">
+                <button onClick={() => setFilesProject(p)} aria-label="Arquivos" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                  <Paperclip className="h-4 w-4" />
+                </button>
                 <button onClick={() => setEditing({ ...p, due_date: p.due_date || "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Pencil className="h-4 w-4" />
                 </button>
@@ -208,6 +213,20 @@ function ProjectsPage() {
           <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Files dialog */}
+      <Dialog open={!!filesProject} onOpenChange={(o) => !o && setFilesProject(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-5 w-5 text-accent" />
+              Arquivos · {filesProject?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {filesProject && <AttachmentsPanel projectId={filesProject.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
