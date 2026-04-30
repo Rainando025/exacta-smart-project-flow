@@ -41,6 +41,104 @@ export type Database = {
         }
         Relationships: []
       }
+      attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_size: number
+          folder: string
+          id: string
+          mime_type: string | null
+          project_id: string | null
+          storage_path: string
+          task_id: string | null
+          uploaded_by: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_size?: number
+          folder?: string
+          id?: string
+          mime_type?: string | null
+          project_id?: string | null
+          storage_path: string
+          task_id?: string | null
+          uploaded_by: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_size?: number
+          folder?: string
+          id?: string
+          mime_type?: string | null
+          project_id?: string | null
+          storage_path?: string
+          task_id?: string | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attachments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notifications: {
+        Row: {
+          created_at: string
+          id: string
+          link: string | null
+          message: string | null
+          read: boolean
+          task_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message?: string | null
+          read?: boolean
+          task_id?: string | null
+          title: string
+          type?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          link?: string | null
+          message?: string | null
+          read?: boolean
+          task_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -109,6 +207,47 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      subtasks: {
+        Row: {
+          completed: boolean
+          created_at: string
+          created_by: string
+          id: string
+          position: number
+          task_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          completed?: boolean
+          created_at?: string
+          created_by: string
+          id?: string
+          position?: number
+          task_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          completed?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          position?: number
+          task_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subtasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tasks: {
         Row: {
