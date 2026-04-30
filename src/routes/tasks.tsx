@@ -11,9 +11,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
-import { Plus, Trash2, Sparkles, Filter, Pencil } from "lucide-react";
+import { Plus, Trash2, Sparkles, Filter, Pencil, ListChecks, Paperclip } from "lucide-react";
 import { PRIORITIES, STATUSES, priorityColor, priorityLabel, formatDate, isOverdue } from "@/lib/exacta";
 import { toast } from "sonner";
+import { SubtasksPanel } from "@/components/SubtasksPanel";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
+import { notify } from "@/lib/notify";
+
+interface SubtaskCount { task_id: string; total: number; done: number; }
 
 export const Route = createFileRoute("/tasks")({
   component: () => <AppShell><TasksPage /></AppShell>,
