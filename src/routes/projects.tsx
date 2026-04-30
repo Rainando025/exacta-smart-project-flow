@@ -11,9 +11,10 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter } from "lucide-react";
+import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip } from "lucide-react";
 import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 
 const COLORS = ["#1e3a8a", "#0891b2", "#7c3aed", "#059669", "#dc2626", "#d97706"];
 const STATUSES = [
