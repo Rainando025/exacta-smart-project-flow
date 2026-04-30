@@ -15,6 +15,7 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as KanbanRouteImport } from './routes/kanban'
 import { Route as GanttRouteImport } from './routes/gantt'
+import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnnouncementsRouteImport } from './routes/announcements'
@@ -50,6 +51,11 @@ const GanttRoute = GanttRouteImport.update({
   path: '/gantt',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FeedbackRoute = FeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -76,6 +82,7 @@ export interface FileRoutesByFullPath {
   '/announcements': typeof AnnouncementsRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/feedback': typeof FeedbackRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
   '/notifications': typeof NotificationsRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/announcements': typeof AnnouncementsRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/feedback': typeof FeedbackRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
   '/notifications': typeof NotificationsRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/announcements': typeof AnnouncementsRoute
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
+  '/feedback': typeof FeedbackRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
   '/notifications': typeof NotificationsRoute
@@ -115,6 +124,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/auth'
     | '/dashboard'
+    | '/feedback'
     | '/gantt'
     | '/kanban'
     | '/notifications'
@@ -127,6 +137,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/auth'
     | '/dashboard'
+    | '/feedback'
     | '/gantt'
     | '/kanban'
     | '/notifications'
@@ -139,6 +150,7 @@ export interface FileRouteTypes {
     | '/announcements'
     | '/auth'
     | '/dashboard'
+    | '/feedback'
     | '/gantt'
     | '/kanban'
     | '/notifications'
@@ -152,6 +164,7 @@ export interface RootRouteChildren {
   AnnouncementsRoute: typeof AnnouncementsRoute
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
+  FeedbackRoute: typeof FeedbackRoute
   GanttRoute: typeof GanttRoute
   KanbanRoute: typeof KanbanRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GanttRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/feedback': {
+      id: '/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof FeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
@@ -240,6 +260,7 @@ const rootRouteChildren: RootRouteChildren = {
   AnnouncementsRoute: AnnouncementsRoute,
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
+  FeedbackRoute: FeedbackRoute,
   GanttRoute: GanttRoute,
   KanbanRoute: KanbanRoute,
   NotificationsRoute: NotificationsRoute,
