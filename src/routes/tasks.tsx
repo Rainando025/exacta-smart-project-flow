@@ -393,6 +393,43 @@ function TasksPage() {
           <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Detail dialog: subtasks + attachments */}
+      <Dialog open={!!detail} onOpenChange={(o) => !o && setDetail(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: priorityColor(detail?.priority) }} />
+              {detail?.title}
+            </DialogTitle>
+          </DialogHeader>
+          {detail && (
+            <div className="space-y-6">
+              {detail.description && (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{detail.description}</p>
+              )}
+              <div className="flex flex-wrap gap-2 text-xs">
+                <span className="px-2 py-1 rounded bg-muted">{priorityLabel(detail.priority)}</span>
+                <span className="px-2 py-1 rounded bg-muted">
+                  {STATUSES.find((s) => s.value === detail.status)?.label}
+                </span>
+                {detail.due_date && (
+                  <span className={`px-2 py-1 rounded bg-muted ${isOverdue(detail.due_date, detail.status) ? "text-destructive" : ""}`}>
+                    Prazo: {formatDate(detail.due_date)}
+                  </span>
+                )}
+              </div>
+              <div className="border-t pt-4">
+                <SubtasksPanel taskId={detail.id} />
+              </div>
+              <div className="border-t pt-4">
+                <AttachmentsPanel taskId={detail.id} />
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
