@@ -25,6 +25,7 @@ const NAV = [
   { to: "/gantt", label: "Cronograma", icon: CalendarRange },
   { to: "/announcements", label: "Mural", icon: Megaphone },
   { to: "/team", label: "Equipe", icon: Users },
+  { to: "/feedback", label: "Feedback 360°", icon: MessageSquareHeart },
   { to: "/notifications", label: "Avisos", icon: Bell },
 ] as const;
 
