@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as KanbanRouteImport } from './routes/kanban'
 import { Route as GanttRouteImport } from './routes/gantt'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -32,6 +33,11 @@ const TasksRoute = TasksRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KanbanRoute = KanbanRouteImport.update({
@@ -72,6 +78,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
@@ -95,6 +103,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
@@ -108,6 +117,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/gantt'
     | '/kanban'
+    | '/notifications'
     | '/projects'
     | '/tasks'
     | '/team'
@@ -119,6 +129,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/gantt'
     | '/kanban'
+    | '/notifications'
     | '/projects'
     | '/tasks'
     | '/team'
@@ -130,6 +141,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/gantt'
     | '/kanban'
+    | '/notifications'
     | '/projects'
     | '/tasks'
     | '/team'
@@ -142,6 +154,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   GanttRoute: typeof GanttRoute
   KanbanRoute: typeof KanbanRoute
+  NotificationsRoute: typeof NotificationsRoute
   ProjectsRoute: typeof ProjectsRoute
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
@@ -168,6 +181,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kanban': {
@@ -222,6 +242,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   GanttRoute: GanttRoute,
   KanbanRoute: KanbanRoute,
+  NotificationsRoute: NotificationsRoute,
   ProjectsRoute: ProjectsRoute,
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
