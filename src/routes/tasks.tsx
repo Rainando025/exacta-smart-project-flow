@@ -43,12 +43,43 @@ function TasksPage() {
 
   const load = async () => {
     const { data } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
-    if (data) setTasks(data);
+    if (data) {
+      setTasks(data);
+      // Carrega contagens de subtarefas e anexos
+      const ids = data.map((t: any) => t.id);
+      if (ids.length > 0) {
+        const [{ data: subs }, { data: atts }] = await Promise.all([
+          supabase.from("subtasks").select("task_id,completed").in("task_id", ids),
+          supabase.from("attachments").select("task_id").in("task_id", ids),
+        ]);
+        const map: Record<string, { total: number; done: number; files: number }> = {};
+        (subs || []).forEach((s: any) => {
+          if (!map[s.task_id]) map[s.task_id] = { total: 0, done: 0, files: 0 };
+          map[s.task_id].total++;
+          if (s.completed) map[s.task_id].done++;
+        });
+        (atts || []).forEach((a: any) => {
+          if (!a.task_id) return;
+          if (!map[a.task_id]) map[a.task_id] = { total: 0, done: 0, files: 0 };
+          map[a.task_id].files++;
+        });
+        setCounts(map);
+      }
+    }
     const p = await supabase.from("projects").select("id,name,color");
     if (p.data) setProjects(p.data);
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    // Realtime: recarrega ao mudar subtasks/attachments
+    const ch = supabase
+      .channel("tasks-related")
+      .on("postgres_changes", { event: "*", schema: "public", table: "subtasks" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "attachments" }, load)
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, []);
 
   const create = async () => {
     if (!form.title.trim() || !user) return;
