@@ -114,7 +114,8 @@ function TasksPage() {
   };
 
   const saveEdit = async () => {
-    if (!editing) return;
+    if (!editing || !user) return;
+    const original = tasks.find((t) => t.id === editing.id);
     const { error } = await supabase.from("tasks").update({
       title: editing.title,
       description: editing.description || null,
@@ -122,8 +123,29 @@ function TasksPage() {
       status: editing.status,
       due_date: editing.due_date || null,
       project_id: editing.project_id || null,
+      assignee_id: editing.assignee_id || null,
     }).eq("id", editing.id);
     if (error) return toast.error(error.message);
+    // Notificações
+    if (original && editing.assignee_id && original.assignee_id !== editing.assignee_id && editing.assignee_id !== user.id) {
+      await notify({
+        user_id: editing.assignee_id,
+        type: "task_assigned",
+        title: `Nova tarefa atribuída: ${editing.title}`,
+        message: editing.due_date ? `Prazo: ${formatDate(editing.due_date)}` : undefined,
+        link: "/tasks",
+        task_id: editing.id,
+      });
+    } else if (original && original.status !== editing.status && editing.assignee_id && editing.assignee_id !== user.id) {
+      await notify({
+        user_id: editing.assignee_id,
+        type: "task_updated",
+        title: `Status atualizado: ${editing.title}`,
+        message: `Novo status: ${STATUSES.find((s) => s.value === editing.status)?.label || editing.status}`,
+        link: "/tasks",
+        task_id: editing.id,
+      });
+    }
     toast.success("Tarefa atualizada");
     setEditing(null);
     load();
