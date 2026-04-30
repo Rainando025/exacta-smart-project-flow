@@ -1,5 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+// duplicate-safe import block above
 import {
   LayoutDashboard,
   CheckSquare,
@@ -9,8 +11,7 @@ import {
   Megaphone,
   Users,
   LogOut,
-  Settings,
-  Sparkles,
+  Bell,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
