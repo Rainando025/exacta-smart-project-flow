@@ -95,6 +95,77 @@ export type Database = {
           },
         ]
       }
+      feedback_competencies: {
+        Row: {
+          created_at: string
+          feedback_id: string
+          id: string
+          name: string
+          score: number
+        }
+        Insert: {
+          created_at?: string
+          feedback_id: string
+          id?: string
+          name: string
+          score: number
+        }
+        Update: {
+          created_at?: string
+          feedback_id?: string
+          id?: string
+          name?: string
+          score?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_competencies_feedback_id_fkey"
+            columns: ["feedback_id"]
+            isOneToOne: false
+            referencedRelation: "feedbacks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      feedbacks: {
+        Row: {
+          created_at: string
+          feedback_type: string
+          id: string
+          improvements: string | null
+          is_anonymous: boolean
+          message: string | null
+          rating: number
+          reviewee_id: string
+          reviewer_id: string
+          strengths: string | null
+        }
+        Insert: {
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          improvements?: string | null
+          is_anonymous?: boolean
+          message?: string | null
+          rating: number
+          reviewee_id: string
+          reviewer_id: string
+          strengths?: string | null
+        }
+        Update: {
+          created_at?: string
+          feedback_type?: string
+          id?: string
+          improvements?: string | null
+          is_anonymous?: boolean
+          message?: string | null
+          rating?: number
+          reviewee_id?: string
+          reviewer_id?: string
+          strengths?: string | null
+        }
+        Relationships: []
+      }
       notifications: {
         Row: {
           created_at: string
@@ -249,6 +320,45 @@ export type Database = {
           },
         ]
       }
+      task_dependencies: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          predecessor_id: string
+          successor_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          predecessor_id: string
+          successor_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          predecessor_id?: string
+          successor_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_predecessor_id_fkey"
+            columns: ["predecessor_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_successor_id_fkey"
+            columns: ["successor_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -343,6 +453,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalculate_dependent_tasks: {
+        Args: { _predecessor_id: string }
+        Returns: undefined
       }
     }
     Enums: {
