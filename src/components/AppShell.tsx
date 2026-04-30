@@ -1,7 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-// duplicate-safe import block above
 import {
   LayoutDashboard,
   CheckSquare,
