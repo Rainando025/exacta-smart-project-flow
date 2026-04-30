@@ -213,6 +213,20 @@ function ProjectsPage() {
           <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Files dialog */}
+      <Dialog open={!!filesProject} onOpenChange={(o) => !o && setFilesProject(null)}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Paperclip className="h-5 w-5 text-accent" />
+              Arquivos · {filesProject?.name}
+            </DialogTitle>
+          </DialogHeader>
+          {filesProject && <AttachmentsPanel projectId={filesProject.id} />}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
