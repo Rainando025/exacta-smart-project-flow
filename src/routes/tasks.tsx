@@ -37,6 +37,8 @@ function TasksPage() {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
+  const [detail, setDetail] = useState<any | null>(null);
+  const [counts, setCounts] = useState<Record<string, { total: number; done: number; files: number }>>({});
   const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
 
   const load = async () => {
