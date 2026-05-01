@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard,
   CheckSquare,
@@ -11,13 +11,28 @@ import {
   LogOut,
   Bell,
   MessageSquareHeart,
+  Wallet,
+  StickyNote,
+  FolderOpen,
+  Building2,
+  UserCircle,
+  ChevronDown,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import logo from "@/assets/exacta-logo.png";
 import { cn } from "@/lib/utils";
 
-const NAV = [
+const PERSONAL_NAV = [
+  { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
+  { to: "/tasks", label: "Tarefas", icon: CheckSquare },
+  { to: "/notes", label: "Anotações", icon: StickyNote },
+  { to: "/finances", label: "Finanças", icon: Wallet },
+  { to: "/projects", label: "Projetos", icon: FolderOpen },
+  { to: "/notifications", label: "Avisos", icon: Bell },
+] as const;
+
+const TEAM_NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/tasks", label: "Tarefas", icon: CheckSquare },
   { to: "/projects", label: "Projetos", icon: FolderKanban },
@@ -29,16 +44,28 @@ const NAV = [
   { to: "/notifications", label: "Avisos", icon: Bell },
 ] as const;
 
+type AppMode = "personal" | "team";
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, profile, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [mode, setMode] = useState<AppMode>(() => {
+    if (typeof window !== "undefined") {
+      return (localStorage.getItem("exacta-mode") as AppMode) || "team";
+    }
+    return "team";
+  });
 
   useEffect(() => {
     if (!loading && !user) {
       navigate({ to: "/auth" });
     }
   }, [user, loading, navigate]);
+
+  useEffect(() => {
+    localStorage.setItem("exacta-mode", mode);
+  }, [mode]);
 
   if (loading || !user) {
     return (
@@ -50,6 +77,11 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     );
   }
+
+  const NAV = mode === "personal" ? PERSONAL_NAV : TEAM_NAV;
+
+  const modeLabel = mode === "personal" ? "Pessoal" : "Equipe";
+  const ModeIcon = mode === "personal" ? UserCircle : Building2;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -63,7 +95,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex-1 space-y-1 p-3">
+        {/* Mode Switcher */}
+        <div className="px-3 pt-3 pb-1">
+          <button
+            onClick={() => setMode(mode === "personal" ? "team" : "personal")}
+            className="flex w-full items-center justify-between rounded-lg bg-sidebar-accent/60 px-3 py-2.5 text-sm font-medium transition-all hover:bg-sidebar-accent"
+          >
+            <div className="flex items-center gap-2">
+              <ModeIcon className="h-4 w-4 text-accent" />
+              <span>Modo {modeLabel}</span>
+            </div>
+            <ChevronDown className="h-3.5 w-3.5 text-sidebar-foreground/50" />
+          </button>
+        </div>
+
+        <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
           {NAV.map(({ to, label, icon: Icon }) => {
             const active = location.pathname === to || location.pathname.startsWith(to + "/");
             return (
@@ -113,6 +159,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span className="font-display font-bold">EXACTA</span>
           </div>
           <div className="flex items-center gap-1">
+            <button
+              onClick={() => setMode(mode === "personal" ? "team" : "personal")}
+              className="inline-flex h-9 items-center gap-1 rounded-lg px-2 text-xs font-medium hover:bg-sidebar-accent/50"
+            >
+              <ModeIcon className="h-4 w-4 text-accent" />
+              {modeLabel}
+            </button>
             <NotificationsBell />
             <button onClick={signOut} aria-label="Sair" className="inline-flex h-9 w-9 items-center justify-center rounded-lg hover:bg-sidebar-accent/50">
               <LogOut className="h-4 w-4" />
