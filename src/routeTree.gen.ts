@@ -13,8 +13,10 @@ import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as NotesRouteImport } from './routes/notes'
 import { Route as KanbanRouteImport } from './routes/kanban'
 import { Route as GanttRouteImport } from './routes/gantt'
+import { Route as FinancesRouteImport } from './routes/finances'
 import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -41,6 +43,11 @@ const NotificationsRoute = NotificationsRouteImport.update({
   path: '/notifications',
   getParentRoute: () => rootRouteImport,
 } as any)
+const NotesRoute = NotesRouteImport.update({
+  id: '/notes',
+  path: '/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const KanbanRoute = KanbanRouteImport.update({
   id: '/kanban',
   path: '/kanban',
@@ -49,6 +56,11 @@ const KanbanRoute = KanbanRouteImport.update({
 const GanttRoute = GanttRouteImport.update({
   id: '/gantt',
   path: '/gantt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinancesRoute = FinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedbackRoute = FeedbackRouteImport.update({
@@ -83,8 +95,10 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/feedback': typeof FeedbackRoute
+  '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/tasks': typeof TasksRoute
@@ -96,8 +110,10 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/feedback': typeof FeedbackRoute
+  '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/tasks': typeof TasksRoute
@@ -110,8 +126,10 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/feedback': typeof FeedbackRoute
+  '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
   '/tasks': typeof TasksRoute
@@ -125,8 +143,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/feedback'
+    | '/finances'
     | '/gantt'
     | '/kanban'
+    | '/notes'
     | '/notifications'
     | '/projects'
     | '/tasks'
@@ -138,8 +158,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/feedback'
+    | '/finances'
     | '/gantt'
     | '/kanban'
+    | '/notes'
     | '/notifications'
     | '/projects'
     | '/tasks'
@@ -151,8 +173,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/feedback'
+    | '/finances'
     | '/gantt'
     | '/kanban'
+    | '/notes'
     | '/notifications'
     | '/projects'
     | '/tasks'
@@ -165,8 +189,10 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   FeedbackRoute: typeof FeedbackRoute
+  FinancesRoute: typeof FinancesRoute
   GanttRoute: typeof GanttRoute
   KanbanRoute: typeof KanbanRoute
+  NotesRoute: typeof NotesRoute
   NotificationsRoute: typeof NotificationsRoute
   ProjectsRoute: typeof ProjectsRoute
   TasksRoute: typeof TasksRoute
@@ -203,6 +229,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotificationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/notes': {
+      id: '/notes'
+      path: '/notes'
+      fullPath: '/notes'
+      preLoaderRoute: typeof NotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/kanban': {
       id: '/kanban'
       path: '/kanban'
@@ -215,6 +248,13 @@ declare module '@tanstack/react-router' {
       path: '/gantt'
       fullPath: '/gantt'
       preLoaderRoute: typeof GanttRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finances': {
+      id: '/finances'
+      path: '/finances'
+      fullPath: '/finances'
+      preLoaderRoute: typeof FinancesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/feedback': {
@@ -261,8 +301,10 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   FeedbackRoute: FeedbackRoute,
+  FinancesRoute: FinancesRoute,
   GanttRoute: GanttRoute,
   KanbanRoute: KanbanRoute,
+  NotesRoute: NotesRoute,
   NotificationsRoute: NotificationsRoute,
   ProjectsRoute: ProjectsRoute,
   TasksRoute: TasksRoute,

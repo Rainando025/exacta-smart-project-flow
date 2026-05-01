@@ -1,0 +1,268 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { AppShell } from "@/components/AppShell";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Card } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  Plus,
+  Trash2,
+  Pencil,
+  Pin,
+  PinOff,
+  Search,
+  StickyNote,
+} from "lucide-react";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/notes")({
+  component: NotesPage,
+});
+
+interface Note {
+  id: string;
+  title: string;
+  content: string | null;
+  color: string;
+  pinned: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+const COLORS = [
+  "#1e3a8a",
+  "#0891b2",
+  "#059669",
+  "#d97706",
+  "#dc2626",
+  "#7c3aed",
+  "#db2777",
+  "#475569",
+];
+
+function NotesPage() {
+  return (
+    <AppShell>
+      <NotesContent />
+    </AppShell>
+  );
+}
+
+function NotesContent() {
+  const { user } = useAuth();
+  const [items, setItems] = useState<Note[]>([]);
+  const [search, setSearch] = useState("");
+  const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Note | null>(null);
+
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [color, setColor] = useState(COLORS[0]);
+
+  const load = async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from("notes")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("pinned", { ascending: false })
+      .order("updated_at", { ascending: false });
+    setItems((data || []) as Note[]);
+  };
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id]);
+
+  const resetForm = () => {
+    setTitle("");
+    setContent("");
+    setColor(COLORS[0]);
+    setEditing(null);
+  };
+
+  const handleSave = async () => {
+    if (!user || !title.trim()) return;
+    const payload = {
+      user_id: user.id,
+      title: title.trim(),
+      content: content.trim() || null,
+      color,
+    };
+
+    if (editing) {
+      const { error } = await supabase.from("notes").update(payload).eq("id", editing.id);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Anotação atualizada!");
+    } else {
+      const { error } = await supabase.from("notes").insert(payload);
+      if (error) { toast.error(error.message); return; }
+      toast.success("Anotação criada!");
+    }
+    resetForm();
+    setOpen(false);
+    load();
+  };
+
+  const handleDelete = async (id: string) => {
+    await supabase.from("notes").delete().eq("id", id);
+    toast.success("Removida!");
+    load();
+  };
+
+  const togglePin = async (note: Note) => {
+    await supabase.from("notes").update({ pinned: !note.pinned }).eq("id", note.id);
+    load();
+  };
+
+  const openEdit = (n: Note) => {
+    setEditing(n);
+    setTitle(n.title);
+    setContent(n.content || "");
+    setColor(n.color);
+    setOpen(true);
+  };
+
+  const filtered = items.filter((n) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return n.title.toLowerCase().includes(q) || (n.content || "").toLowerCase().includes(q);
+  });
+
+  const pinned = filtered.filter((n) => n.pinned);
+  const unpinned = filtered.filter((n) => !n.pinned);
+
+  return (
+    <div className="p-6 lg:p-10 space-y-8 max-w-6xl mx-auto">
+      <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-accent font-medium uppercase tracking-wider">Modo Pessoal</p>
+          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Anotações</h1>
+          <p className="text-muted-foreground mt-1">Suas notas pessoais, ideias e lembretes.</p>
+        </div>
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+          <DialogTrigger asChild>
+            <Button className="bg-gradient-primary text-primary-foreground shadow-elegant">
+              <Plus className="h-4 w-4 mr-2" /> Nova anotação
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editing ? "Editar anotação" : "Nova anotação"}</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 mt-2">
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Título da anotação" />
+              </div>
+              <div className="space-y-2">
+                <Label>Conteúdo</Label>
+                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} placeholder="Escreva aqui..." />
+              </div>
+              <div className="space-y-2">
+                <Label>Cor</Label>
+                <div className="flex gap-2">
+                  {COLORS.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => setColor(c)}
+                      className={`h-8 w-8 rounded-full transition-all ${color === c ? "ring-2 ring-offset-2 ring-accent scale-110" : "hover:scale-105"}`}
+                      style={{ backgroundColor: c }}
+                    />
+                  ))}
+                </div>
+              </div>
+              <Button onClick={handleSave} className="w-full bg-gradient-primary text-primary-foreground">
+                {editing ? "Salvar" : "Criar anotação"}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </header>
+
+      {/* Search */}
+      <div className="relative max-w-md">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar anotações..." className="pl-10" />
+      </div>
+
+      {/* Pinned */}
+      {pinned.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">📌 Fixadas</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {pinned.map((n) => (
+              <NoteCard key={n.id} note={n} onEdit={openEdit} onDelete={handleDelete} onTogglePin={togglePin} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All */}
+      <div>
+        {pinned.length > 0 && (
+          <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Outras</h2>
+        )}
+        {unpinned.length === 0 && pinned.length === 0 && (
+          <div className="text-center py-20">
+            <StickyNote className="h-12 w-12 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-muted-foreground">Nenhuma anotação ainda. Crie a primeira!</p>
+          </div>
+        )}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {unpinned.map((n) => (
+            <NoteCard key={n.id} note={n} onEdit={openEdit} onDelete={handleDelete} onTogglePin={togglePin} />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NoteCard({
+  note,
+  onEdit,
+  onDelete,
+  onTogglePin,
+}: {
+  note: Note;
+  onEdit: (n: Note) => void;
+  onDelete: (id: string) => void;
+  onTogglePin: (n: Note) => void;
+}) {
+  return (
+    <Card
+      className="group relative overflow-hidden shadow-card hover:shadow-lg transition-all border-0"
+      style={{ borderTop: `4px solid ${note.color}` }}
+    >
+      <div className="p-5 space-y-3">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-display font-bold text-base leading-snug">{note.title}</h3>
+          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition shrink-0">
+            <button onClick={() => onTogglePin(note)} className="p-1.5 rounded hover:bg-muted" title={note.pinned ? "Desafixar" : "Fixar"}>
+              {note.pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+            </button>
+            <button onClick={() => onEdit(note)} className="p-1.5 rounded hover:bg-muted" title="Editar">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={() => onDelete(note.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Excluir">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+        {note.content && (
+          <p className="text-sm text-muted-foreground line-clamp-4 whitespace-pre-wrap">{note.content}</p>
+        )}
+        <p className="text-[10px] text-muted-foreground/60">
+          {new Date(note.updated_at).toLocaleString("pt-BR")}
+        </p>
+      </div>
+    </Card>
+  );
+}
