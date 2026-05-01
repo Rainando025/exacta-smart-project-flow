@@ -96,12 +96,13 @@ export function NotificationsBell() {
     load();
     ensureDueNotifications();
 
+    const channelName = `notifications-${user.id}-${Math.random().toString(36).slice(2, 8)}`;
     const ch = supabase
-      .channel(`notifications-${user.id}`)
+      .channel(channelName)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        load
+        () => { load(); }
       )
       .subscribe();
 
