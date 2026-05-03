@@ -2,6 +2,7 @@ import { Outlet, Link, createRootRoute, HeadContent, Scripts } from "@tanstack/r
 import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { Toaster } from "@/components/ui/sonner";
+import { ReminderPopup } from "@/components/ReminderPopup";
 
 import appCss from "../styles.css?url";
 
@@ -72,6 +73,7 @@ function RootComponent() {
     <AuthProvider>
       <NotificationsProvider>
         <Outlet />
+        <ReminderPopup />
         <Toaster richColors position="top-right" />
       </NotificationsProvider>
     </AuthProvider>

@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NotesRouteImport } from './routes/notes'
@@ -31,6 +32,11 @@ const TeamRoute = TeamRouteImport.update({
 const TasksRoute = TasksRouteImport.update({
   id: '/tasks',
   path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectsRoute = ProjectsRouteImport.update({
@@ -101,6 +107,7 @@ export interface FileRoutesByFullPath {
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
+  '/reminders': typeof RemindersRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
 }
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
+  '/reminders': typeof RemindersRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
 }
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
   '/projects': typeof ProjectsRoute
+  '/reminders': typeof RemindersRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
 }
@@ -149,6 +158,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/notifications'
     | '/projects'
+    | '/reminders'
     | '/tasks'
     | '/team'
   fileRoutesByTo: FileRoutesByTo
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/notifications'
     | '/projects'
+    | '/reminders'
     | '/tasks'
     | '/team'
   id:
@@ -179,6 +190,7 @@ export interface FileRouteTypes {
     | '/notes'
     | '/notifications'
     | '/projects'
+    | '/reminders'
     | '/tasks'
     | '/team'
   fileRoutesById: FileRoutesById
@@ -195,6 +207,7 @@ export interface RootRouteChildren {
   NotesRoute: typeof NotesRoute
   NotificationsRoute: typeof NotificationsRoute
   ProjectsRoute: typeof ProjectsRoute
+  RemindersRoute: typeof RemindersRoute
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
 }
@@ -213,6 +226,13 @@ declare module '@tanstack/react-router' {
       path: '/tasks'
       fullPath: '/tasks'
       preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/projects': {
@@ -307,18 +327,10 @@ const rootRouteChildren: RootRouteChildren = {
   NotesRoute: NotesRoute,
   NotificationsRoute: NotificationsRoute,
   ProjectsRoute: ProjectsRoute,
+  RemindersRoute: RemindersRoute,
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { createStart } from '@tanstack/react-start'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-  }
-}
