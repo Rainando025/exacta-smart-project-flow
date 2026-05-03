@@ -1,22 +1,9 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  LayoutDashboard,
-  CheckSquare,
-  FolderKanban,
-  Trello,
-  CalendarRange,
-  Megaphone,
-  Users,
-  LogOut,
-  Bell,
-  MessageSquareHeart,
-  Wallet,
-  StickyNote,
-  FolderOpen,
-  Building2,
-  UserCircle,
-  ChevronDown,
+  LayoutDashboard, CheckSquare, FolderKanban, Trello, CalendarRange,
+  Megaphone, Users, LogOut, Bell, MessageSquareHeart, Wallet,
+  StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
@@ -29,6 +16,7 @@ const PERSONAL_NAV = [
   { to: "/notes", label: "Anotações", icon: StickyNote },
   { to: "/finances", label: "Finanças", icon: Wallet },
   { to: "/projects", label: "Projetos", icon: FolderOpen },
+  { to: "/reminders", label: "Lembretes", icon: BellRing },
   { to: "/notifications", label: "Avisos", icon: Bell },
 ] as const;
 
