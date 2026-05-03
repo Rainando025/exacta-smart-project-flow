@@ -288,7 +288,7 @@ function FinancesContent() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Tooltip formatter={(v) => fmt(Number(v))} />
                   <Bar dataKey="receita" name="Receitas" fill="#059669" radius={[4, 4, 0, 0]} />
                   <Bar dataKey="despesa" name="Despesas" fill="#dc2626" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -307,7 +307,7 @@ function FinancesContent() {
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
                   <XAxis dataKey="label" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `R$${(v / 1000).toFixed(0)}k`} />
-                  <Tooltip formatter={(v: number) => fmt(v)} />
+                  <Tooltip formatter={(v) => fmt(Number(v))} />
                   <Line type="monotone" dataKey="saldo" name="Saldo" stroke="#0891b2" strokeWidth={2} dot={{ r: 4 }} />
                 </LineChart>
               </ResponsiveContainer>
@@ -323,10 +323,10 @@ function FinancesContent() {
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                    <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                       {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Tooltip formatter={(v) => fmt(Number(v))} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
@@ -339,10 +339,10 @@ function FinancesContent() {
               ) : (
                 <ResponsiveContainer width="100%" height={280}>
                   <PieChart>
-                    <Pie data={categoryIncomeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} labelLine={false}>
+                    <Pie data={categoryIncomeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, percent }: { name: string; percent?: number }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
                       {categoryIncomeData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                     </Pie>
-                    <Tooltip formatter={(v: number) => fmt(v)} />
+                    <Tooltip formatter={(v) => fmt(Number(v))} />
                     <Legend />
                   </PieChart>
                 </ResponsiveContainer>
