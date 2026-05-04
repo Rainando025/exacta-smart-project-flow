@@ -85,13 +85,9 @@ export function ReminderPopup() {
     })();
   }, [user?.id]);
 
-  const saveToProfile = async (field: string, value: number) => {
-    if (!user) return;
-    await supabase.from("profiles").update({ [field]: value }).eq("id", user.id);
-  };
-
   const updateAdvance = (v: string) => {
     const n = parseInt(v, 10);
+    if (!user) return;
     setAdvance(n);
     saveToProfile("reminder_advance_minutes", n);
   };
