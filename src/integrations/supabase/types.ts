@@ -173,6 +173,7 @@ export type Database = {
           created_at: string
           id: string
           pinned: boolean
+          priority: string
           title: string
           updated_at: string
           user_id: string
@@ -183,6 +184,7 @@ export type Database = {
           created_at?: string
           id?: string
           pinned?: boolean
+          priority?: string
           title?: string
           updated_at?: string
           user_id: string
@@ -193,6 +195,7 @@ export type Database = {
           created_at?: string
           id?: string
           pinned?: boolean
+          priority?: string
           title?: string
           updated_at?: string
           user_id?: string
@@ -249,8 +252,15 @@ export type Database = {
           category: string
           created_at: string
           date: string
+          due_date: string | null
           id: string
+          installment_number: number
+          installments: number
+          is_credit_card: boolean
           notes: string | null
+          paid: boolean
+          parent_id: string | null
+          recurring: string
           title: string
           type: string
           updated_at: string
@@ -261,8 +271,15 @@ export type Database = {
           category?: string
           created_at?: string
           date?: string
+          due_date?: string | null
           id?: string
+          installment_number?: number
+          installments?: number
+          is_credit_card?: boolean
           notes?: string | null
+          paid?: boolean
+          parent_id?: string | null
+          recurring?: string
           title: string
           type?: string
           updated_at?: string
@@ -273,8 +290,15 @@ export type Database = {
           category?: string
           created_at?: string
           date?: string
+          due_date?: string | null
           id?: string
+          installment_number?: number
+          installments?: number
+          is_credit_card?: boolean
           notes?: string | null
+          paid?: boolean
+          parent_id?: string | null
+          recurring?: string
           title?: string
           type?: string
           updated_at?: string
@@ -357,6 +381,7 @@ export type Database = {
           created_at: string
           description: string | null
           id: string
+          priority: string
           remind_at: string
           repeat: string
           title: string
@@ -368,6 +393,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          priority?: string
           remind_at: string
           repeat?: string
           title: string
@@ -379,6 +405,7 @@ export type Database = {
           created_at?: string
           description?: string | null
           id?: string
+          priority?: string
           remind_at?: string
           repeat?: string
           title?: string
