@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Plus, Trash2, Pencil, TrendingUp, TrendingDown, Wallet,
-  ArrowUpRight, ArrowDownRight, Filter, Search, BarChart3,
+  ArrowUpRight, ArrowDownRight, Filter, Search, BarChart3, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/exacta";
@@ -43,6 +43,14 @@ function FinancesPage() {
   return <AppShell><FinancesContent /></AppShell>;
 }
 
+// helpers
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+function getDefaultMonth() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function FinancesContent() {
   const { user } = useAuth();
   const [items, setItems] = useState<Finance[]>([]);
@@ -57,6 +65,12 @@ function FinancesContent() {
   const [category, setCategory] = useState("outros");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+
+  // Report filters
+  const [reportMode, setReportMode] = useState<"month" | "range">("month");
+  const [reportMonth, setReportMonth] = useState(getDefaultMonth);
+  const [reportFrom, setReportFrom] = useState("");
+  const [reportTo, setReportTo] = useState("");
 
   const load = async () => {
     if (!user) return;
@@ -108,16 +122,27 @@ function FinancesContent() {
     return true;
   });
 
+  // Items filtered by report period
+  const reportItems = useMemo(() => {
+    if (reportMode === "month") {
+      return items.filter((f) => f.date.startsWith(reportMonth));
+    }
+    return items.filter((f) => {
+      if (reportFrom && f.date < reportFrom) return false;
+      if (reportTo && f.date > reportTo) return false;
+      return true;
+    });
+  }, [items, reportMode, reportMonth, reportFrom, reportTo]);
+
   const totalReceita = items.filter((f) => f.type === "receita").reduce((s, f) => s + Number(f.amount), 0);
   const totalDespesa = items.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
   const saldo = totalReceita - totalDespesa;
-  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // ---- Chart data ----
+  // ---- Chart data (based on reportItems) ----
   const monthlyData = useMemo(() => {
     const map: Record<string, { month: string; receita: number; despesa: number }> = {};
-    items.forEach((f) => {
-      const m = f.date.slice(0, 7); // YYYY-MM
+    reportItems.forEach((f) => {
+      const m = f.date.slice(0, 7);
       if (!map[m]) map[m] = { month: m, receita: 0, despesa: 0 };
       if (f.type === "receita") map[m].receita += Number(f.amount);
       else map[m].despesa += Number(f.amount);
@@ -127,23 +152,80 @@ function FinancesContent() {
       saldo: d.receita - d.despesa,
       label: new Date(d.month + "-15").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
     }));
-  }, [items]);
+  }, [reportItems]);
 
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
-    items.filter((f) => f.type === "despesa").forEach((f) => {
+    reportItems.filter((f) => f.type === "despesa").forEach((f) => {
       map[f.category] = (map[f.category] || 0) + Number(f.amount);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [items]);
+  }, [reportItems]);
 
   const categoryIncomeData = useMemo(() => {
     const map: Record<string, number> = {};
-    items.filter((f) => f.type === "receita").forEach((f) => {
+    reportItems.filter((f) => f.type === "receita").forEach((f) => {
       map[f.category] = (map[f.category] || 0) + Number(f.amount);
     });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
-  }, [items]);
+  }, [reportItems]);
+
+  const reportTotalReceita = reportItems.filter((f) => f.type === "receita").reduce((s, f) => s + Number(f.amount), 0);
+  const reportTotalDespesa = reportItems.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
+  const reportSaldo = reportTotalReceita - reportTotalDespesa;
+
+  // PDF Export
+  const exportPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+
+    const doc = new jsPDF();
+    const periodLabel = reportMode === "month"
+      ? new Date(reportMonth + "-15").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+      : `${reportFrom || "início"} a ${reportTo || "hoje"}`;
+
+    doc.setFontSize(18);
+    doc.text("Relatório de Finanças Pessoais", 14, 20);
+    doc.setFontSize(11);
+    doc.text(`Período: ${periodLabel}`, 14, 28);
+
+    // Summary
+    doc.setFontSize(12);
+    doc.text(`Receitas: ${fmt(reportTotalReceita)}`, 14, 40);
+    doc.text(`Despesas: ${fmt(reportTotalDespesa)}`, 14, 48);
+    doc.text(`Saldo: ${fmt(reportSaldo)}`, 14, 56);
+
+    // Table
+    const rows = reportItems.map((f) => [
+      f.date, f.title, f.category, f.type === "receita" ? "Receita" : "Despesa",
+      fmt(Number(f.amount)),
+    ]);
+
+    autoTable(doc, {
+      startY: 65,
+      head: [["Data", "Descrição", "Categoria", "Tipo", "Valor"]],
+      body: rows,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [30, 58, 138] },
+    });
+
+    // Category breakdown
+    const finalY = (doc as any).lastAutoTable?.finalY || 65;
+    if (categoryData.length > 0 && finalY + 30 < 270) {
+      doc.setFontSize(12);
+      doc.text("Despesas por Categoria", 14, finalY + 12);
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: [["Categoria", "Total"]],
+        body: categoryData.map((c) => [c.name, fmt(c.value)]),
+        styles: { fontSize: 9 },
+        headStyles: { fillColor: [220, 38, 38] },
+      });
+    }
+
+    doc.save(`financas-${reportMode === "month" ? reportMonth : "periodo"}.pdf`);
+    toast.success("PDF exportado!");
+  };
 
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-6xl mx-auto">
@@ -277,6 +359,51 @@ function FinancesContent() {
         </TabsContent>
 
         <TabsContent value="report" className="space-y-6">
+          {/* Period filter + export */}
+          <Card className="p-4 shadow-card border-0">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Filtro</Label>
+                <Select value={reportMode} onValueChange={(v) => setReportMode(v as "month" | "range")}>
+                  <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="month">Mês</SelectItem>
+                    <SelectItem value="range">Intervalo</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {reportMode === "month" ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Mês</Label>
+                  <Input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="w-[180px] h-9" />
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">De</Label>
+                    <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-[160px] h-9" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Até</Label>
+                    <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-[160px] h-9" />
+                  </div>
+                </>
+              )}
+              <div className="ml-auto flex items-center gap-3">
+                <p className="text-sm text-muted-foreground">
+                  <span className="text-success font-semibold">{fmt(reportTotalReceita)}</span>
+                  {" · "}
+                  <span className="text-destructive font-semibold">{fmt(reportTotalDespesa)}</span>
+                  {" · Saldo "}
+                  <span className={reportSaldo >= 0 ? "text-success font-semibold" : "text-destructive font-semibold"}>{fmt(reportSaldo)}</span>
+                </p>
+                <Button size="sm" variant="outline" onClick={exportPDF}>
+                  <Download className="h-4 w-4 mr-1.5" /> PDF
+                </Button>
+              </div>
+            </div>
+          </Card>
+
           {/* Monthly bar chart */}
           <Card className="p-6 shadow-card">
             <h3 className="font-display font-bold text-lg mb-4">Receitas vs Despesas por Mês</h3>
