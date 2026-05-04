@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
@@ -11,9 +11,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Plus, Trash2, Pencil, TrendingUp, TrendingDown, Wallet,
   ArrowUpRight, ArrowDownRight, Filter, Search, BarChart3, Download,
+  CreditCard, Repeat, Check, X, AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/exacta";
@@ -27,28 +29,40 @@ export const Route = createFileRoute("/finances")({ component: FinancesPage });
 interface Finance {
   id: string; title: string; amount: number; type: string;
   category: string; date: string; notes: string | null; created_at: string;
+  recurring: string; due_date: string | null; is_credit_card: boolean;
+  installments: number; installment_number: number; parent_id: string | null;
+  paid: boolean;
 }
 
 const CATEGORIES = [
   "alimentação","transporte","moradia","saúde","educação",
   "lazer","salário","freelance","investimento","outros",
 ];
-
+const RECURRING_OPTIONS = [
+  { value: "none", label: "Não recorrente" },
+  { value: "weekly", label: "Semanal" },
+  { value: "monthly", label: "Mensal" },
+];
 const PIE_COLORS = [
   "#0891b2","#059669","#d97706","#dc2626","#7c3aed",
   "#db2777","#1e3a8a","#475569","#f59e0b","#10b981",
 ];
 
-function FinancesPage() {
-  return <AppShell><FinancesContent /></AppShell>;
-}
-
-// helpers
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 function getDefaultMonth() {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function addMonths(dateStr: string, months: number) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString().split("T")[0];
+}
+
+function FinancesPage() {
+  return <AppShell><FinancesContent /></AppShell>;
 }
 
 function FinancesContent() {
@@ -59,12 +73,19 @@ function FinancesContent() {
   const [filterCat, setFilterCat] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Finance | null>(null);
+  const [editingInlineId, setEditingInlineId] = useState<string | null>(null);
+
+  // Form state
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState("despesa");
   const [category, setCategory] = useState("outros");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [notes, setNotes] = useState("");
+  const [recurring, setRecurring] = useState("none");
+  const [dueDate, setDueDate] = useState("");
+  const [isCreditCard, setIsCreditCard] = useState(false);
+  const [installments, setInstallments] = useState("1");
 
   // Report filters
   const [reportMode, setReportMode] = useState<"month" | "range">("month");
@@ -72,47 +93,124 @@ function FinancesContent() {
   const [reportFrom, setReportFrom] = useState("");
   const [reportTo, setReportTo] = useState("");
 
-  const load = async () => {
+  // Inline edit state
+  const [inlineTitle, setInlineTitle] = useState("");
+  const [inlineAmount, setInlineAmount] = useState("");
+  const [inlineCategory, setInlineCategory] = useState("");
+  const [inlineDate, setInlineDate] = useState("");
+
+  const load = useCallback(async () => {
     if (!user) return;
     const { data } = await supabase
       .from("personal_finances").select("*").eq("user_id", user.id)
       .order("date", { ascending: false });
     setItems((data || []) as Finance[]);
-  };
+  }, [user]);
 
-  useEffect(() => { load(); }, [user?.id]);
+  useEffect(() => { load(); }, [load]);
 
   const resetForm = () => {
     setTitle(""); setAmount(""); setType("despesa"); setCategory("outros");
     setDate(new Date().toISOString().split("T")[0]); setNotes(""); setEditing(null);
+    setRecurring("none"); setDueDate(""); setIsCreditCard(false); setInstallments("1");
   };
 
   const handleSave = async () => {
     if (!user || !title.trim() || !amount) return;
-    const payload = {
-      user_id: user.id, title: title.trim(), amount: parseFloat(amount),
-      type, category, date, notes: notes.trim() || null,
-    };
+    const amountNum = parseFloat(amount);
+
     if (editing) {
+      const payload = {
+        title: title.trim(), amount: amountNum, type, category, date,
+        notes: notes.trim() || null, recurring, due_date: dueDate || null,
+        is_credit_card: isCreditCard, installments: isCreditCard ? parseInt(installments) : 1,
+      };
       const { error } = await supabase.from("personal_finances").update(payload).eq("id", editing.id);
       if (error) { toast.error(error.message); return; }
       toast.success("Registro atualizado!");
     } else {
-      const { error } = await supabase.from("personal_finances").insert(payload);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Registro adicionado!");
+      // Credit card with installments
+      if (isCreditCard && parseInt(installments) > 1) {
+        const totalInstallments = parseInt(installments);
+        const installmentAmount = Math.round((amountNum / totalInstallments) * 100) / 100;
+        // Create parent
+        const { data: parent, error } = await supabase.from("personal_finances").insert({
+          user_id: user.id, title: `${title.trim()} (1/${totalInstallments})`,
+          amount: installmentAmount, type: "despesa", category, date,
+          notes: notes.trim() || null, recurring: "none",
+          due_date: dueDate || null, is_credit_card: true,
+          installments: totalInstallments, installment_number: 1, paid: false,
+        }).select("id").single();
+        if (error) { toast.error(error.message); return; }
+        // Create remaining installments
+        const childRows = [];
+        for (let i = 2; i <= totalInstallments; i++) {
+          const installDate = addMonths(date, i - 1);
+          childRows.push({
+            user_id: user.id,
+            title: `${title.trim()} (${i}/${totalInstallments})`,
+            amount: installmentAmount, type: "despesa", category,
+            date: installDate, notes: notes.trim() || null,
+            recurring: "none", due_date: dueDate ? addMonths(dueDate, i - 1) : null,
+            is_credit_card: true, installments: totalInstallments,
+            installment_number: i, parent_id: parent?.id || null, paid: false,
+          });
+        }
+        if (childRows.length > 0) {
+          const { error: e2 } = await supabase.from("personal_finances").insert(childRows);
+          if (e2) { toast.error(e2.message); return; }
+        }
+        toast.success(`${totalInstallments} parcelas criadas!`);
+      } else {
+        const { error } = await supabase.from("personal_finances").insert({
+          user_id: user.id, title: title.trim(), amount: amountNum, type, category, date,
+          notes: notes.trim() || null, recurring,
+          due_date: dueDate || null, is_credit_card: false,
+          installments: 1, installment_number: 1, paid: false,
+        });
+        if (error) { toast.error(error.message); return; }
+        toast.success("Registro adicionado!");
+      }
     }
     resetForm(); setOpen(false); load();
   };
 
   const handleDelete = async (id: string) => {
+    // Delete children if parent
+    await supabase.from("personal_finances").delete().eq("parent_id", id);
     await supabase.from("personal_finances").delete().eq("id", id);
     toast.success("Removido!"); load();
   };
 
+  const togglePaid = async (f: Finance) => {
+    await supabase.from("personal_finances").update({ paid: !f.paid }).eq("id", f.id);
+    load();
+  };
+
   const openEdit = (f: Finance) => {
     setEditing(f); setTitle(f.title); setAmount(String(f.amount));
-    setType(f.type); setCategory(f.category); setDate(f.date); setNotes(f.notes || ""); setOpen(true);
+    setType(f.type); setCategory(f.category); setDate(f.date); setNotes(f.notes || "");
+    setRecurring(f.recurring); setDueDate(f.due_date || "");
+    setIsCreditCard(f.is_credit_card); setInstallments(String(f.installments));
+    setOpen(true);
+  };
+
+  const startInlineEdit = (f: Finance) => {
+    setEditingInlineId(f.id);
+    setInlineTitle(f.title);
+    setInlineAmount(String(f.amount));
+    setInlineCategory(f.category);
+    setInlineDate(f.date);
+  };
+
+  const saveInlineEdit = async (id: string) => {
+    const { error } = await supabase.from("personal_finances").update({
+      title: inlineTitle.trim(), amount: parseFloat(inlineAmount),
+      category: inlineCategory, date: inlineDate,
+    }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setEditingInlineId(null);
+    load();
   };
 
   const filtered = items.filter((f) => {
@@ -122,11 +220,28 @@ function FinancesContent() {
     return true;
   });
 
-  // Items filtered by report period
+  const totalReceita = items.filter((f) => f.type === "receita").reduce((s, f) => s + Number(f.amount), 0);
+  const totalDespesa = items.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
+  const saldo = totalReceita - totalDespesa;
+
+  // Credit card invoice for current month
+  const currentMonth = getDefaultMonth();
+  const ccInvoice = useMemo(() => {
+    return items
+      .filter((f) => f.is_credit_card && !f.paid && f.date.startsWith(currentMonth))
+      .reduce((s, f) => s + Number(f.amount), 0);
+  }, [items, currentMonth]);
+
+  // Due soon alerts
+  const dueSoon = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0];
+    const in3days = new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
+    return items.filter((f) => f.due_date && !f.paid && f.due_date >= today && f.due_date <= in3days);
+  }, [items]);
+
+  // Report items
   const reportItems = useMemo(() => {
-    if (reportMode === "month") {
-      return items.filter((f) => f.date.startsWith(reportMonth));
-    }
+    if (reportMode === "month") return items.filter((f) => f.date.startsWith(reportMonth));
     return items.filter((f) => {
       if (reportFrom && f.date < reportFrom) return false;
       if (reportTo && f.date > reportTo) return false;
@@ -134,11 +249,6 @@ function FinancesContent() {
     });
   }, [items, reportMode, reportMonth, reportFrom, reportTo]);
 
-  const totalReceita = items.filter((f) => f.type === "receita").reduce((s, f) => s + Number(f.amount), 0);
-  const totalDespesa = items.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
-  const saldo = totalReceita - totalDespesa;
-
-  // ---- Chart data (based on reportItems) ----
   const monthlyData = useMemo(() => {
     const map: Record<string, { month: string; receita: number; despesa: number }> = {};
     reportItems.forEach((f) => {
@@ -148,25 +258,20 @@ function FinancesContent() {
       else map[m].despesa += Number(f.amount);
     });
     return Object.values(map).sort((a, b) => a.month.localeCompare(b.month)).slice(-12).map((d) => ({
-      ...d,
-      saldo: d.receita - d.despesa,
+      ...d, saldo: d.receita - d.despesa,
       label: new Date(d.month + "-15").toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
     }));
   }, [reportItems]);
 
   const categoryData = useMemo(() => {
     const map: Record<string, number> = {};
-    reportItems.filter((f) => f.type === "despesa").forEach((f) => {
-      map[f.category] = (map[f.category] || 0) + Number(f.amount);
-    });
+    reportItems.filter((f) => f.type === "despesa").forEach((f) => { map[f.category] = (map[f.category] || 0) + Number(f.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [reportItems]);
 
   const categoryIncomeData = useMemo(() => {
     const map: Record<string, number> = {};
-    reportItems.filter((f) => f.type === "receita").forEach((f) => {
-      map[f.category] = (map[f.category] || 0) + Number(f.amount);
-    });
+    reportItems.filter((f) => f.type === "receita").forEach((f) => { map[f.category] = (map[f.category] || 0) + Number(f.amount); });
     return Object.entries(map).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [reportItems]);
 
@@ -174,55 +279,27 @@ function FinancesContent() {
   const reportTotalDespesa = reportItems.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
   const reportSaldo = reportTotalReceita - reportTotalDespesa;
 
-  // PDF Export
   const exportPDF = async () => {
     const { default: jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
-
     const doc = new jsPDF();
     const periodLabel = reportMode === "month"
       ? new Date(reportMonth + "-15").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
       : `${reportFrom || "início"} a ${reportTo || "hoje"}`;
-
-    doc.setFontSize(18);
-    doc.text("Relatório de Finanças Pessoais", 14, 20);
-    doc.setFontSize(11);
-    doc.text(`Período: ${periodLabel}`, 14, 28);
-
-    // Summary
+    doc.setFontSize(18); doc.text("Relatório de Finanças Pessoais", 14, 20);
+    doc.setFontSize(11); doc.text(`Período: ${periodLabel}`, 14, 28);
     doc.setFontSize(12);
     doc.text(`Receitas: ${fmt(reportTotalReceita)}`, 14, 40);
     doc.text(`Despesas: ${fmt(reportTotalDespesa)}`, 14, 48);
     doc.text(`Saldo: ${fmt(reportSaldo)}`, 14, 56);
-
-    // Table
     const rows = reportItems.map((f) => [
       f.date, f.title, f.category, f.type === "receita" ? "Receita" : "Despesa",
-      fmt(Number(f.amount)),
+      f.is_credit_card ? "Cartão" : "-", fmt(Number(f.amount)),
     ]);
-
     autoTable(doc, {
-      startY: 65,
-      head: [["Data", "Descrição", "Categoria", "Tipo", "Valor"]],
-      body: rows,
-      styles: { fontSize: 9 },
-      headStyles: { fillColor: [30, 58, 138] },
+      startY: 65, head: [["Data", "Descrição", "Categoria", "Tipo", "Cartão", "Valor"]],
+      body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [30, 58, 138] },
     });
-
-    // Category breakdown
-    const finalY = (doc as any).lastAutoTable?.finalY || 65;
-    if (categoryData.length > 0 && finalY + 30 < 270) {
-      doc.setFontSize(12);
-      doc.text("Despesas por Categoria", 14, finalY + 12);
-      autoTable(doc, {
-        startY: finalY + 16,
-        head: [["Categoria", "Total"]],
-        body: categoryData.map((c) => [c.name, fmt(c.value)]),
-        styles: { fontSize: 9 },
-        headStyles: { fillColor: [220, 38, 38] },
-      });
-    }
-
     doc.save(`financas-${reportMode === "month" ? reportMonth : "periodo"}.pdf`);
     toast.success("PDF exportado!");
   };
@@ -241,7 +318,7 @@ function FinancesContent() {
               <Plus className="h-4 w-4 mr-2" /> Novo registro
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-h-[90vh] overflow-y-auto">
             <DialogHeader><DialogTitle>{editing ? "Editar registro" : "Novo registro"}</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-2">
               <div className="space-y-2"><Label>Descrição</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Almoço, Salário..." /></div>
@@ -251,7 +328,8 @@ function FinancesContent() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2"><Label>Tipo</Label>
-                  <Select value={type} onValueChange={setType}><SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select value={type} onValueChange={(v) => { setType(v); if (v === "receita") setIsCreditCard(false); }}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
                     <SelectContent><SelectItem value="receita">Receita</SelectItem><SelectItem value="despesa">Despesa</SelectItem></SelectContent>
                   </Select>
                 </div>
@@ -261,6 +339,37 @@ function FinancesContent() {
                   </Select>
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Recorrência</Label>
+                  <Select value={recurring} onValueChange={setRecurring}><SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{RECURRING_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2"><Label>Vencimento</Label><Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></div>
+              </div>
+
+              {type === "despesa" && (
+                <div className="space-y-3 rounded-lg border p-3 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Checkbox checked={isCreditCard} onCheckedChange={(v) => setIsCreditCard(!!v)} id="cc" />
+                    <label htmlFor="cc" className="text-sm font-medium flex items-center gap-1.5 cursor-pointer">
+                      <CreditCard className="h-4 w-4" /> Cartão de Crédito
+                    </label>
+                  </div>
+                  {isCreditCard && (
+                    <div className="space-y-2">
+                      <Label className="text-xs">Parcelas</Label>
+                      <Input type="number" min="1" max="48" value={installments} onChange={(e) => setInstallments(e.target.value)} placeholder="1" />
+                      {parseInt(installments) > 1 && amount && (
+                        <p className="text-xs text-muted-foreground">
+                          {installments}x de {fmt(Math.round((parseFloat(amount) / parseInt(installments)) * 100) / 100)}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-2"><Label>Observações</Label><Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} /></div>
               <Button onClick={handleSave} className="w-full bg-gradient-primary text-primary-foreground">
                 {editing ? "Salvar alterações" : "Adicionar"}
@@ -270,8 +379,23 @@ function FinancesContent() {
         </Dialog>
       </header>
 
+      {/* Due soon alert */}
+      {dueSoon.length > 0 && (
+        <Card className="p-4 border-l-4 border-l-warning bg-warning/5 shadow-card flex items-start gap-3">
+          <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-sm">Contas vencendo em breve</p>
+            <div className="text-xs text-muted-foreground space-y-0.5 mt-1">
+              {dueSoon.map((f) => (
+                <p key={f.id}>{f.title} — vence {formatDate(f.due_date!)} — {fmt(Number(f.amount))}</p>
+              ))}
+            </div>
+          </div>
+        </Card>
+      )}
+
       {/* Summary cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="p-5 shadow-card border-0 relative overflow-hidden">
           <div className="absolute top-0 right-0 h-20 w-20 rounded-full bg-gradient-to-br from-success/15 to-success/5 blur-2xl" />
           <div className="relative flex items-center gap-3">
@@ -293,9 +417,15 @@ function FinancesContent() {
             <div><p className="text-xs text-muted-foreground">Saldo</p><p className={`text-xl font-display font-bold ${saldo >= 0 ? "text-success" : "text-destructive"}`}>{fmt(saldo)}</p></div>
           </div>
         </Card>
+        <Card className="p-5 shadow-card border-0 relative overflow-hidden">
+          <div className="absolute top-0 right-0 h-20 w-20 rounded-full bg-gradient-to-br from-purple-500/15 to-purple-500/5 blur-2xl" />
+          <div className="relative flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10"><CreditCard className="h-5 w-5 text-purple-500" /></div>
+            <div><p className="text-xs text-muted-foreground">Fatura Cartão (mês)</p><p className="text-xl font-display font-bold text-purple-500">{fmt(ccInvoice)}</p></div>
+          </div>
+        </Card>
       </div>
 
-      {/* Tabs: Lista / Relatório */}
       <Tabs defaultValue="list" className="space-y-6">
         <TabsList>
           <TabsTrigger value="list"><Search className="h-4 w-4 mr-1.5" />Lista</TabsTrigger>
@@ -303,7 +433,6 @@ function FinancesContent() {
         </TabsList>
 
         <TabsContent value="list" className="space-y-6">
-          {/* Filters */}
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[200px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -322,7 +451,6 @@ function FinancesContent() {
             </Select>
           </div>
 
-          {/* Table */}
           <Card className="shadow-card overflow-hidden">
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
@@ -330,26 +458,60 @@ function FinancesContent() {
                   <th className="text-left px-4 py-3 font-semibold">Descrição</th>
                   <th className="text-left px-4 py-3 font-semibold">Categoria</th>
                   <th className="text-left px-4 py-3 font-semibold">Data</th>
+                  <th className="text-left px-4 py-3 font-semibold">Info</th>
                   <th className="text-right px-4 py-3 font-semibold">Valor</th>
-                  <th className="text-right px-4 py-3 font-semibold w-24">Ações</th>
+                  <th className="text-right px-4 py-3 font-semibold w-28">Ações</th>
                 </tr></thead>
                 <tbody className="divide-y">
-                  {filtered.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum registro encontrado.</td></tr>}
+                  {filtered.length === 0 && <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Nenhum registro encontrado.</td></tr>}
                   {filtered.map((f) => (
-                    <tr key={f.id} className="hover:bg-muted/30 transition">
-                      <td className="px-4 py-3"><div className="flex items-center gap-2">
-                        {f.type === "receita" ? <TrendingUp className="h-4 w-4 text-success shrink-0" /> : <TrendingDown className="h-4 w-4 text-destructive shrink-0" />}
-                        <span className="font-medium">{f.title}</span>
-                      </div></td>
-                      <td className="px-4 py-3 capitalize text-muted-foreground">{f.category}</td>
-                      <td className="px-4 py-3 text-muted-foreground">{formatDate(f.date)}</td>
-                      <td className={`px-4 py-3 text-right font-semibold ${f.type === "receita" ? "text-success" : "text-destructive"}`}>
-                        {f.type === "receita" ? "+" : "-"}{fmt(Number(f.amount))}
-                      </td>
-                      <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-1">
-                        <button onClick={() => openEdit(f)} className="p-1.5 rounded hover:bg-muted" title="Editar"><Pencil className="h-3.5 w-3.5" /></button>
-                        <button onClick={() => handleDelete(f.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
-                      </div></td>
+                    <tr key={f.id} className={`hover:bg-muted/30 transition ${f.paid ? "opacity-50" : ""}`}>
+                      {editingInlineId === f.id ? (
+                        <>
+                          <td className="px-4 py-2"><Input value={inlineTitle} onChange={(e) => setInlineTitle(e.target.value)} className="h-8 text-sm" /></td>
+                          <td className="px-4 py-2">
+                            <Select value={inlineCategory} onValueChange={setInlineCategory}>
+                              <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                              <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c} value={c} className="capitalize">{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </td>
+                          <td className="px-4 py-2"><Input type="date" value={inlineDate} onChange={(e) => setInlineDate(e.target.value)} className="h-8 text-sm" /></td>
+                          <td className="px-4 py-2" />
+                          <td className="px-4 py-2 text-right"><Input type="number" step="0.01" value={inlineAmount} onChange={(e) => setInlineAmount(e.target.value)} className="h-8 text-sm w-24 ml-auto" /></td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex items-center justify-end gap-1">
+                              <button onClick={() => saveInlineEdit(f.id)} className="p-1.5 rounded hover:bg-success/10 text-success"><Check className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => setEditingInlineId(null)} className="p-1.5 rounded hover:bg-muted"><X className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3"><div className="flex items-center gap-2">
+                            {f.type === "receita" ? <TrendingUp className="h-4 w-4 text-success shrink-0" /> : <TrendingDown className="h-4 w-4 text-destructive shrink-0" />}
+                            <span className="font-medium">{f.title}</span>
+                          </div></td>
+                          <td className="px-4 py-3 capitalize text-muted-foreground">{f.category}</td>
+                          <td className="px-4 py-3 text-muted-foreground">{formatDate(f.date)}</td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                              {f.is_credit_card && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-500"><CreditCard className="h-3 w-3" />{f.installment_number}/{f.installments}</span>}
+                              {f.recurring !== "none" && <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-accent/10 text-accent"><Repeat className="h-3 w-3" />{f.recurring}</span>}
+                              {f.due_date && <span className="text-warning">{formatDate(f.due_date)}</span>}
+                            </div>
+                          </td>
+                          <td className={`px-4 py-3 text-right font-semibold ${f.type === "receita" ? "text-success" : "text-destructive"}`}>
+                            {f.type === "receita" ? "+" : "-"}{fmt(Number(f.amount))}
+                          </td>
+                          <td className="px-4 py-3 text-right"><div className="flex items-center justify-end gap-0.5">
+                            <button onClick={() => togglePaid(f)} className={`p-1.5 rounded ${f.paid ? "text-success" : "hover:bg-muted"}`} title={f.paid ? "Marcar não pago" : "Marcar pago"}>
+                              <Check className="h-3.5 w-3.5" />
+                            </button>
+                            <button onClick={() => startInlineEdit(f)} className="p-1.5 rounded hover:bg-muted" title="Editar rápido"><Pencil className="h-3.5 w-3.5" /></button>
+                            <button onClick={() => handleDelete(f.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive" title="Excluir"><Trash2 className="h-3.5 w-3.5" /></button>
+                          </div></td>
+                        </>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -359,57 +521,37 @@ function FinancesContent() {
         </TabsContent>
 
         <TabsContent value="report" className="space-y-6">
-          {/* Period filter + export */}
           <Card className="p-4 shadow-card border-0">
             <div className="flex flex-wrap items-end gap-4">
               <div className="space-y-1.5">
                 <Label className="text-xs">Filtro</Label>
                 <Select value={reportMode} onValueChange={(v) => setReportMode(v as "month" | "range")}>
                   <SelectTrigger className="w-[130px] h-9"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="month">Mês</SelectItem>
-                    <SelectItem value="range">Intervalo</SelectItem>
-                  </SelectContent>
+                  <SelectContent><SelectItem value="month">Mês</SelectItem><SelectItem value="range">Intervalo</SelectItem></SelectContent>
                 </Select>
               </div>
               {reportMode === "month" ? (
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Mês</Label>
-                  <Input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="w-[180px] h-9" />
-                </div>
+                <div className="space-y-1.5"><Label className="text-xs">Mês</Label><Input type="month" value={reportMonth} onChange={(e) => setReportMonth(e.target.value)} className="w-[180px] h-9" /></div>
               ) : (
                 <>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">De</Label>
-                    <Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-[160px] h-9" />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Até</Label>
-                    <Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-[160px] h-9" />
-                  </div>
+                  <div className="space-y-1.5"><Label className="text-xs">De</Label><Input type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} className="w-[160px] h-9" /></div>
+                  <div className="space-y-1.5"><Label className="text-xs">Até</Label><Input type="date" value={reportTo} onChange={(e) => setReportTo(e.target.value)} className="w-[160px] h-9" /></div>
                 </>
               )}
               <div className="ml-auto flex items-center gap-3">
                 <p className="text-sm text-muted-foreground">
-                  <span className="text-success font-semibold">{fmt(reportTotalReceita)}</span>
-                  {" · "}
-                  <span className="text-destructive font-semibold">{fmt(reportTotalDespesa)}</span>
-                  {" · Saldo "}
+                  <span className="text-success font-semibold">{fmt(reportTotalReceita)}</span>{" · "}
+                  <span className="text-destructive font-semibold">{fmt(reportTotalDespesa)}</span>{" · Saldo "}
                   <span className={reportSaldo >= 0 ? "text-success font-semibold" : "text-destructive font-semibold"}>{fmt(reportSaldo)}</span>
                 </p>
-                <Button size="sm" variant="outline" onClick={exportPDF}>
-                  <Download className="h-4 w-4 mr-1.5" /> PDF
-                </Button>
+                <Button size="sm" variant="outline" onClick={exportPDF}><Download className="h-4 w-4 mr-1.5" /> PDF</Button>
               </div>
             </div>
           </Card>
 
-          {/* Monthly bar chart */}
           <Card className="p-6 shadow-card">
             <h3 className="font-display font-bold text-lg mb-4">Receitas vs Despesas por Mês</h3>
-            {monthlyData.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8">Sem dados suficientes para gráfico.</p>
-            ) : (
+            {monthlyData.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Sem dados.</p> : (
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -423,12 +565,9 @@ function FinancesContent() {
             )}
           </Card>
 
-          {/* Saldo evolution */}
           <Card className="p-6 shadow-card">
             <h3 className="font-display font-bold text-lg mb-4">Evolução do Saldo</h3>
-            {monthlyData.length === 0 ? (
-              <p className="text-muted-foreground text-sm text-center py-8">Sem dados.</p>
-            ) : (
+            {monthlyData.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Sem dados.</p> : (
               <ResponsiveContainer width="100%" height={250}>
                 <LineChart data={monthlyData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
@@ -441,37 +580,24 @@ function FinancesContent() {
             )}
           </Card>
 
-          {/* Category pie charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card className="p-6 shadow-card">
               <h3 className="font-display font-bold text-lg mb-4">Despesas por Categoria</h3>
-              {categoryData.length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center py-8">Sem despesas.</p>
-              ) : (
+              {categoryData.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Sem despesas.</p> : (
                 <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(props: any) => `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                      {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v) => fmt(Number(v))} />
-                    <Legend />
-                  </PieChart>
+                  <PieChart><Pie data={categoryData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(p: any) => `${p.name ?? ""} ${((p.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                    {categoryData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie><Tooltip formatter={(v) => fmt(Number(v))} /><Legend /></PieChart>
                 </ResponsiveContainer>
               )}
             </Card>
             <Card className="p-6 shadow-card">
               <h3 className="font-display font-bold text-lg mb-4">Receitas por Categoria</h3>
-              {categoryIncomeData.length === 0 ? (
-                <p className="text-muted-foreground text-sm text-center py-8">Sem receitas.</p>
-              ) : (
+              {categoryIncomeData.length === 0 ? <p className="text-muted-foreground text-sm text-center py-8">Sem receitas.</p> : (
                 <ResponsiveContainer width="100%" height={280}>
-                  <PieChart>
-                    <Pie data={categoryIncomeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(props: any) => `${props.name ?? ""} ${((props.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
-                      {categoryIncomeData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                    </Pie>
-                    <Tooltip formatter={(v) => fmt(Number(v))} />
-                    <Legend />
-                  </PieChart>
+                  <PieChart><Pie data={categoryIncomeData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={(p: any) => `${p.name ?? ""} ${((p.percent ?? 0) * 100).toFixed(0)}%`} labelLine={false}>
+                    {categoryIncomeData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie><Tooltip formatter={(v) => fmt(Number(v))} /><Legend /></PieChart>
                 </ResponsiveContainer>
               )}
             </Card>
