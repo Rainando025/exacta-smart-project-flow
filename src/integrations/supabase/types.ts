@@ -313,6 +313,8 @@ export type Database = {
           full_name: string
           id: string
           job_title: string | null
+          reminder_advance_minutes: number
+          reminder_snooze_minutes: number
           updated_at: string
         }
         Insert: {
@@ -321,6 +323,8 @@ export type Database = {
           full_name?: string
           id: string
           job_title?: string | null
+          reminder_advance_minutes?: number
+          reminder_snooze_minutes?: number
           updated_at?: string
         }
         Update: {
@@ -329,6 +333,8 @@ export type Database = {
           full_name?: string
           id?: string
           job_title?: string | null
+          reminder_advance_minutes?: number
+          reminder_snooze_minutes?: number
           updated_at?: string
         }
         Relationships: []
