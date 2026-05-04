@@ -87,14 +87,13 @@ export function ReminderPopup() {
 
   const updateAdvance = (v: string) => {
     const n = parseInt(v, 10);
-    if (!user) return;
     setAdvance(n);
-    saveToProfile("reminder_advance_minutes", n);
+    if (user) supabase.from("profiles").update({ reminder_advance_minutes: n }).eq("id", user.id);
   };
   const updateSnooze = (v: string) => {
     const n = parseInt(v, 10);
     setSnooze(n);
-    saveToProfile("reminder_snooze_minutes", n);
+    if (user) supabase.from("profiles").update({ reminder_snooze_minutes: n }).eq("id", user.id);
   };
 
   const check = useCallback(async () => {
