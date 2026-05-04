@@ -34,32 +34,22 @@ const SNOOZE_OPTIONS = [
   { value: "60", label: "1 hora" },
 ];
 
-function getStored(key: string, fallback: number) {
-  try { return parseInt(localStorage.getItem(key) || String(fallback), 10); } catch { return fallback; }
-}
-
-// Simple beep using Web Audio API
 function playAlertSound() {
   try {
     const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain); gain.connect(ctx.destination);
-    osc.frequency.value = 880;
-    osc.type = "sine";
-    gain.gain.value = 0.3;
+    osc.frequency.value = 880; osc.type = "sine"; gain.gain.value = 0.3;
     osc.start();
     gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
     osc.stop(ctx.currentTime + 0.5);
-    // Second beep
     setTimeout(() => {
       try {
         const osc2 = ctx.createOscillator();
         const g2 = ctx.createGain();
         osc2.connect(g2); g2.connect(ctx.destination);
-        osc2.frequency.value = 1100;
-        osc2.type = "sine";
-        g2.gain.value = 0.3;
+        osc2.frequency.value = 1100; osc2.type = "sine"; g2.gain.value = 0.3;
         osc2.start();
         g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
         osc2.stop(ctx.currentTime + 0.5);
@@ -74,18 +64,43 @@ export function ReminderPopup() {
   const { user } = useAuth();
   const [popup, setPopup] = useState<PopupItem | null>(null);
   const dismissed = useRef<Map<string, number>>(new Map());
-  const [advance, setAdvance] = useState(() => getStored("reminder-advance", 15));
-  const [snooze, setSnooze] = useState(() => getStored("reminder-snooze", 10));
+  const [advance, setAdvance] = useState(15);
+  const [snooze, setSnooze] = useState(10);
+  const [loaded, setLoaded] = useState(false);
 
-  const updateAdvance = (v: string) => { const n = parseInt(v, 10); setAdvance(n); localStorage.setItem("reminder-advance", v); };
-  const updateSnooze = (v: string) => { const n = parseInt(v, 10); setSnooze(n); localStorage.setItem("reminder-snooze", v); };
+  // Load settings from profile
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await supabase
+        .from("profiles")
+        .select("reminder_advance_minutes, reminder_snooze_minutes")
+        .eq("id", user.id)
+        .single();
+      if (data) {
+        setAdvance(data.reminder_advance_minutes ?? 15);
+        setSnooze(data.reminder_snooze_minutes ?? 10);
+      }
+      setLoaded(true);
+    })();
+  }, [user?.id]);
+
+  const updateAdvance = (v: string) => {
+    const n = parseInt(v, 10);
+    setAdvance(n);
+    if (user) supabase.from("profiles").update({ reminder_advance_minutes: n }).eq("id", user.id);
+  };
+  const updateSnooze = (v: string) => {
+    const n = parseInt(v, 10);
+    setSnooze(n);
+    if (user) supabase.from("profiles").update({ reminder_snooze_minutes: n }).eq("id", user.id);
+  };
 
   const check = useCallback(async () => {
-    if (!user) return;
+    if (!user || !loaded) return;
     const now = Date.now();
     const soon = new Date(now + advance * 60 * 1000);
 
-    // Check reminders
     const { data: reminders } = await supabase
       .from("reminders").select("*").eq("user_id", user.id).eq("completed", false)
       .lte("remind_at", soon.toISOString()).order("remind_at", { ascending: true }).limit(5);
@@ -96,8 +111,7 @@ export function ReminderPopup() {
     });
 
     if (pendingReminders.length > 0 && !popup) {
-      const item: PopupItem = { kind: "reminder", data: pendingReminders[0] };
-      setPopup(item);
+      setPopup({ kind: "reminder", data: pendingReminders[0] });
       playAlertSound();
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         new Notification(`🔔 ${pendingReminders[0].title}`, {
@@ -107,7 +121,6 @@ export function ReminderPopup() {
       return;
     }
 
-    // Check due bills
     const today = new Date().toISOString().split("T")[0];
     const soonDate = new Date(now + advance * 60 * 1000).toISOString().split("T")[0];
     const { data: bills } = await supabase
@@ -123,8 +136,7 @@ export function ReminderPopup() {
     });
 
     if (pendingBills.length > 0 && !popup) {
-      const item: PopupItem = { kind: "bill", data: pendingBills[0] };
-      setPopup(item);
+      setPopup({ kind: "bill", data: pendingBills[0] });
       playAlertSound();
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
         new Notification(`💳 Conta vencendo: ${pendingBills[0].title}`, {
@@ -132,17 +144,17 @@ export function ReminderPopup() {
         });
       }
     }
-  }, [user, popup, advance]);
+  }, [user, popup, advance, loaded]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !loaded) return;
     if (typeof Notification !== "undefined" && Notification.permission === "default") {
       Notification.requestPermission();
     }
     check();
     const interval = setInterval(check, 60_000);
     return () => clearInterval(interval);
-  }, [user?.id, check]);
+  }, [user?.id, loaded, check]);
 
   const dismiss = () => {
     if (popup) {
@@ -173,7 +185,7 @@ export function ReminderPopup() {
       {!popup && user && (
         <Popover>
           <PopoverTrigger asChild>
-            <button className="fixed bottom-4 right-4 z-40 p-2 rounded-full bg-muted/80 hover:bg-muted shadow-md" title="Configurar lembretes">
+            <button className="fixed bottom-4 right-4 z-40 p-2 rounded-full bg-muted/80 hover:bg-muted shadow-md" title="Configurar alertas">
               <Settings2 className="h-4 w-4 text-muted-foreground" />
             </button>
           </PopoverTrigger>
@@ -193,6 +205,7 @@ export function ReminderPopup() {
                 <SelectContent>{SNOOZE_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
               </Select>
             </div>
+            <p className="text-[10px] text-muted-foreground">Salvo automaticamente no seu perfil.</p>
           </PopoverContent>
         </Popover>
       )}
@@ -221,9 +234,7 @@ export function ReminderPopup() {
                   : `Vence ${billData!.due_date} — ${fmt(Number(billData!.amount))}`}
               </p>
               <div className="flex gap-2 pt-2">
-                <Button variant="outline" onClick={dismiss} className="flex-1">
-                  Adiar {snooze} min
-                </Button>
+                <Button variant="outline" onClick={dismiss} className="flex-1">Adiar {snooze} min</Button>
                 <Button onClick={markDone} className="flex-1 bg-gradient-primary text-primary-foreground">
                   <CheckCircle2 className="h-4 w-4 mr-1.5" /> {isReminder ? "Concluir" : "Pagar"}
                 </Button>
