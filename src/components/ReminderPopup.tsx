@@ -4,14 +4,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BellRing, Clock, CheckCircle2, Settings2 } from "lucide-react";
+import { BellRing, Clock, CheckCircle2, Settings2, CreditCard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 
 interface Reminder {
   id: string; title: string; description: string | null;
-  remind_at: string; completed: boolean;
+  remind_at: string; completed: boolean; priority: string;
 }
+
+interface DueBill {
+  id: string; title: string; amount: number; due_date: string;
+}
+
+type PopupItem = { kind: "reminder"; data: Reminder } | { kind: "bill"; data: DueBill };
 
 const ADVANCE_OPTIONS = [
   { value: "5", label: "5 minutos" },
@@ -20,7 +27,6 @@ const ADVANCE_OPTIONS = [
   { value: "30", label: "30 minutos" },
   { value: "60", label: "1 hora" },
 ];
-
 const SNOOZE_OPTIONS = [
   { value: "5", label: "5 min" },
   { value: "10", label: "10 min" },
@@ -28,55 +34,101 @@ const SNOOZE_OPTIONS = [
   { value: "60", label: "1 hora" },
 ];
 
-function getStoredAdvance(): number {
-  try { return parseInt(localStorage.getItem("reminder-advance") || "15", 10); } catch { return 15; }
+function getStored(key: string, fallback: number) {
+  try { return parseInt(localStorage.getItem(key) || String(fallback), 10); } catch { return fallback; }
 }
-function getStoredSnooze(): number {
-  try { return parseInt(localStorage.getItem("reminder-snooze") || "10", 10); } catch { return 10; }
+
+// Simple beep using Web Audio API
+function playAlertSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    osc.type = "sine";
+    gain.gain.value = 0.3;
+    osc.start();
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+    osc.stop(ctx.currentTime + 0.5);
+    // Second beep
+    setTimeout(() => {
+      try {
+        const osc2 = ctx.createOscillator();
+        const g2 = ctx.createGain();
+        osc2.connect(g2); g2.connect(ctx.destination);
+        osc2.frequency.value = 1100;
+        osc2.type = "sine";
+        g2.gain.value = 0.3;
+        osc2.start();
+        g2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+        osc2.stop(ctx.currentTime + 0.5);
+      } catch {}
+    }, 300);
+  } catch {}
 }
+
+const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 export function ReminderPopup() {
   const { user } = useAuth();
-  const [popup, setPopup] = useState<Reminder | null>(null);
-  const dismissed = useRef<Map<string, number>>(new Map()); // id -> dismiss until timestamp
-  const [advance, setAdvance] = useState(getStoredAdvance);
-  const [snooze, setSnooze] = useState(getStoredSnooze);
+  const [popup, setPopup] = useState<PopupItem | null>(null);
+  const dismissed = useRef<Map<string, number>>(new Map());
+  const [advance, setAdvance] = useState(() => getStored("reminder-advance", 15));
+  const [snooze, setSnooze] = useState(() => getStored("reminder-snooze", 10));
 
-  const updateAdvance = (v: string) => {
-    const n = parseInt(v, 10);
-    setAdvance(n);
-    localStorage.setItem("reminder-advance", v);
-  };
-  const updateSnooze = (v: string) => {
-    const n = parseInt(v, 10);
-    setSnooze(n);
-    localStorage.setItem("reminder-snooze", v);
-  };
+  const updateAdvance = (v: string) => { const n = parseInt(v, 10); setAdvance(n); localStorage.setItem("reminder-advance", v); };
+  const updateSnooze = (v: string) => { const n = parseInt(v, 10); setSnooze(n); localStorage.setItem("reminder-snooze", v); };
 
   const check = useCallback(async () => {
     if (!user) return;
     const now = Date.now();
     const soon = new Date(now + advance * 60 * 1000);
 
-    const { data } = await supabase
-      .from("reminders")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("completed", false)
-      .lte("remind_at", soon.toISOString())
-      .order("remind_at", { ascending: true })
-      .limit(5);
+    // Check reminders
+    const { data: reminders } = await supabase
+      .from("reminders").select("*").eq("user_id", user.id).eq("completed", false)
+      .lte("remind_at", soon.toISOString()).order("remind_at", { ascending: true }).limit(5);
 
-    if (!data) return;
-    const pending = (data as Reminder[]).filter((r) => {
-      const until = dismissed.current.get(r.id);
+    const pendingReminders = ((reminders || []) as Reminder[]).filter((r) => {
+      const until = dismissed.current.get("r-" + r.id);
       return !until || now >= until;
     });
-    if (pending.length > 0 && !popup) {
-      setPopup(pending[0]);
+
+    if (pendingReminders.length > 0 && !popup) {
+      const item: PopupItem = { kind: "reminder", data: pendingReminders[0] };
+      setPopup(item);
+      playAlertSound();
       if (typeof Notification !== "undefined" && Notification.permission === "granted") {
-        new Notification(`🔔 ${pending[0].title}`, {
-          body: pending[0].description || new Date(pending[0].remind_at).toLocaleString("pt-BR"),
+        new Notification(`🔔 ${pendingReminders[0].title}`, {
+          body: pendingReminders[0].description || new Date(pendingReminders[0].remind_at).toLocaleString("pt-BR"),
+        });
+      }
+      return;
+    }
+
+    // Check due bills
+    const today = new Date().toISOString().split("T")[0];
+    const soonDate = new Date(now + advance * 60 * 1000).toISOString().split("T")[0];
+    const { data: bills } = await supabase
+      .from("personal_finances").select("id,title,amount,due_date")
+      .eq("user_id", user.id).eq("paid", false)
+      .not("due_date", "is", null)
+      .lte("due_date", soonDate).gte("due_date", today)
+      .order("due_date", { ascending: true }).limit(5);
+
+    const pendingBills = ((bills || []) as DueBill[]).filter((b) => {
+      const until = dismissed.current.get("b-" + b.id);
+      return !until || now >= until;
+    });
+
+    if (pendingBills.length > 0 && !popup) {
+      const item: PopupItem = { kind: "bill", data: pendingBills[0] };
+      setPopup(item);
+      playAlertSound();
+      if (typeof Notification !== "undefined" && Notification.permission === "granted") {
+        new Notification(`💳 Conta vencendo: ${pendingBills[0].title}`, {
+          body: `${fmt(Number(pendingBills[0].amount))} — vence ${pendingBills[0].due_date}`,
         });
       }
     }
@@ -94,21 +146,30 @@ export function ReminderPopup() {
 
   const dismiss = () => {
     if (popup) {
-      dismissed.current.set(popup.id, Date.now() + snooze * 60 * 1000);
+      const key = popup.kind === "reminder" ? "r-" + popup.data.id : "b-" + (popup.data as DueBill).id;
+      dismissed.current.set(key, Date.now() + snooze * 60 * 1000);
     }
     setPopup(null);
   };
 
   const markDone = async () => {
     if (!popup) return;
-    await supabase.from("reminders").update({ completed: true }).eq("id", popup.id);
-    dismissed.current.delete(popup.id);
+    if (popup.kind === "reminder") {
+      await supabase.from("reminders").update({ completed: true }).eq("id", popup.data.id);
+    } else {
+      await supabase.from("personal_finances").update({ paid: true }).eq("id", popup.data.id);
+    }
+    const key = popup.kind === "reminder" ? "r-" + popup.data.id : "b-" + popup.data.id;
+    dismissed.current.delete(key);
     setPopup(null);
   };
 
+  const isReminder = popup?.kind === "reminder";
+  const reminderData = isReminder ? (popup?.data as Reminder) : null;
+  const billData = !isReminder ? (popup?.data as DueBill) : null;
+
   return (
     <>
-      {/* Settings gear – fixed bottom-right, only visible when no popup */}
       {!popup && user && (
         <Popover>
           <PopoverTrigger asChild>
@@ -117,7 +178,7 @@ export function ReminderPopup() {
             </button>
           </PopoverTrigger>
           <PopoverContent side="top" align="end" className="w-64 space-y-4">
-            <p className="text-sm font-semibold">Configurações de Lembrete</p>
+            <p className="text-sm font-semibold">Configurações de Alerta</p>
             <div className="space-y-1.5">
               <Label className="text-xs">Antecedência do alerta</Label>
               <Select value={String(advance)} onValueChange={updateAdvance}>
@@ -140,24 +201,31 @@ export function ReminderPopup() {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <BellRing className="h-5 w-5 text-warning animate-bounce" />
-              Lembrete!
+              {isReminder ? <BellRing className="h-5 w-5 text-warning animate-bounce" /> : <CreditCard className="h-5 w-5 text-purple-500 animate-bounce" />}
+              {isReminder ? "Lembrete!" : "Conta Vencendo!"}
             </DialogTitle>
           </DialogHeader>
           {popup && (
             <div className="space-y-3 mt-2">
-              <h3 className="font-display font-bold text-lg">{popup.title}</h3>
-              {popup.description && <p className="text-sm text-muted-foreground">{popup.description}</p>}
+              <h3 className="font-display font-bold text-lg">{popup.data.title}</h3>
+              {isReminder && reminderData?.description && <p className="text-sm text-muted-foreground">{reminderData.description}</p>}
+              {isReminder && reminderData?.priority && (
+                <Badge variant="outline" className="text-xs">
+                  {reminderData.priority === "urgente" ? "🔴 Urgente" : reminderData.priority === "alta" ? "🟠 Alta" : reminderData.priority === "media" ? "🟡 Média" : "⚪ Baixa"}
+                </Badge>
+              )}
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                {new Date(popup.remind_at).toLocaleString("pt-BR")}
+                {isReminder
+                  ? new Date(reminderData!.remind_at).toLocaleString("pt-BR")
+                  : `Vence ${billData!.due_date} — ${fmt(Number(billData!.amount))}`}
               </p>
               <div className="flex gap-2 pt-2">
                 <Button variant="outline" onClick={dismiss} className="flex-1">
                   Adiar {snooze} min
                 </Button>
                 <Button onClick={markDone} className="flex-1 bg-gradient-primary text-primary-foreground">
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" /> Concluir
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" /> {isReminder ? "Concluir" : "Pagar"}
                 </Button>
               </div>
             </div>
