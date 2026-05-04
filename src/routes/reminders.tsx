@@ -11,8 +11,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import {
-  Plus, Trash2, Pencil, BellRing, Clock, CheckCircle2, Repeat,
+  Plus, Trash2, Pencil, BellRing, Clock, CheckCircle2, Repeat, Check, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -21,7 +22,7 @@ export const Route = createFileRoute("/reminders")({ component: RemindersPage })
 interface Reminder {
   id: string; title: string; description: string | null;
   remind_at: string; repeat: string; completed: boolean;
-  created_at: string; updated_at: string;
+  priority: string; created_at: string; updated_at: string;
 }
 
 const REPEAT_OPTIONS = [
@@ -31,9 +32,14 @@ const REPEAT_OPTIONS = [
   { value: "monthly", label: "Mensal" },
 ];
 
-function RemindersPage() {
-  return <AppShell><RemindersContent /></AppShell>;
-}
+const PRIORITIES = [
+  { value: "baixa", label: "Baixa", color: "text-muted-foreground" },
+  { value: "media", label: "Média", color: "text-accent" },
+  { value: "alta", label: "Alta", color: "text-warning" },
+  { value: "urgente", label: "Urgente", color: "text-destructive" },
+];
+
+function RemindersPage() { return <AppShell><RemindersContent /></AppShell>; }
 
 function RemindersContent() {
   const { user } = useAuth();
@@ -46,27 +52,24 @@ function RemindersContent() {
   const [description, setDescription] = useState("");
   const [remindAt, setRemindAt] = useState("");
   const [repeat, setRepeat] = useState("none");
+  const [priority, setPriority] = useState("media");
 
   const load = async () => {
     if (!user) return;
-    const { data } = await supabase
-      .from("reminders").select("*").eq("user_id", user.id)
+    const { data } = await supabase.from("reminders").select("*").eq("user_id", user.id)
       .order("remind_at", { ascending: true });
     setItems((data || []) as Reminder[]);
   };
 
   useEffect(() => { load(); }, [user?.id]);
 
-  const resetForm = () => {
-    setTitle(""); setDescription(""); setRemindAt(""); setRepeat("none"); setEditing(null);
-  };
+  const resetForm = () => { setTitle(""); setDescription(""); setRemindAt(""); setRepeat("none"); setPriority("media"); setEditing(null); };
 
   const handleSave = async () => {
     if (!user || !title.trim() || !remindAt) return;
     const payload = {
-      user_id: user.id, title: title.trim(),
-      description: description.trim() || null,
-      remind_at: new Date(remindAt).toISOString(), repeat,
+      user_id: user.id, title: title.trim(), description: description.trim() || null,
+      remind_at: new Date(remindAt).toISOString(), repeat, priority,
     };
     if (editing) {
       const { error } = await supabase.from("reminders").update(payload).eq("id", editing.id);
@@ -92,14 +95,13 @@ function RemindersContent() {
 
   const openEdit = (r: Reminder) => {
     setEditing(r); setTitle(r.title); setDescription(r.description || "");
-    setRemindAt(r.remind_at.slice(0, 16)); setRepeat(r.repeat); setOpen(true);
+    setRemindAt(r.remind_at.slice(0, 16)); setRepeat(r.repeat); setPriority(r.priority); setOpen(true);
   };
 
   const now = new Date();
   const active = items.filter((r) => !r.completed);
   const completed = items.filter((r) => r.completed);
   const display = showCompleted ? items : active;
-
   const upcoming = active.filter((r) => new Date(r.remind_at) > now);
   const overdue = active.filter((r) => new Date(r.remind_at) <= now);
 
@@ -113,16 +115,21 @@ function RemindersContent() {
         </div>
         <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
           <DialogTrigger asChild>
-            <Button className="bg-gradient-primary text-primary-foreground shadow-elegant">
-              <Plus className="h-4 w-4 mr-2" /> Novo lembrete
-            </Button>
+            <Button className="bg-gradient-primary text-primary-foreground shadow-elegant"><Plus className="h-4 w-4 mr-2" /> Novo lembrete</Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>{editing ? "Editar lembrete" : "Novo lembrete"}</DialogTitle></DialogHeader>
             <div className="space-y-4 mt-2">
               <div className="space-y-2"><Label>Título</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex: Reunião, Consulta..." /></div>
               <div className="space-y-2"><Label>Descrição (opcional)</Label><Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} /></div>
-              <div className="space-y-2"><Label>Data e hora</Label><Input type="datetime-local" value={remindAt} onChange={(e) => setRemindAt(e.target.value)} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2"><Label>Data e hora</Label><Input type="datetime-local" value={remindAt} onChange={(e) => setRemindAt(e.target.value)} /></div>
+                <div className="space-y-2"><Label>Prioridade</Label>
+                  <Select value={priority} onValueChange={setPriority}><SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>{PRIORITIES.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div className="space-y-2"><Label>Repetição</Label>
                 <Select value={repeat} onValueChange={setRepeat}><SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{REPEAT_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
@@ -136,7 +143,6 @@ function RemindersContent() {
         </Dialog>
       </header>
 
-      {/* Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="p-4 shadow-card border-0 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-warning/10"><BellRing className="h-5 w-5 text-warning" /></div>
@@ -157,17 +163,15 @@ function RemindersContent() {
         <label htmlFor="showDone" className="text-sm text-muted-foreground cursor-pointer">Mostrar concluídos</label>
       </div>
 
-      {/* Overdue section */}
       {overdue.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-warning uppercase tracking-wider mb-3">⚠️ Atrasados</h2>
           <div className="space-y-2">
-            {overdue.map((r) => <ReminderCard key={r.id} r={r} onEdit={openEdit} onDelete={handleDelete} onToggle={toggleComplete} />)}
+            {overdue.map((r) => <ReminderCard key={r.id} r={r} onEdit={openEdit} onDelete={handleDelete} onToggle={toggleComplete} onReload={load} />)}
           </div>
         </div>
       )}
 
-      {/* Upcoming / all */}
       <div>
         {overdue.length > 0 && <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Próximos</h2>}
         {display.filter((r) => !overdue.includes(r)).length === 0 && overdue.length === 0 && (
@@ -178,7 +182,7 @@ function RemindersContent() {
         )}
         <div className="space-y-2">
           {display.filter((r) => !overdue.includes(r)).map((r) => (
-            <ReminderCard key={r.id} r={r} onEdit={openEdit} onDelete={handleDelete} onToggle={toggleComplete} />
+            <ReminderCard key={r.id} r={r} onEdit={openEdit} onDelete={handleDelete} onToggle={toggleComplete} onReload={load} />
           ))}
         </div>
       </div>
@@ -186,26 +190,60 @@ function RemindersContent() {
   );
 }
 
-function ReminderCard({ r, onEdit, onDelete, onToggle }: {
+function ReminderCard({ r, onEdit, onDelete, onToggle, onReload }: {
   r: Reminder; onEdit: (r: Reminder) => void;
   onDelete: (id: string) => void; onToggle: (r: Reminder) => void;
+  onReload: () => void;
 }) {
   const isOverdue = !r.completed && new Date(r.remind_at) <= new Date();
+  const prioInfo = PRIORITIES.find((p) => p.value === r.priority) || PRIORITIES[1];
+
+  const [inlineEdit, setInlineEdit] = useState(false);
+  const [iTitle, setITitle] = useState(r.title);
+  const [iDesc, setIDesc] = useState(r.description || "");
+  const [iAt, setIAt] = useState(r.remind_at.slice(0, 16));
+
+  const save = async () => {
+    const { error } = await supabase.from("reminders").update({
+      title: iTitle.trim(), description: iDesc.trim() || null,
+      remind_at: new Date(iAt).toISOString(),
+    }).eq("id", r.id);
+    if (error) { toast.error(error.message); return; }
+    setInlineEdit(false); onReload();
+  };
+
   return (
     <Card className={`p-4 shadow-card border-0 flex items-start gap-3 transition ${r.completed ? "opacity-50" : ""} ${isOverdue ? "border-l-4 border-l-warning" : ""}`}>
       <Checkbox checked={r.completed} onCheckedChange={() => onToggle(r)} className="mt-1" />
-      <div className="flex-1 min-w-0">
-        <p className={`font-semibold ${r.completed ? "line-through" : ""}`}>{r.title}</p>
-        {r.description && <p className="text-sm text-muted-foreground mt-0.5">{r.description}</p>}
-        <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
-          <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(r.remind_at).toLocaleString("pt-BR")}</span>
-          {r.repeat !== "none" && <span className="flex items-center gap-1"><Repeat className="h-3 w-3" />{r.repeat}</span>}
+      {inlineEdit ? (
+        <div className="flex-1 space-y-2">
+          <Input value={iTitle} onChange={(e) => setITitle(e.target.value)} className="h-8 text-sm font-semibold" />
+          <Input value={iDesc} onChange={(e) => setIDesc(e.target.value)} className="h-8 text-sm" placeholder="Descrição" />
+          <Input type="datetime-local" value={iAt} onChange={(e) => setIAt(e.target.value)} className="h-8 text-sm" />
+          <div className="flex gap-1">
+            <button onClick={save} className="p-1.5 rounded hover:bg-success/10 text-success"><Check className="h-4 w-4" /></button>
+            <button onClick={() => setInlineEdit(false)} className="p-1.5 rounded hover:bg-muted"><X className="h-4 w-4" /></button>
+          </div>
         </div>
-      </div>
-      <div className="flex items-center gap-0.5 shrink-0">
-        <button onClick={() => onEdit(r)} className="p-1.5 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
-        <button onClick={() => onDelete(r.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-      </div>
+      ) : (
+        <>
+          <div className="flex-1 min-w-0" onDoubleClick={() => { setITitle(r.title); setIDesc(r.description || ""); setIAt(r.remind_at.slice(0, 16)); setInlineEdit(true); }}>
+            <div className="flex items-center gap-2">
+              <p className={`font-semibold ${r.completed ? "line-through" : ""}`}>{r.title}</p>
+              <Badge variant="outline" className={`text-[10px] ${prioInfo.color}`}>{prioInfo.label}</Badge>
+            </div>
+            {r.description && <p className="text-sm text-muted-foreground mt-0.5">{r.description}</p>}
+            <div className="flex items-center gap-3 mt-1.5 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{new Date(r.remind_at).toLocaleString("pt-BR")}</span>
+              {r.repeat !== "none" && <span className="flex items-center gap-1"><Repeat className="h-3 w-3" />{r.repeat}</span>}
+            </div>
+          </div>
+          <div className="flex items-center gap-0.5 shrink-0">
+            <button onClick={() => onEdit(r)} className="p-1.5 rounded hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
+            <button onClick={() => onDelete(r.id)} className="p-1.5 rounded hover:bg-destructive/10 text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+          </div>
+        </>
+      )}
     </Card>
   );
 }
