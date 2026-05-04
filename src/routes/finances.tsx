@@ -283,23 +283,88 @@ function FinancesContent() {
     const { default: jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF();
+    const pw = doc.internal.pageSize.getWidth();
     const periodLabel = reportMode === "month"
       ? new Date(reportMonth + "-15").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
       : `${reportFrom || "início"} a ${reportTo || "hoje"}`;
-    doc.setFontSize(18); doc.text("Relatório de Finanças Pessoais", 14, 20);
-    doc.setFontSize(11); doc.text(`Período: ${periodLabel}`, 14, 28);
+
+    // ─── Branded header ───
+    // Blue bar
+    doc.setFillColor(30, 58, 138);
+    doc.rect(0, 0, pw, 38, "F");
+    // Accent cyan line
+    doc.setFillColor(8, 145, 178);
+    doc.rect(0, 38, pw, 2, "F");
+    // Brand name
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("EXACTA", 14, 18);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("Precisão em Gestão", 14, 25);
+    // Report title on the right
     doc.setFontSize(12);
-    doc.text(`Receitas: ${fmt(reportTotalReceita)}`, 14, 40);
-    doc.text(`Despesas: ${fmt(reportTotalDespesa)}`, 14, 48);
-    doc.text(`Saldo: ${fmt(reportSaldo)}`, 14, 56);
+    doc.text("Relatório de Finanças Pessoais", pw - 14, 18, { align: "right" });
+    doc.setFontSize(9);
+    doc.text(`Período: ${periodLabel}`, pw - 14, 25, { align: "right" });
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pw - 14, 31, { align: "right" });
+
+    // ─── Summary ───
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Resumo", 14, 50);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(5, 150, 105); doc.text(`Receitas: ${fmt(reportTotalReceita)}`, 14, 58);
+    doc.setTextColor(220, 38, 38); doc.text(`Despesas: ${fmt(reportTotalDespesa)}`, 80, 58);
+    doc.setTextColor(reportSaldo >= 0 ? 5 : 220, reportSaldo >= 0 ? 150 : 38, reportSaldo >= 0 ? 105 : 38);
+    doc.text(`Saldo: ${fmt(reportSaldo)}`, 150, 58);
+
+    // ─── Data table ───
+    doc.setTextColor(0, 0, 0);
     const rows = reportItems.map((f) => [
       f.date, f.title, f.category, f.type === "receita" ? "Receita" : "Despesa",
-      f.is_credit_card ? "Cartão" : "-", fmt(Number(f.amount)),
+      f.is_credit_card ? `Cartão ${f.installment_number}/${f.installments}` : "-",
+      fmt(Number(f.amount)),
     ]);
     autoTable(doc, {
-      startY: 65, head: [["Data", "Descrição", "Categoria", "Tipo", "Cartão", "Valor"]],
-      body: rows, styles: { fontSize: 9 }, headStyles: { fillColor: [30, 58, 138] },
+      startY: 65,
+      head: [["Data", "Descrição", "Categoria", "Tipo", "Cartão", "Valor"]],
+      body: rows,
+      styles: { fontSize: 8.5 },
+      headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255] },
+      alternateRowStyles: { fillColor: [240, 245, 255] },
     });
+
+    // Category breakdown
+    const finalY = (doc as any).lastAutoTable?.finalY || 65;
+    if (categoryData.length > 0 && finalY + 30 < 270) {
+      doc.setFontSize(11); doc.setFont("helvetica", "bold");
+      doc.text("Despesas por Categoria", 14, finalY + 12);
+      autoTable(doc, {
+        startY: finalY + 16,
+        head: [["Categoria", "Total"]],
+        body: categoryData.map((c) => [c.name, fmt(c.value)]),
+        styles: { fontSize: 8.5 },
+        headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255] },
+      });
+    }
+
+    // ─── Footer ───
+    const pages = doc.getNumberOfPages();
+    for (let i = 1; i <= pages; i++) {
+      doc.setPage(i);
+      const ph = doc.internal.pageSize.getHeight();
+      doc.setFillColor(30, 58, 138);
+      doc.rect(0, ph - 12, pw, 12, "F");
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(7);
+      doc.text("EXACTA — Precisão em Gestão", 14, ph - 4);
+      doc.text(`Página ${i} de ${pages}`, pw - 14, ph - 4, { align: "right" });
+    }
+
     doc.save(`financas-${reportMode === "month" ? reportMonth : "periodo"}.pdf`);
     toast.success("PDF exportado!");
   };
