@@ -61,7 +61,7 @@ function AuthPage() {
         }} />
 
         <div className="relative flex items-center gap-3">
-          <img src={logo} alt="EXACTA" className="h-12 w-12 rounded-xl bg-white/10 p-1.5" />
+          <img src={logo} alt="EXACTA" className="h-16 w-16 rounded-xl object-contain" />
           <div>
             <h1 className="font-display text-2xl font-bold">EXACTA</h1>
             <p className="text-xs uppercase tracking-[0.2em] text-accent">Precisão em gestão</p>
@@ -103,7 +103,7 @@ function AuthPage() {
       <div className="flex items-center justify-center p-6 lg:p-12 bg-background">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex items-center gap-3">
-            <img src={logo} alt="EXACTA" className="h-10 w-10" />
+            <img src={logo} alt="EXACTA" className="h-12 w-12" />
             <h1 className="font-display text-xl font-bold">EXACTA</h1>
           </div>
 

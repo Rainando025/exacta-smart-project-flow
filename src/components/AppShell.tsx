@@ -76,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
         <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-          <img src={logo} alt="EXACTA" className="h-10 w-10 rounded-lg object-contain bg-white/5 p-1" />
+          <img src={logo} alt="EXACTA" className="h-14 w-14 rounded-lg object-contain" />
           <div>
             <h1 className="font-display text-lg font-bold tracking-tight">EXACTA</h1>
             <p className="text-[10px] uppercase tracking-widest text-accent">Precisão em gestão</p>
@@ -143,7 +143,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex flex-1 flex-col">
         <header className="md:hidden flex items-center justify-between bg-sidebar text-sidebar-foreground px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="EXACTA" className="h-8 w-8 rounded object-contain bg-white/5 p-0.5" />
+            <img src={logo} alt="EXACTA" className="h-10 w-10 rounded object-contain" />
             <span className="font-display font-bold">EXACTA</span>
           </div>
           <div className="flex items-center gap-1">
