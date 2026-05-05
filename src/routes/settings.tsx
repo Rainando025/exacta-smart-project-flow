@@ -44,7 +44,7 @@ function SettingsContent() {
   const [newEmail, setNewEmail] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newName, setNewName] = useState("");
-  const [newRole, setNewRole] = useState("user");
+  const [newRole, setNewRole] = useState("colaborador");
   const [newJobTitle, setNewJobTitle] = useState("");
   const [creating, setCreating] = useState(false);
 
@@ -69,7 +69,7 @@ function SettingsContent() {
 
   const roleLabel = (r: string) => {
     if (r === "admin") return "Administrador";
-    if (r === "moderator") return "Moderador";
+    if (r === "gestor") return "Gestor";
     return "Colaborador";
   };
 
