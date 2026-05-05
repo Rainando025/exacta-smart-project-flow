@@ -168,8 +168,8 @@ function SettingsContent() {
                       <Select value={newRole} onValueChange={setNewRole}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="user">Colaborador</SelectItem>
-                          <SelectItem value="moderator">Moderador</SelectItem>
+                          <SelectItem value="colaborador">Colaborador</SelectItem>
+                          <SelectItem value="gestor">Gestor</SelectItem>
                           <SelectItem value="admin">Administrador</SelectItem>
                         </SelectContent>
                       </Select>
@@ -241,8 +241,8 @@ function SettingsContent() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  <SelectItem value="user">Colaborador</SelectItem>
-                                  <SelectItem value="moderator">Moderador</SelectItem>
+                                  <SelectItem value="colaborador">Colaborador</SelectItem>
+                                  <SelectItem value="gestor">Gestor</SelectItem>
                                   <SelectItem value="admin">Administrador</SelectItem>
                                 </SelectContent>
                               </Select>
