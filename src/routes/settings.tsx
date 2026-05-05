@@ -223,7 +223,7 @@ function SettingsContent() {
                         <td className="px-4 py-3">
                           <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                             role === "admin" ? "bg-destructive/10 text-destructive" :
-                            role === "moderator" ? "bg-warning/10 text-warning" :
+                            role === "gestor" ? "bg-warning/10 text-warning" :
                             "bg-accent/10 text-accent"
                           }`}>
                             <Shield className="h-3 w-3" />
