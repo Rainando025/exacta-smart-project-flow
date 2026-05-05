@@ -18,6 +18,7 @@ const PERSONAL_NAV = [
   { to: "/projects", label: "Projetos", icon: FolderOpen },
   { to: "/reminders", label: "Lembretes", icon: BellRing },
   { to: "/notifications", label: "Avisos", icon: Bell },
+  { to: "/settings", label: "Configurações", icon: Settings },
 ] as const;
 
 const TEAM_NAV = [
