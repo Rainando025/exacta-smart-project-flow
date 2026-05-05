@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
+import logoUrl from "@/assets/exacta_logo.png";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -279,6 +280,21 @@ function FinancesContent() {
   const reportTotalDespesa = reportItems.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
   const reportSaldo = reportTotalReceita - reportTotalDespesa;
 
+  const loadLogoBase64 = (): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        const c = document.createElement("canvas");
+        c.width = img.width; c.height = img.height;
+        c.getContext("2d")!.drawImage(img, 0, 0);
+        resolve(c.toDataURL("image/png"));
+      };
+      img.onerror = () => resolve("");
+      img.src = logoUrl;
+    });
+  };
+
   const exportPDF = async () => {
     const { default: jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
@@ -288,69 +304,115 @@ function FinancesContent() {
       ? new Date(reportMonth + "-15").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
       : `${reportFrom || "início"} a ${reportTo || "hoje"}`;
 
+    const logoB64 = await loadLogoBase64();
+
     // ─── Branded header ───
-    // Blue bar
     doc.setFillColor(30, 58, 138);
-    doc.rect(0, 0, pw, 38, "F");
-    // Accent cyan line
+    doc.rect(0, 0, pw, 42, "F");
     doc.setFillColor(8, 145, 178);
-    doc.rect(0, 38, pw, 2, "F");
-    // Brand name
+    doc.rect(0, 42, pw, 2, "F");
+
+    // Logo
+    if (logoB64) {
+      doc.addImage(logoB64, "PNG", 12, 5, 32, 32);
+    }
+
+    // Brand text
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("EXACTA", 14, 18);
+    doc.text("EXACTA", logoB64 ? 48 : 14, 20);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text("Precisão em Gestão", 14, 25);
+    doc.text("Precisão em Gestão", logoB64 ? 48 : 14, 28);
+
     // Report title on the right
     doc.setFontSize(12);
     doc.text("Relatório de Finanças Pessoais", pw - 14, 18, { align: "right" });
     doc.setFontSize(9);
     doc.text(`Período: ${periodLabel}`, pw - 14, 25, { align: "right" });
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pw - 14, 31, { align: "right" });
+    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pw - 14, 32, { align: "right" });
 
-    // ─── Summary ───
+    // ─── Summary Cards ───
+    let y = 54;
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
+    doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
-    doc.text("Resumo", 14, 50);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-    doc.setTextColor(5, 150, 105); doc.text(`Receitas: ${fmt(reportTotalReceita)}`, 14, 58);
-    doc.setTextColor(220, 38, 38); doc.text(`Despesas: ${fmt(reportTotalDespesa)}`, 80, 58);
+    doc.text("Resumo Financeiro", 14, y); y += 10;
+
+    // Colored summary boxes
+    const boxW = (pw - 42) / 3;
+    // Revenue box
+    doc.setFillColor(236, 253, 245); doc.roundedRect(14, y, boxW, 22, 3, 3, "F");
+    doc.setTextColor(5, 150, 105); doc.setFontSize(9); doc.text("Receitas", 18, y + 8);
+    doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(fmt(reportTotalReceita), 18, y + 17);
+    // Expense box
+    doc.setFillColor(254, 242, 242); doc.roundedRect(14 + boxW + 7, y, boxW, 22, 3, 3, "F");
+    doc.setTextColor(220, 38, 38); doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text("Despesas", 18 + boxW + 7, y + 8);
+    doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(fmt(reportTotalDespesa), 18 + boxW + 7, y + 17);
+    // Balance box
+    const balColor = reportSaldo >= 0 ? [236, 253, 245] : [254, 242, 242];
+    doc.setFillColor(balColor[0], balColor[1], balColor[2]); doc.roundedRect(14 + (boxW + 7) * 2, y, boxW, 22, 3, 3, "F");
     doc.setTextColor(reportSaldo >= 0 ? 5 : 220, reportSaldo >= 0 ? 150 : 38, reportSaldo >= 0 ? 105 : 38);
-    doc.text(`Saldo: ${fmt(reportSaldo)}`, 150, 58);
+    doc.setFontSize(9); doc.setFont("helvetica", "normal"); doc.text("Saldo", 18 + (boxW + 7) * 2, y + 8);
+    doc.setFontSize(13); doc.setFont("helvetica", "bold"); doc.text(fmt(reportSaldo), 18 + (boxW + 7) * 2, y + 17);
+    y += 30;
+
+    // ─── Top 5 Expense Categories ───
+    if (categoryData.length > 0) {
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12); doc.setFont("helvetica", "bold");
+      doc.text("Top Categorias de Despesa", 14, y); y += 6;
+      const top5 = categoryData.slice(0, 5);
+      const maxVal = top5[0]?.value || 1;
+      const barMaxW = pw - 80;
+      top5.forEach((c, i) => {
+        const pct = c.value / maxVal;
+        doc.setFillColor(240, 245, 255); doc.rect(14, y, barMaxW + 40, 8, "F");
+        doc.setFillColor(30, 58, 138); doc.rect(14, y, pct * barMaxW, 8, "F");
+        doc.setTextColor(255, 255, 255); doc.setFontSize(7); doc.setFont("helvetica", "bold");
+        if (pct > 0.15) doc.text(c.name, 16, y + 5.5);
+        doc.setTextColor(0, 0, 0); doc.setFontSize(8); doc.setFont("helvetica", "normal");
+        doc.text(fmt(c.value), pw - 14, y + 5.5, { align: "right" });
+        y += 10;
+      });
+      y += 4;
+    }
+
+    // ─── Balance Evolution (simple text table) ───
+    if (monthlyData.length > 1) {
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12); doc.setFont("helvetica", "bold");
+      doc.text("Evolução Mensal do Saldo", 14, y); y += 2;
+      autoTable(doc, {
+        startY: y,
+        head: [["Mês", "Receita", "Despesa", "Saldo"]],
+        body: monthlyData.map((d) => [d.label, fmt(d.receita), fmt(d.despesa), fmt(d.saldo)]),
+        styles: { fontSize: 8.5 },
+        headStyles: { fillColor: [8, 145, 178], textColor: [255, 255, 255] },
+        alternateRowStyles: { fillColor: [240, 249, 255] },
+      });
+      y = (doc as any).lastAutoTable?.finalY + 8 || y + 30;
+    }
 
     // ─── Data table ───
+    if (y > 220) { doc.addPage(); y = 20; }
     doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12); doc.setFont("helvetica", "bold");
+    doc.text("Lançamentos Detalhados", 14, y); y += 2;
     const rows = reportItems.map((f) => [
       f.date, f.title, f.category, f.type === "receita" ? "Receita" : "Despesa",
       f.is_credit_card ? `Cartão ${f.installment_number}/${f.installments}` : "-",
       fmt(Number(f.amount)),
     ]);
     autoTable(doc, {
-      startY: 65,
+      startY: y,
       head: [["Data", "Descrição", "Categoria", "Tipo", "Cartão", "Valor"]],
       body: rows,
-      styles: { fontSize: 8.5 },
+      styles: { fontSize: 8 },
       headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255] },
       alternateRowStyles: { fillColor: [240, 245, 255] },
     });
-
-    // Category breakdown
-    const finalY = (doc as any).lastAutoTable?.finalY || 65;
-    if (categoryData.length > 0 && finalY + 30 < 270) {
-      doc.setFontSize(11); doc.setFont("helvetica", "bold");
-      doc.text("Despesas por Categoria", 14, finalY + 12);
-      autoTable(doc, {
-        startY: finalY + 16,
-        head: [["Categoria", "Total"]],
-        body: categoryData.map((c) => [c.name, fmt(c.value)]),
-        styles: { fontSize: 8.5 },
-        headStyles: { fillColor: [220, 38, 38], textColor: [255, 255, 255] },
-      });
-    }
 
     // ─── Footer ───
     const pages = doc.getNumberOfPages();
