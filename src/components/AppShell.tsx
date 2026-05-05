@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
-import logo from "@/assets/exacta-logo.png";
+import logo from "@/assets/exacta_logo.png";
 import { cn } from "@/lib/utils";
 
 const PERSONAL_NAV = [
