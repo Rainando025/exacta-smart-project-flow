@@ -96,15 +96,15 @@ function SettingsContent() {
       if (error) { toast.error(error.message); setCreating(false); return; }
 
       // Set role if not default
-      if (data.user && newRole !== "user") {
-        await supabase.from("user_roles").insert({
+      if (data.user && newRole !== "colaborador") {
+        await supabase.from("user_roles").insert([{
           user_id: data.user.id,
-          role: newRole,
-        });
+          role: newRole as "admin" | "gestor" | "colaborador",
+        }]);
       }
 
       toast.success(`Usuário ${newName} criado! Um email de confirmação foi enviado.`);
-      setNewEmail(""); setNewPassword(""); setNewName(""); setNewRole("user"); setNewJobTitle("");
+      setNewEmail(""); setNewPassword(""); setNewName(""); setNewRole("colaborador"); setNewJobTitle("");
       setOpenCreate(false);
       setTimeout(load, 2000);
     } catch {
@@ -118,8 +118,8 @@ function SettingsContent() {
     if (existing) {
       await supabase.from("user_roles").delete().eq("id", existing.id);
     }
-    if (role !== "user") {
-      await supabase.from("user_roles").insert({ user_id: userId, role });
+    if (role !== "colaborador") {
+      await supabase.from("user_roles").insert([{ user_id: userId, role: role as "admin" | "gestor" | "colaborador" }]);
     }
     toast.success("Função atualizada!");
     load();
