@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, CheckSquare, FolderKanban, Trello, CalendarRange,
   Megaphone, Users, LogOut, Bell, MessageSquareHeart, Wallet,
-  StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing,
+  StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
