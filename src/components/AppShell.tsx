@@ -30,6 +30,7 @@ const TEAM_NAV = [
   { to: "/team", label: "Equipe", icon: Users },
   { to: "/feedback", label: "Feedback 360°", icon: MessageSquareHeart },
   { to: "/notifications", label: "Avisos", icon: Bell },
+  { to: "/settings", label: "Configurações", icon: Settings },
 ] as const;
 
 type AppMode = "personal" | "team";
