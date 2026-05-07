@@ -96,30 +96,32 @@ function ProjectsPage() {
           <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Central de projetos</h1>
           <p className="text-muted-foreground mt-2">Acompanhe iniciativas, prazos e progresso.</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2 bg-gradient-primary text-primary-foreground shadow-elegant"><Plus className="h-4 w-4" /> Novo projeto</Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>Novo projeto</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <div><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
-              <div><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
-              <div><Label>Prazo</Label><Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></div>
-              <div>
-                <Label>Cor</Label>
-                <div className="flex gap-2 mt-2">
-                  {COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
-                      className={`h-8 w-8 rounded-lg border-2 ${form.color === c ? "border-foreground scale-110" : "border-transparent"} transition`}
-                      style={{ backgroundColor: c }} />
-                  ))}
+        {canCreateProject && (
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2 bg-gradient-primary text-primary-foreground shadow-elegant"><Plus className="h-4 w-4" /> Novo projeto</Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Novo projeto</DialogTitle></DialogHeader>
+              <div className="space-y-3">
+                <div><Label>Nome</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+                <div><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                <div><Label>Prazo</Label><Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></div>
+                <div>
+                  <Label>Cor</Label>
+                  <div className="flex gap-2 mt-2">
+                    {COLORS.map((c) => (
+                      <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
+                        className={`h-8 w-8 rounded-lg border-2 ${form.color === c ? "border-foreground scale-110" : "border-transparent"} transition`}
+                        style={{ backgroundColor: c }} />
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-            <DialogFooter><Button onClick={create} className="bg-gradient-primary text-primary-foreground">Criar</Button></DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <DialogFooter><Button onClick={create} className="bg-gradient-primary text-primary-foreground">Criar</Button></DialogFooter>
+            </DialogContent>
+          </Dialog>
+        )}
       </header>
 
       {/* Filters */}
