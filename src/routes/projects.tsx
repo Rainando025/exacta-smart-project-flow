@@ -155,12 +155,16 @@ function ProjectsPage() {
                 <button onClick={() => setFilesProject(p)} aria-label="Arquivos" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Paperclip className="h-4 w-4" />
                 </button>
-                <button onClick={() => setEditing({ ...p, due_date: p.due_date || "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button onClick={() => remove(p.id)} aria-label="Excluir" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {(isAdmin || p.owner_id === user?.id) && (
+                  <>
+                    <button onClick={() => setEditing({ ...p, due_date: p.due_date || "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button onClick={() => remove(p.id)} aria-label="Excluir" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
               </div>
             </div>
             <h3 className="font-display font-bold text-lg">{p.name}</h3>
