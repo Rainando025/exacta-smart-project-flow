@@ -341,12 +341,16 @@ function TasksPage() {
                 </div>
               </button>
               <div className="flex items-center gap-1">
-                <button onClick={() => setEditing({ ...t, due_date: t.due_date ? t.due_date.slice(0, 10) : "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button onClick={() => remove(t.id)} aria-label="Excluir" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition">
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                {canEditTask(t.creator_id, t.assignee_id) && (
+                  <button onClick={() => setEditing({ ...t, due_date: t.due_date ? t.due_date.slice(0, 10) : "" })} aria-label="Editar" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                    <Pencil className="h-4 w-4" />
+                  </button>
+                )}
+                {canDeleteTask(t.creator_id) && (
+                  <button onClick={() => remove(t.id)} aria-label="Excluir" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                )}
               </div>
             </div>
           );
