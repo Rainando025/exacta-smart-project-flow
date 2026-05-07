@@ -30,6 +30,7 @@ export const Route = createFileRoute("/projects")({
 
 function ProjectsPage() {
   const { user } = useAuth();
+  const { isAdmin, canCreateProject } = useRole();
   const [projects, setProjects] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
