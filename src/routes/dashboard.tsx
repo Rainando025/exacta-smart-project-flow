@@ -3,10 +3,13 @@ import { AppShell } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { Card } from "@/components/ui/card";
-import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles, FileDown } from "lucide-react";
 import { isOverdue, priorityColor, priorityLabel, formatDate } from "@/lib/exacta";
 import { Link } from "@tanstack/react-router";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -22,17 +25,24 @@ function DashboardPage() {
 
 function Dashboard() {
   const { profile, user } = useAuth();
+  const { isGestor } = useRole();
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [members, setMembers] = useState<any[]>([]);
+  const [roles, setRoles] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
-      const [t, p] = await Promise.all([
-        supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).limit(50),
+      const [t, p, m, r] = await Promise.all([
+        supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).limit(200),
         supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(20),
+        supabase.from("profiles").select("*"),
+        supabase.from("user_roles").select("user_id,role"),
       ]);
       if (t.data) setTasks(t.data);
       if (p.data) setProjects(p.data);
+      if (m.data) setMembers(m.data);
+      if (r.data) setRoles(Object.fromEntries(r.data.map((x: any) => [x.user_id, x.role])));
     })();
   }, []);
 
@@ -50,14 +60,145 @@ function Dashboard() {
   });
   const alerts = [...overdue, ...dueSoon].slice(0, 6);
 
+  const exportPDF = async () => {
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+    const doc = new jsPDF();
+    const pw = doc.internal.pageSize.getWidth();
+
+    // Header
+    doc.setFillColor(30, 58, 138);
+    doc.rect(0, 0, pw, 32, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.text("EXACTA — Produtividade da Equipe", 14, 15);
+    doc.setFontSize(9);
+    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`, 14, 24);
+    doc.setFillColor(6, 182, 212);
+    doc.rect(0, 32, pw, 2, "F");
+
+    let y = 42;
+
+    // Summary cards
+    doc.setTextColor(30, 58, 138);
+    doc.setFontSize(14);
+    doc.text("Resumo Geral", 14, y);
+    y += 8;
+    const summaryData = [
+      ["Total de tarefas", String(total)],
+      ["Concluídas", String(done)],
+      ["Em andamento", String(total - done - overdue.length)],
+      ["Atrasadas", String(overdue.length)],
+      ["Produtividade geral", `${productivity}%`],
+      ["Projetos ativos", String(projects.filter((p) => p.status === "ativo").length)],
+    ];
+    autoTable(doc, {
+      startY: y,
+      head: [["Métrica", "Valor"]],
+      body: summaryData,
+      theme: "grid",
+      headStyles: { fillColor: [30, 58, 138] },
+      margin: { left: 14, right: 14 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 12;
+
+    // Status distribution chart (text-based)
+    doc.setFontSize(14);
+    doc.setTextColor(30, 58, 138);
+    doc.text("Distribuição por Status", 14, y);
+    y += 8;
+    const statusGroups = [
+      { label: "A fazer", count: tasks.filter((t) => t.status === "todo").length, color: [100, 116, 139] },
+      { label: "Em andamento", count: tasks.filter((t) => t.status === "doing").length, color: [6, 182, 212] },
+      { label: "Revisão", count: tasks.filter((t) => t.status === "review").length, color: [124, 58, 237] },
+      { label: "Concluído", count: tasks.filter((t) => t.status === "done").length, color: [5, 150, 105] },
+    ];
+    const barMaxW = pw - 80;
+    const maxCount = Math.max(...statusGroups.map((s) => s.count), 1);
+    statusGroups.forEach((s) => {
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`${s.label} (${s.count})`, 14, y + 4);
+      const barW = (s.count / maxCount) * barMaxW * 0.6;
+      doc.setFillColor(s.color[0], s.color[1], s.color[2]);
+      doc.rect(65, y - 1, barW, 6, "F");
+      y += 10;
+    });
+    y += 6;
+
+    // Priority distribution
+    doc.setFontSize(14);
+    doc.setTextColor(30, 58, 138);
+    doc.text("Distribuição por Prioridade", 14, y);
+    y += 8;
+    const priorityGroups = [
+      { label: "Baixa", count: tasks.filter((t) => t.priority === "baixa").length, color: [100, 116, 139] },
+      { label: "Média", count: tasks.filter((t) => t.priority === "media").length, color: [217, 119, 6] },
+      { label: "Alta", count: tasks.filter((t) => t.priority === "alta").length, color: [234, 88, 12] },
+      { label: "Urgente", count: tasks.filter((t) => t.priority === "urgente").length, color: [220, 38, 38] },
+    ];
+    const maxP = Math.max(...priorityGroups.map((s) => s.count), 1);
+    priorityGroups.forEach((s) => {
+      doc.setFontSize(9);
+      doc.setTextColor(60, 60, 60);
+      doc.text(`${s.label} (${s.count})`, 14, y + 4);
+      const barW = (s.count / maxP) * barMaxW * 0.6;
+      doc.setFillColor(s.color[0], s.color[1], s.color[2]);
+      doc.rect(65, y - 1, barW, 6, "F");
+      y += 10;
+    });
+    y += 6;
+
+    // Team performance table
+    if (y > 230) { doc.addPage(); y = 20; }
+    doc.setFontSize(14);
+    doc.setTextColor(30, 58, 138);
+    doc.text("Desempenho por Membro", 14, y);
+    y += 4;
+    const teamData = members.map((m) => {
+      const mine = tasks.filter((t) => t.assignee_id === m.id);
+      const d = mine.filter((t) => t.status === "done").length;
+      const pct = mine.length ? Math.round((d / mine.length) * 100) : 0;
+      const role = roles[m.id] || "colaborador";
+      return [m.full_name || "Sem nome", role, String(mine.length), String(d), `${pct}%`];
+    });
+    autoTable(doc, {
+      startY: y,
+      head: [["Membro", "Função", "Total", "Concluídas", "Produtividade"]],
+      body: teamData,
+      theme: "grid",
+      headStyles: { fillColor: [30, 58, 138] },
+      margin: { left: 14, right: 14 },
+    });
+
+    // Footer on all pages
+    const totalPages = doc.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(140, 140, 140);
+      doc.text(`EXACTA — Precisão em Gestão | Página ${i}/${totalPages}`, pw / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
+    }
+
+    doc.save(`exacta-produtividade-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("PDF exportado com sucesso!");
+  };
+
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-7xl mx-auto">
-      <header>
-        <p className="text-sm text-accent font-medium uppercase tracking-wider">Visão geral</p>
-        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">
-          Olá, {profile?.full_name?.split(" ")[0] || "colaborador"} 👋
-        </h1>
-        <p className="text-muted-foreground mt-2">Aqui está o pulso da sua operação hoje.</p>
+      <header className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-accent font-medium uppercase tracking-wider">Visão geral</p>
+          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">
+            Olá, {profile?.full_name?.split(" ")[0] || "colaborador"} 👋
+          </h1>
+          <p className="text-muted-foreground mt-2">Aqui está o pulso da sua operação hoje.</p>
+        </div>
+        {isGestor && (
+          <Button onClick={exportPDF} variant="outline" className="gap-2">
+            <FileDown className="h-4 w-4" /> Exportar PDF
+          </Button>
+        )}
       </header>
 
       {/* Stats */}
