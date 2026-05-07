@@ -27,6 +27,7 @@ export const Route = createFileRoute("/tasks")({
 
 function TasksPage() {
   const { user } = useAuth();
+  const { canDeleteTask, canEditTask } = useRole();
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("all");
