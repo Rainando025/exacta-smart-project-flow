@@ -1,15 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useRole } from "@/hooks/useRole";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles, FileDown } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles, FileDown, FileSpreadsheet, Filter } from "lucide-react";
 import { isOverdue, priorityColor, priorityLabel, formatDate } from "@/lib/exacta";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
+import { toCSV, downloadCSV } from "@/lib/csv";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -23,28 +28,63 @@ function DashboardPage() {
   );
 }
 
+const STATUS_OPTIONS = [
+  { value: "todo", label: "A fazer" },
+  { value: "doing", label: "Em andamento" },
+  { value: "review", label: "Revisão" },
+  { value: "done", label: "Concluído" },
+];
+
+function startOfMonthISO() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10);
+}
+function todayISO() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 function Dashboard() {
   const { profile, user } = useAuth();
   const { isGestor } = useRole();
-  const [tasks, setTasks] = useState<any[]>([]);
+  const [allTasks, setAllTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [roles, setRoles] = useState<Record<string, string>>({});
 
+  // Filters
+  const [from, setFrom] = useState<string>(startOfMonthISO());
+  const [to, setTo] = useState<string>(todayISO());
+  const [memberFilter, setMemberFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+
   useEffect(() => {
     (async () => {
       const [t, p, m, r] = await Promise.all([
-        supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).limit(200),
-        supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(20),
+        supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).limit(500),
+        supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(50),
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("user_id,role"),
       ]);
-      if (t.data) setTasks(t.data);
+      if (t.data) setAllTasks(t.data);
       if (p.data) setProjects(p.data);
       if (m.data) setMembers(m.data);
       if (r.data) setRoles(Object.fromEntries(r.data.map((x: any) => [x.user_id, x.role])));
     })();
   }, []);
+
+  const tasks = useMemo(() => {
+    return allTasks.filter((t) => {
+      // Date range — uses created_at as the primary axis with due_date fallback
+      const d = t.created_at ? new Date(t.created_at) : null;
+      if (d) {
+        if (from && d < new Date(from + "T00:00:00")) return false;
+        if (to && d > new Date(to + "T23:59:59")) return false;
+      }
+      if (memberFilter.length && !memberFilter.includes(t.assignee_id || "")) return false;
+      if (statusFilter.length && !statusFilter.includes(t.status)) return false;
+      return true;
+    });
+  }, [allTasks, from, to, memberFilter, statusFilter]);
 
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
@@ -60,13 +100,56 @@ function Dashboard() {
   });
   const alerts = [...overdue, ...dueSoon].slice(0, 6);
 
+  const buildTeamRows = () => {
+    const visibleMembers = memberFilter.length ? members.filter((m) => memberFilter.includes(m.id)) : members;
+    return visibleMembers.map((m) => {
+      const mine = tasks.filter((t) => t.assignee_id === m.id);
+      const d = mine.filter((t) => t.status === "done").length;
+      const inProg = mine.filter((t) => t.status === "doing").length;
+      const todo = mine.filter((t) => t.status === "todo").length;
+      const review = mine.filter((t) => t.status === "review").length;
+      const od = mine.filter((t) => isOverdue(t.due_date, t.status)).length;
+      const completionDays = mine
+        .filter((t) => t.status === "done" && t.completed_at && t.created_at)
+        .map((t) => (new Date(t.completed_at).getTime() - new Date(t.created_at).getTime()) / 86400000);
+      const avgDays = completionDays.length
+        ? (completionDays.reduce((a, b) => a + b, 0) / completionDays.length).toFixed(1)
+        : "0";
+      return {
+        name: m.full_name || "Sem nome",
+        role: roles[m.id] || "colaborador",
+        total: mine.length,
+        completed: d,
+        in_progress: inProg,
+        todo,
+        review,
+        overdue: od,
+        completion_rate: mine.length ? `${Math.round((d / mine.length) * 100)}%` : "0%",
+        avg_completion_days: avgDays,
+      };
+    });
+  };
+
+  const filterSummary = () => {
+    const parts = [`Período: ${from} → ${to}`];
+    if (statusFilter.length) parts.push(`Status: ${statusFilter.map((s) => STATUS_OPTIONS.find((o) => o.value === s)?.label || s).join(", ")}`);
+    if (memberFilter.length) parts.push(`Equipe: ${members.filter((m) => memberFilter.includes(m.id)).map((m) => m.full_name).join(", ")}`);
+    return parts.join(" • ");
+  };
+
+  const exportCSV = () => {
+    const rows = buildTeamRows();
+    if (!rows.length) { toast.error("Sem dados para exportar."); return; }
+    downloadCSV(`exacta-produtividade-${todayISO()}.csv`, toCSV(rows));
+    toast.success("CSV exportado!");
+  };
+
   const exportPDF = async () => {
     const { default: jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
 
-    // Header
     doc.setFillColor(30, 58, 138);
     doc.rect(0, 0, pw, 32, "F");
     doc.setTextColor(255, 255, 255);
@@ -78,46 +161,48 @@ function Dashboard() {
     doc.rect(0, 32, pw, 2, "F");
 
     let y = 42;
+    // Filters block
+    doc.setTextColor(80, 80, 80);
+    doc.setFontSize(9);
+    const summary = filterSummary();
+    const split = doc.splitTextToSize(summary, pw - 28);
+    doc.text(split, 14, y);
+    y += split.length * 5 + 6;
 
-    // Summary cards
     doc.setTextColor(30, 58, 138);
     doc.setFontSize(14);
     doc.text("Resumo Geral", 14, y);
     y += 8;
-    const summaryData = [
-      ["Total de tarefas", String(total)],
-      ["Concluídas", String(done)],
-      ["Em andamento", String(total - done - overdue.length)],
-      ["Atrasadas", String(overdue.length)],
-      ["Produtividade geral", `${productivity}%`],
-      ["Projetos ativos", String(projects.filter((p) => p.status === "ativo").length)],
-    ];
     autoTable(doc, {
       startY: y,
       head: [["Métrica", "Valor"]],
-      body: summaryData,
+      body: [
+        ["Total de tarefas", String(total)],
+        ["Concluídas", String(done)],
+        ["Em andamento", String(total - done - overdue.length)],
+        ["Atrasadas", String(overdue.length)],
+        ["Produtividade", `${productivity}%`],
+        ["Projetos ativos", String(projects.filter((p) => p.status === "ativo").length)],
+      ],
       theme: "grid",
       headStyles: { fillColor: [30, 58, 138] },
       margin: { left: 14, right: 14 },
     });
-    y = (doc as any).lastAutoTable.finalY + 12;
+    y = (doc as any).lastAutoTable.finalY + 10;
 
-    // Status distribution chart (text-based)
     doc.setFontSize(14);
     doc.setTextColor(30, 58, 138);
     doc.text("Distribuição por Status", 14, y);
     y += 8;
-    const statusGroups = [
-      { label: "A fazer", count: tasks.filter((t) => t.status === "todo").length, color: [100, 116, 139] },
-      { label: "Em andamento", count: tasks.filter((t) => t.status === "doing").length, color: [6, 182, 212] },
-      { label: "Revisão", count: tasks.filter((t) => t.status === "review").length, color: [124, 58, 237] },
-      { label: "Concluído", count: tasks.filter((t) => t.status === "done").length, color: [5, 150, 105] },
-    ];
+    const statusGroups = STATUS_OPTIONS.map((s, i) => ({
+      label: s.label,
+      count: tasks.filter((t) => t.status === s.value).length,
+      color: [[100,116,139],[6,182,212],[124,58,237],[5,150,105]][i],
+    }));
     const barMaxW = pw - 80;
     const maxCount = Math.max(...statusGroups.map((s) => s.count), 1);
     statusGroups.forEach((s) => {
-      doc.setFontSize(9);
-      doc.setTextColor(60, 60, 60);
+      doc.setFontSize(9); doc.setTextColor(60, 60, 60);
       doc.text(`${s.label} (${s.count})`, 14, y + 4);
       const barW = (s.count / maxCount) * barMaxW * 0.6;
       doc.setFillColor(s.color[0], s.color[1], s.color[2]);
@@ -126,63 +211,32 @@ function Dashboard() {
     });
     y += 6;
 
-    // Priority distribution
-    doc.setFontSize(14);
-    doc.setTextColor(30, 58, 138);
-    doc.text("Distribuição por Prioridade", 14, y);
-    y += 8;
-    const priorityGroups = [
-      { label: "Baixa", count: tasks.filter((t) => t.priority === "baixa").length, color: [100, 116, 139] },
-      { label: "Média", count: tasks.filter((t) => t.priority === "media").length, color: [217, 119, 6] },
-      { label: "Alta", count: tasks.filter((t) => t.priority === "alta").length, color: [234, 88, 12] },
-      { label: "Urgente", count: tasks.filter((t) => t.priority === "urgente").length, color: [220, 38, 38] },
-    ];
-    const maxP = Math.max(...priorityGroups.map((s) => s.count), 1);
-    priorityGroups.forEach((s) => {
-      doc.setFontSize(9);
-      doc.setTextColor(60, 60, 60);
-      doc.text(`${s.label} (${s.count})`, 14, y + 4);
-      const barW = (s.count / maxP) * barMaxW * 0.6;
-      doc.setFillColor(s.color[0], s.color[1], s.color[2]);
-      doc.rect(65, y - 1, barW, 6, "F");
-      y += 10;
-    });
-    y += 6;
-
-    // Team performance table
     if (y > 230) { doc.addPage(); y = 20; }
-    doc.setFontSize(14);
-    doc.setTextColor(30, 58, 138);
+    doc.setFontSize(14); doc.setTextColor(30, 58, 138);
     doc.text("Desempenho por Membro", 14, y);
     y += 4;
-    const teamData = members.map((m) => {
-      const mine = tasks.filter((t) => t.assignee_id === m.id);
-      const d = mine.filter((t) => t.status === "done").length;
-      const pct = mine.length ? Math.round((d / mine.length) * 100) : 0;
-      const role = roles[m.id] || "colaborador";
-      return [m.full_name || "Sem nome", role, String(mine.length), String(d), `${pct}%`];
-    });
+    const teamRows = buildTeamRows();
     autoTable(doc, {
       startY: y,
-      head: [["Membro", "Função", "Total", "Concluídas", "Produtividade"]],
-      body: teamData,
+      head: [["Membro", "Função", "Total", "Concluídas", "Atrasadas", "Produtividade"]],
+      body: teamRows.map((r) => [r.name, r.role, String(r.total), String(r.completed), String(r.overdue), r.completion_rate]),
       theme: "grid",
       headStyles: { fillColor: [30, 58, 138] },
       margin: { left: 14, right: 14 },
     });
 
-    // Footer on all pages
     const totalPages = doc.getNumberOfPages();
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      doc.setFontSize(8);
-      doc.setTextColor(140, 140, 140);
+      doc.setFontSize(8); doc.setTextColor(140, 140, 140);
       doc.text(`EXACTA — Precisão em Gestão | Página ${i}/${totalPages}`, pw / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
     }
-
-    doc.save(`exacta-produtividade-${new Date().toISOString().slice(0, 10)}.pdf`);
-    toast.success("PDF exportado com sucesso!");
+    doc.save(`exacta-produtividade-${todayISO()}.pdf`);
+    toast.success("PDF exportado!");
   };
+
+  const toggleArr = (arr: string[], v: string, set: (x: string[]) => void) =>
+    set(arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v]);
 
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-7xl mx-auto">
@@ -195,13 +249,77 @@ function Dashboard() {
           <p className="text-muted-foreground mt-2">Aqui está o pulso da sua operação hoje.</p>
         </div>
         {isGestor && (
-          <Button onClick={exportPDF} variant="outline" className="gap-2">
-            <FileDown className="h-4 w-4" /> Exportar PDF
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={exportCSV} variant="outline" className="gap-2">
+              <FileSpreadsheet className="h-4 w-4" /> Exportar CSV
+            </Button>
+            <Button onClick={exportPDF} variant="outline" className="gap-2">
+              <FileDown className="h-4 w-4" /> Exportar PDF
+            </Button>
+          </div>
         )}
       </header>
 
-      {/* Stats */}
+      {/* Filters */}
+      {isGestor && (
+        <Card className="p-4 shadow-card">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <Label className="text-xs">De</Label>
+              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="h-9 w-[150px]" />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Até</Label>
+              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="h-9 w-[150px]" />
+            </div>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-9 gap-2">
+                  <Filter className="h-3 w-3" />
+                  Status {statusFilter.length > 0 && `(${statusFilter.length})`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56">
+                <div className="space-y-2">
+                  {STATUS_OPTIONS.map((s) => (
+                    <label key={s.value} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={statusFilter.includes(s.value)} onCheckedChange={() => toggleArr(statusFilter, s.value, setStatusFilter)} />
+                      <span className="text-sm">{s.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-9 gap-2">
+                  <Filter className="h-3 w-3" />
+                  Equipe {memberFilter.length > 0 && `(${memberFilter.length})`}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-64 max-h-72 overflow-y-auto">
+                <div className="space-y-2">
+                  {members.map((m) => (
+                    <label key={m.id} className="flex items-center gap-2 cursor-pointer">
+                      <Checkbox checked={memberFilter.includes(m.id)} onCheckedChange={() => toggleArr(memberFilter, m.id, setMemberFilter)} />
+                      <span className="text-sm truncate">{m.full_name || "Sem nome"}</span>
+                    </label>
+                  ))}
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            {(memberFilter.length > 0 || statusFilter.length > 0) && (
+              <Button variant="ghost" size="sm" onClick={() => { setMemberFilter([]); setStatusFilter([]); }}>
+                Limpar
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard icon={CheckSquare} label="Tarefas totais" value={total} accent="primary" />
         <StatCard icon={TrendingUp} label="Concluídas" value={done} accent="success" />
@@ -209,7 +327,6 @@ function Dashboard() {
         <StatCard icon={AlertTriangle} label="Atrasadas" value={overdue.length} accent="destructive" />
       </div>
 
-      {/* Productivity */}
       <Card className="p-6 bg-gradient-hero text-white border-0 shadow-elegant overflow-hidden relative">
         <div className="absolute top-0 right-0 h-40 w-40 rounded-full bg-accent/20 blur-3xl" />
         <div className="relative flex items-start gap-4">
@@ -227,7 +344,6 @@ function Dashboard() {
         </div>
       </Card>
 
-      {/* Alerts */}
       <Card className="p-6 shadow-card border-l-4 border-l-destructive">
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
@@ -258,7 +374,6 @@ function Dashboard() {
       </Card>
 
       <div className="grid lg:grid-cols-2 gap-6">
-        {/* My tasks */}
         <Card className="p-6 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-lg font-bold">Minhas tarefas</h3>
@@ -280,7 +395,6 @@ function Dashboard() {
           </div>
         </Card>
 
-        {/* Projects */}
         <Card className="p-6 shadow-card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-lg font-bold">Projetos ativos</h3>
