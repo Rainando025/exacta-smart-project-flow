@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,43 +12,71 @@ import logo from "@/assets/exacta_logo.png";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
+  validateSearch: (s: Record<string, unknown>) => ({ invite: typeof s.invite === "string" ? s.invite : undefined }),
 });
 
 function AuthPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { invite } = useSearch({ from: "/auth" });
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
+  const [inviteRole, setInviteRole] = useState<string | null>(null);
+  const [inviteId, setInviteId] = useState<string | null>(null);
+
+  // Resolve invite token → prefill email + remember role
+  useEffect(() => {
+    if (!invite) return;
+    (async () => {
+      const { data } = await supabase
+        .from("invitations")
+        .select("id,email,role,status,expires_at")
+        .eq("token", invite)
+        .maybeSingle();
+      if (data && data.status === "pending" && new Date(data.expires_at) > new Date()) {
+        setEmail(data.email);
+        setInviteRole(data.role);
+        setInviteId(data.id);
+        toast.info(`Convite válido para ${data.email} (${data.role})`);
+      } else if (data) {
+        toast.error("Convite expirado ou já utilizado.");
+      }
+    })();
+  }, [invite]);
 
   useEffect(() => {
     if (!loading && user) navigate({ to: "/dashboard" });
   }, [user, loading, navigate]);
 
+  const acceptInviteIfNeeded = async (newUserId?: string) => {
+    if (!inviteId) return;
+    await supabase.from("invitations").update({ status: "accepted", accepted_at: new Date().toISOString() }).eq("id", inviteId);
+    if (newUserId && inviteRole && inviteRole !== "colaborador") {
+      await supabase.from("user_roles").insert([{ user_id: newUserId, role: inviteRole as any }]);
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
     setSubmitting(false);
     if (error) toast.error(error.message);
-    else toast.success("Bem-vindo de volta!");
+    else { await acceptInviteIfNeeded(data.user?.id); toast.success("Bem-vindo de volta!"); }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { full_name: fullName },
-      },
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: { full_name: fullName } },
     });
     setSubmitting(false);
     if (error) toast.error(error.message);
-    else toast.success("Conta criada! Verifique seu email.");
+    else { await acceptInviteIfNeeded(data.user?.id); toast.success("Conta criada! Verifique seu email."); }
   };
 
   return (
