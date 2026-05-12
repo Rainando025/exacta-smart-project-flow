@@ -7,3 +7,7 @@ Verificar e ajustar a posição, escala e cor da logo nos cabeçalhos dos relat�
 Adicionar o mesmo ícone da EXACTA como favicon em todas as páginas do sistema e no modo offline.
 
 adicione nas despesas no modo pessoal, despesas recorrentes que automaticamente serão incluidas ja em todos meses
+
+às medidas de segurança adotadas para armazenamento, proteção e tratamento das informações e dados inseridos na plataforma;
+à política de backup, confidencialidade e controle de acesso;
+às medidas de mitigação e contingência aplicáveis em caso de falhas, indisponibilidade ou vazamento de informações.
