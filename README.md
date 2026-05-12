@@ -1,0 +1,9 @@
+PROXIMAS ALTERAÇÕES
+
+Incluir a logo sem fundo nas comunicações por e-mail, como convites e recuperação de senha, mantendo o layout responsivo. foque no responsivo para todos os aparelhos
+
+Verificar e ajustar a posição, escala e cor da logo nos cabeçalhos dos relatórios em PDF para não distorcer e manter legibilidade. 
+
+Adicionar o mesmo ícone da EXACTA como favicon em todas as páginas do sistema e no modo offline.
+
+adicione nas despesas no modo pessoal, despesas recorrentes que automaticamente serão incluidas ja em todos meses
