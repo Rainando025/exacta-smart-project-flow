@@ -15,6 +15,9 @@ import { isOverdue, priorityColor, priorityLabel, formatDate } from "@/lib/exact
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { toCSV, downloadCSV } from "@/lib/csv";
+import { AIChat } from "@/components/AIChat";
+import { CalendarWidget } from "@/components/CalendarWidget";
+import { BottleneckAnalysis } from "@/components/BottleneckAnalysis";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -56,6 +59,17 @@ function Dashboard() {
   const [to, setTo] = useState<string>(todayISO());
   const [memberFilter, setMemberFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+
+  useEffect(() => {
+    const hasSeenOnboarding = localStorage.getItem("exacta-onboarding-seen");
+    if (!hasSeenOnboarding) {
+      toast.info("Bem-vindo à EXACTA!", {
+        description: "Explore o seu novo dashboard inteligente. Use Ctrl+K para comandos rápidos.",
+        duration: 10000,
+      });
+      localStorage.setItem("exacta-onboarding-seen", "true");
+    }
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -373,8 +387,8 @@ function Dashboard() {
         </div>
       </Card>
 
-      <div className="grid lg:grid-cols-2 gap-6">
-        <Card className="p-6 shadow-card">
+      <div className="grid lg:grid-cols-3 gap-6">
+        <Card className="p-6 shadow-card lg:col-span-1">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-lg font-bold">Minhas tarefas</h3>
             <Link to="/tasks" className="text-xs text-accent hover:underline">Ver todas →</Link>
@@ -395,7 +409,7 @@ function Dashboard() {
           </div>
         </Card>
 
-        <Card className="p-6 shadow-card">
+        <Card className="p-6 shadow-card lg:col-span-1">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-lg font-bold">Projetos ativos</h3>
             <Link to="/projects" className="text-xs text-accent hover:underline">Ver todos →</Link>
@@ -420,7 +434,17 @@ function Dashboard() {
             ))}
           </div>
         </Card>
+
+        <div className="lg:col-span-1">
+          <CalendarWidget />
+        </div>
       </div>
+
+      <div className="mt-8">
+        <BottleneckAnalysis data={{ tasks, overdue, projects, productivity }} />
+      </div>
+
+      <AIChat contextData={{ tasks: tasks.length, overdue: overdue.length, active_projects: projects.length, productivity }} />
     </div>
   );
 }

@@ -4,11 +4,22 @@ import {
   LayoutDashboard, CheckSquare, FolderKanban, Trello, CalendarRange,
   Megaphone, Users, LogOut, Bell, MessageSquareHeart, Wallet,
   StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
+  Moon, Sun, Command, Search
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
-import logo from "@/assets/exacta_logo.png";
+const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/gen_3CpSPBsmWgKcVvejbF3BGqkl98C%20(2).png";
 import { cn } from "@/lib/utils";
+import {
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
 
 const PERSONAL_NAV = [
   { to: "/dashboard", label: "Painel", icon: LayoutDashboard },
@@ -25,6 +36,7 @@ const TEAM_NAV = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { to: "/tasks", label: "Tarefas", icon: CheckSquare },
   { to: "/projects", label: "Projetos", icon: FolderKanban },
+  { to: "/okrs", label: "Metas e OKRs", icon: Target },
   { to: "/kanban", label: "Kanban", icon: Trello },
   { to: "/gantt", label: "Cronograma", icon: CalendarRange },
   { to: "/announcements", label: "Mural", icon: Megaphone },
@@ -38,14 +50,27 @@ type AppMode = "personal" | "team";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, profile, loading, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<AppMode>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("exacta-mode") as AppMode) || "team";
     }
     return "team";
   });
+
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -78,7 +103,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Sidebar */}
       <aside className="hidden w-64 shrink-0 flex-col bg-sidebar text-sidebar-foreground md:flex">
         <div className="flex items-center gap-3 px-6 py-5 border-b border-sidebar-border">
-          <img src={logo} alt="EXACTA" className="h-14 w-14 rounded-lg object-contain" />
+          <img src={logo} alt="EXACTA" className="h-16 w-16 rounded-lg object-contain" />
           <div>
             <h1 className="font-display text-lg font-bold tracking-tight">EXACTA</h1>
             <p className="text-[10px] uppercase tracking-widest text-accent">Precisão em gestão</p>
@@ -122,6 +147,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="border-t border-sidebar-border p-3 space-y-1">
+          <button
+            onClick={toggleTheme}
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+          >
+            {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            Modo {theme === "light" ? "Escuro" : "Claro"}
+          </button>
+          
           <div className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent font-bold text-accent-foreground text-xs">
               {(profile?.full_name || user.email || "U").slice(0, 2).toUpperCase()}
@@ -141,11 +174,44 @@ export function AppShell({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
+      {/* Command Palette */}
+      <CommandDialog open={open} onOpenChange={setOpen}>
+        <CommandInput placeholder="Digite um comando ou busque..." />
+        <CommandList>
+          <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
+          <CommandGroup heading="Sugestões">
+            {NAV.map((item) => (
+              <CommandItem
+                key={item.to}
+                onSelect={() => {
+                  navigate({ to: item.to });
+                  setOpen(false);
+                }}
+              >
+                <item.icon className="mr-2 h-4 w-4" />
+                <span>{item.label}</span>
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="Ações">
+            <CommandItem onSelect={() => { toggleTheme(); setOpen(false); }}>
+              {theme === "light" ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+              <span>Alternar Tema</span>
+            </CommandItem>
+            <CommandItem onSelect={() => { setMode(mode === "personal" ? "team" : "personal"); setOpen(false); }}>
+              <ModeIcon className="mr-2 h-4 w-4" />
+              <span>Alternar para Modo {mode === "personal" ? "Equipe" : "Pessoal"}</span>
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+
       {/* Mobile top bar */}
       <div className="flex flex-1 flex-col">
         <header className="md:hidden flex items-center justify-between bg-sidebar text-sidebar-foreground px-4 py-3">
           <div className="flex items-center gap-2">
-            <img src={logo} alt="EXACTA" className="h-10 w-10 rounded object-contain" />
+            <img src={logo} alt="EXACTA" className="h-12 w-12 rounded object-contain" />
             <span className="font-display font-bold">EXACTA</span>
           </div>
           <div className="flex items-center gap-1">

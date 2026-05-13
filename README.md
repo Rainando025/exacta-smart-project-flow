@@ -12,6 +12,6 @@ adicione nas despesas no modo pessoal, despesas recorrentes que automaticamente 
 à política de backup, confidencialidade e controle de acesso;
 às medidas de mitigação e contingência aplicáveis em caso de falhas, indisponibilidade ou vazamento de informações.
 
+dentro da aba de objetivo adicione uma seção de GARGALOS, para descrever os gargalos/problemas que enfretamos, e como selecionar. podemos usar a IA para dar informações e ajudar tambem
 
-VITE_GEMINI_API_KEY="AQ.Ab8RN6L6LQwQdGbTwsfbD_L6Njy8u5zfLaXuH9yAYTrgDjM_mw"
-VITE_GROQ_API_KEY="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"
+

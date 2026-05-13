@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText } from "lucide-react";
+import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -152,10 +152,49 @@ function SettingsContent() {
 
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
           <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
           <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
           {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="profile" className="space-y-6">
+          <Card className="p-6 shadow-card max-w-2xl">
+            <h3 className="font-display font-bold text-xl mb-4">Informações Pessoais</h3>
+            <div className="space-y-4">
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Nome Completo</Label>
+                  <Input 
+                    value={profile?.full_name || ""} 
+                    onChange={(e) => {/* In a real app, update state and DB */}} 
+                    placeholder="Seu nome"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cargo / Título</Label>
+                  <Input 
+                    value={profile?.job_title || ""} 
+                    placeholder="Ex: Desenvolvedor Sênior"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>E-mail (Login)</Label>
+                <Input value={user?.email || ""} disabled className="bg-muted cursor-not-allowed" />
+              </div>
+              <div className="pt-4 flex justify-end">
+                <Button className="bg-gradient-primary text-primary-foreground">Salvar Alterações</Button>
+              </div>
+            </div>
+          </Card>
+
+          <Card className="p-6 shadow-card max-w-2xl border-destructive/20">
+            <h3 className="font-display font-bold text-xl mb-2 text-destructive">Zona de Perigo</h3>
+            <p className="text-sm text-muted-foreground mb-4">A exclusão da conta é permanente e não pode ser desfeita.</p>
+            <Button variant="destructive" className="shadow-elegant">Excluir minha conta</Button>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="users" className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">

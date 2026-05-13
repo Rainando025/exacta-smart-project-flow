@@ -17,6 +17,7 @@ import { PRIORITIES, STATUSES, priorityColor, priorityLabel, formatDate, isOverd
 import { toast } from "sonner";
 import { SubtasksPanel } from "@/components/SubtasksPanel";
 import { AttachmentsPanel } from "@/components/AttachmentsPanel";
+import { CommentsPanel } from "@/components/CommentsPanel";
 import { notify } from "@/lib/notify";
 
 interface SubtaskCount { task_id: string; total: number; done: number; }
@@ -430,6 +431,9 @@ function TasksPage() {
               </div>
               <div className="border-t pt-4">
                 <AttachmentsPanel taskId={detail.id} />
+              </div>
+              <div className="border-t pt-4">
+                <CommentsPanel taskId={detail.id} />
               </div>
             </div>
           )}

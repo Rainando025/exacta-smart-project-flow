@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip } from "lucide-react";
+import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip, FileDown } from "lucide-react";
 import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
 import { AttachmentsPanel } from "@/components/AttachmentsPanel";
@@ -80,6 +80,83 @@ function ProjectsPage() {
     if (error) return toast.error(error.message);
     toast.success("Projeto excluído");
     load();
+  };
+
+  const exportProjectPDF = async (project: any) => {
+    const { default: jsPDF } = await import("jspdf");
+    const { default: autoTable } = await import("jspdf-autotable");
+    const doc = new jsPDF();
+    const pw = doc.internal.pageSize.getWidth();
+
+    // Header EXACTA
+    doc.setFillColor(30, 58, 138);
+    doc.rect(0, 0, pw, 35, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("EXACTA — Relatório de Projeto", 14, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Projeto: ${project.name}`, 14, 24);
+    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 14, 29);
+
+    let y = 45;
+    doc.setTextColor(30, 58, 138);
+    doc.setFontSize(14);
+    doc.text("Informações Gerais", 14, y);
+    y += 8;
+
+    autoTable(doc, {
+      startY: y,
+      head: [["Campo", "Valor"]],
+      body: [
+        ["Nome", project.name],
+        ["Status", project.status.toUpperCase()],
+        ["Progresso", `${project.progress}%`],
+        ["Prazo", project.due_date ? new Date(project.due_date).toLocaleDateString("pt-BR") : "Sem prazo"],
+        ["Proprietário", project.owner_id === user?.id ? "Você" : "Outro"],
+      ],
+      theme: "grid",
+      headStyles: { fillColor: [30, 58, 138] },
+    });
+
+    y = (doc as any).lastAutoTable.finalY + 15;
+
+    if (project.description) {
+      doc.setFontSize(14);
+      doc.text("Descrição", 14, y);
+      y += 8;
+      doc.setFontSize(10);
+      doc.setTextColor(60, 60, 60);
+      const splitDesc = doc.splitTextToSize(project.description, pw - 28);
+      doc.text(splitDesc, 14, y);
+      y += splitDesc.length * 5 + 10;
+    }
+
+    // Task Summary
+    const { data: projectTasks } = await supabase.from("tasks").select("*").eq("project_id", project.id);
+    if (projectTasks && projectTasks.length > 0) {
+      doc.setTextColor(30, 58, 138);
+      doc.setFontSize(14);
+      doc.text("Tarefas Associadas", 14, y);
+      y += 8;
+      
+      autoTable(doc, {
+        startY: y,
+        head: [["Tarefa", "Prioridade", "Status", "Prazo"]],
+        body: projectTasks.map((t: any) => [
+          t.title,
+          t.priority.toUpperCase(),
+          t.status.toUpperCase(),
+          t.due_date ? new Date(t.due_date).toLocaleDateString("pt-BR") : "-"
+        ]),
+        theme: "striped",
+        headStyles: { fillColor: [8, 145, 178] },
+      });
+    }
+
+    doc.save(`exacta-projeto-${project.name.toLowerCase().replace(/\s+/g, "-")}.pdf`);
+    toast.success("PDF gerado!");
   };
 
   const filtered = projects.filter((p) => {
@@ -154,6 +231,9 @@ function ProjectsPage() {
               <div className="flex items-center gap-1">
                 <button onClick={() => setFilesProject(p)} aria-label="Arquivos" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Paperclip className="h-4 w-4" />
+                </button>
+                <button onClick={() => exportProjectPDF(p)} aria-label="Relatório PDF" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                  <FileDown className="h-4 w-4" />
                 </button>
                 {(isAdmin || p.owner_id === user?.id) && (
                   <>

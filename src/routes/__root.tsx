@@ -70,12 +70,14 @@ function RootShell({ children }: { children: React.ReactNode }) {
 
 function RootComponent() {
   return (
-    <AuthProvider>
-      <NotificationsProvider>
-        <Outlet />
-        <ReminderPopup />
-        <Toaster richColors position="top-right" />
-      </NotificationsProvider>
-    </AuthProvider>
+    <ThemeProvider>
+      <AuthProvider>
+        <NotificationsProvider>
+          <Outlet />
+          <ReminderPopup />
+          <Toaster richColors position="top-right" />
+        </NotificationsProvider>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }

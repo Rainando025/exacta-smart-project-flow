@@ -14,6 +14,7 @@ import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as RemindersRouteImport } from './routes/reminders'
 import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as OkrsRouteImport } from './routes/okrs'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as KanbanRouteImport } from './routes/kanban'
@@ -48,6 +49,11 @@ const RemindersRoute = RemindersRouteImport.update({
 const ProjectsRoute = ProjectsRouteImport.update({
   id: '/projects',
   path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OkrsRoute = OkrsRouteImport.update({
+  id: '/okrs',
+  path: '/okrs',
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotificationsRoute = NotificationsRouteImport.update({
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/kanban': typeof KanbanRoute
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
+  '/okrs': typeof OkrsRoute
   '/projects': typeof ProjectsRoute
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/kanban': typeof KanbanRoute
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
+  '/okrs': typeof OkrsRoute
   '/projects': typeof ProjectsRoute
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/kanban': typeof KanbanRoute
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
+  '/okrs': typeof OkrsRoute
   '/projects': typeof ProjectsRoute
   '/reminders': typeof RemindersRoute
   '/settings': typeof SettingsRoute
@@ -166,6 +175,7 @@ export interface FileRouteTypes {
     | '/kanban'
     | '/notes'
     | '/notifications'
+    | '/okrs'
     | '/projects'
     | '/reminders'
     | '/settings'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/kanban'
     | '/notes'
     | '/notifications'
+    | '/okrs'
     | '/projects'
     | '/reminders'
     | '/settings'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/kanban'
     | '/notes'
     | '/notifications'
+    | '/okrs'
     | '/projects'
     | '/reminders'
     | '/settings'
@@ -218,6 +230,7 @@ export interface RootRouteChildren {
   KanbanRoute: typeof KanbanRoute
   NotesRoute: typeof NotesRoute
   NotificationsRoute: typeof NotificationsRoute
+  OkrsRoute: typeof OkrsRoute
   ProjectsRoute: typeof ProjectsRoute
   RemindersRoute: typeof RemindersRoute
   SettingsRoute: typeof SettingsRoute
@@ -260,6 +273,13 @@ declare module '@tanstack/react-router' {
       path: '/projects'
       fullPath: '/projects'
       preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/okrs': {
+      id: '/okrs'
+      path: '/okrs'
+      fullPath: '/okrs'
+      preLoaderRoute: typeof OkrsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications': {
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   KanbanRoute: KanbanRoute,
   NotesRoute: NotesRoute,
   NotificationsRoute: NotificationsRoute,
+  OkrsRoute: OkrsRoute,
   ProjectsRoute: ProjectsRoute,
   RemindersRoute: RemindersRoute,
   SettingsRoute: SettingsRoute,
@@ -355,3 +376,12 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { createStart } from '@tanstack/react-start'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+  }
+}
