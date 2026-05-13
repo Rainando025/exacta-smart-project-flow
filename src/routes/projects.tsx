@@ -45,12 +45,15 @@ function ProjectsPage() {
   };
   useEffect(() => { load(); }, []);
 
+  const [creating, setCreating] = useState(false);
   const create = async () => {
     if (!form.name.trim() || !user) return;
+    setCreating(true);
     const { error } = await supabase.from("projects").insert({
       name: form.name, description: form.description || null,
       due_date: form.due_date || null, color: form.color, owner_id: user.id,
     });
+    setCreating(false);
     if (error) return toast.error(error.message);
     toast.success("Projeto criado");
     setOpen(false);
@@ -195,7 +198,11 @@ function ProjectsPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter><Button onClick={create} className="bg-gradient-primary text-primary-foreground">Criar</Button></DialogFooter>
+              <DialogFooter>
+                <Button onClick={create} disabled={creating} className="bg-gradient-primary text-primary-foreground">
+                  {creating ? "Criando..." : "Criar"}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         )}

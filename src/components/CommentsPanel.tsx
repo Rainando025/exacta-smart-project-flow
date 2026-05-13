@@ -38,7 +38,7 @@ export function CommentsPanel({ taskId }: { taskId: string }) {
       console.warn("Could not load comments from DB, using mock data for demo.", error.message);
       return;
     }
-    setComments(data as Comment[]);
+    setComments((data as any) as Comment[]);
   };
 
   useEffect(() => {

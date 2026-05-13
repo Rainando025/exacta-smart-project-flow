@@ -1,782 +1,149 @@
-export type Json =
-  | string
-  | number
-  | boolean
-  | null
-  | { [key: string]: Json | undefined }
-  | Json[]
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[]
+export type AppRole = "admin" | "gestor" | "colaborador"
 
 export interface Database {
   public: {
     Tables: {
       announcements: {
-        Row: {
-          author_id: string
-          content: string
-          created_at: string
-          id: string
-          pinned: boolean
-          title: string
-        }
-        Insert: {
-          author_id: string
-          content: string
-          created_at?: string
-          id?: string
-          pinned?: boolean
-          title: string
-        }
-        Update: {
-          author_id?: string
-          content?: string
-          created_at?: string
-          id?: string
-          pinned?: boolean
-          title?: string
-        }
+        Row: { id: string; title: string; content: string; author_id: string; pinned: boolean; created_at: string }
+        Insert: { id?: string; title: string; content: string; author_id: string; pinned?: boolean; created_at?: string }
+        Update: { id?: string; title?: string; content?: string; author_id?: string; pinned?: boolean; created_at?: string }
+        Relationships: []
       }
       attachments: {
-        Row: {
-          created_at: string
-          file_name: string
-          file_size: number
-          folder: string
-          id: string
-          mime_type: string | null
-          project_id: string | null
-          storage_path: string
-          task_id: string | null
-          uploaded_by: string
-        }
-        Insert: {
-          created_at?: string
-          file_name: string
-          file_size?: number
-          folder?: string
-          id?: string
-          mime_type?: string | null
-          project_id?: string | null
-          storage_path: string
-          task_id?: string | null
-          uploaded_by: string
-        }
-        Update: {
-          created_at?: string
-          file_name?: string
-          file_size?: number
-          folder?: string
-          id?: string
-          mime_type?: string | null
-          project_id?: string | null
-          storage_path?: string
-          task_id?: string | null
-          uploaded_by?: string
-        }
+        Row: { id: string; file_name: string; storage_path: string; mime_type: string | null; file_size: number; uploaded_by: string; created_at: string; task_id: string | null; project_id: string | null; folder: string }
+        Insert: { id?: string; file_name: string; storage_path: string; mime_type?: string | null; file_size?: number; uploaded_by: string; created_at?: string; task_id?: string | null; project_id?: string | null; folder?: string }
+        Update: { id?: string; file_name?: string; storage_path?: string; mime_type?: string | null; file_size?: number; uploaded_by?: string; created_at?: string; task_id?: string | null; project_id?: string | null; folder?: string }
+        Relationships: []
       }
       audit_logs: {
-        Row: {
-          action: string
-          actor_id: string | null
-          changes: Json | null
-          created_at: string
-          entity_id: string | null
-          entity_type: string
-          id: string
-        }
-        Insert: {
-          action: string
-          actor_id?: string | null
-          changes?: Json | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type: string
-          id?: string
-        }
-        Update: {
-          action?: string
-          actor_id?: string | null
-          changes?: Json | null
-          created_at?: string
-          entity_id?: string | null
-          entity_type?: string
-          id?: string
-        }
+        Row: { id: string; entity_type: string; entity_id: string | null; action: string; actor_id: string | null; changes: Json | null; created_at: string }
+        Insert: { id?: string; entity_type: string; entity_id?: string | null; action: string; actor_id?: string | null; changes?: Json | null; created_at?: string }
+        Update: { id?: string; entity_type?: string; entity_id?: string | null; action?: string; actor_id?: string | null; changes?: Json | null; created_at?: string }
+        Relationships: []
       }
       automations: {
-        Row: {
-          action_config: Json | null
-          action_type: string
-          created_at: string
-          created_by: string
-          id: string
-          is_active: boolean | null
-          name: string
-          trigger_config: Json | null
-          trigger_type: string
-        }
-        Insert: {
-          action_config?: Json | null
-          action_type: string
-          created_at?: string
-          created_by: string
-          id?: string
-          is_active?: boolean | null
-          name: string
-          trigger_config?: Json | null
-          trigger_type: string
-        }
-        Update: {
-          action_config?: Json | null
-          action_type?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-          is_active?: boolean | null
-          name?: string
-          trigger_config?: Json | null
-          trigger_type?: string
-        }
+        Row: { id: string; name: string; trigger_type: string; trigger_config: Json | null; action_type: string; action_config: Json | null; is_active: boolean | null; created_by: string; created_at: string }
+        Insert: { id?: string; name: string; trigger_type: string; trigger_config?: Json | null; action_type: string; action_config?: Json | null; is_active?: boolean | null; created_by: string; created_at?: string }
+        Update: { id?: string; name?: string; trigger_type?: string; trigger_config?: Json | null; action_type?: string; action_config?: Json | null; is_active?: boolean | null; created_by?: string; created_at?: string }
+        Relationships: []
       }
       brainstorming_sessions: {
-        Row: {
-          created_at: string
-          created_by: string
-          description: string | null
-          id: string
-          tags: string[] | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          description?: string | null
-          id?: string
-          tags?: string[] | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          id?: string
-          tags?: string[] | null
-          title?: string
-          updated_at?: string
-        }
+        Row: { id: string; title: string; description: string | null; created_by: string; created_at: string; updated_at: string; tags: string[] | null }
+        Insert: { id?: string; title: string; description?: string | null; created_by: string; created_at?: string; updated_at?: string; tags?: string[] | null }
+        Update: { id?: string; title?: string; description?: string | null; created_by?: string; created_at?: string; updated_at?: string; tags?: string[] | null }
+        Relationships: []
       }
       documents: {
-        Row: {
-          content: string | null
-          created_at: string
-          data: Json | null
-          id: string
-          is_starred: boolean | null
-          owner_id: string
-          title: string
-          type: string
-          updated_at: string
-        }
-        Insert: {
-          content?: string | null
-          created_at?: string
-          data?: Json | null
-          id?: string
-          is_starred?: boolean | null
-          owner_id: string
-          title: string
-          type?: string
-          updated_at?: string
-        }
-        Update: {
-          content?: string | null
-          created_at?: string
-          data?: Json | null
-          id?: string
-          is_starred?: boolean | null
-          owner_id?: string
-          title?: string
-          type?: string
-          updated_at?: string
-        }
+        Row: { id: string; title: string; content: string | null; type: string; owner_id: string; is_starred: boolean | null; data: Json | null; created_at: string; updated_at: string }
+        Insert: { id?: string; title: string; content?: string | null; type?: string; owner_id: string; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; title?: string; content?: string | null; type?: string; owner_id?: string; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       feedback_competencies: {
-        Row: {
-          created_at: string
-          feedback_id: string
-          id: string
-          name: string
-          score: number
-        }
-        Insert: {
-          created_at?: string
-          feedback_id: string
-          id?: string
-          name: string
-          score: number
-        }
-        Update: {
-          created_at?: string
-          feedback_id?: string
-          id?: string
-          name?: string
-          score?: number
-        }
+        Row: { id: string; feedback_id: string; name: string; score: number; created_at: string }
+        Insert: { id?: string; feedback_id: string; name: string; score: number; created_at?: string }
+        Update: { id?: string; feedback_id?: string; name?: string; score?: number; created_at?: string }
+        Relationships: []
       }
       feedbacks: {
-        Row: {
-          created_at: string
-          feedback_type: string
-          id: string
-          improvements: string | null
-          is_anonymous: boolean
-          message: string | null
-          rating: number
-          reviewee_id: string
-          reviewer_id: string
-          strengths: string | null
-        }
-        Insert: {
-          created_at?: string
-          feedback_type?: string
-          id?: string
-          improvements?: string | null
-          is_anonymous?: boolean
-          message?: string | null
-          rating: number
-          reviewee_id: string
-          reviewer_id: string
-          strengths?: string | null
-        }
-        Update: {
-          created_at?: string
-          feedback_type?: string
-          id?: string
-          improvements?: string | null
-          is_anonymous?: boolean
-          message?: string | null
-          rating?: number
-          reviewee_id?: string
-          reviewer_id?: string
-          strengths?: string | null
-        }
+        Row: { id: string; reviewer_id: string; reviewee_id: string; feedback_type: string; rating: number; message: string | null; strengths: string | null; improvements: string | null; is_anonymous: boolean; created_at: string }
+        Insert: { id?: string; reviewer_id: string; reviewee_id: string; feedback_type?: string; rating: number; message?: string | null; strengths?: string | null; improvements?: string | null; is_anonymous?: boolean; created_at?: string }
+        Update: { id?: string; reviewer_id?: string; reviewee_id?: string; feedback_type?: string; rating?: number; message?: string | null; strengths?: string | null; improvements?: string | null; is_anonymous?: boolean; created_at?: string }
+        Relationships: []
       }
       invitations: {
-        Row: {
-          accepted_at: string | null
-          created_at: string
-          email: string
-          expires_at: string
-          id: string
-          invited_by: string
-          role: Database["public"]["Enums"]["app_role"]
-          status: string
-          token: string
-          updated_at: string
-        }
-        Insert: {
-          accepted_at?: string | null
-          created_at?: string
-          email: string
-          expires_at?: string
-          id?: string
-          invited_by: string
-          role?: Database["public"]["Enums"]["app_role"]
-          status?: string
-          token?: string
-          updated_at?: string
-        }
-        Update: {
-          accepted_at?: string | null
-          created_at?: string
-          email?: string
-          expires_at?: string
-          id?: string
-          invited_by?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          status?: string
-          token?: string
-          updated_at?: string
-        }
+        Row: { id: string; email: string; token: string; role: AppRole; invited_by: string; status: string; expires_at: string; accepted_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; email: string; token?: string; role?: AppRole; invited_by: string; status?: string; expires_at?: string; accepted_at?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; email?: string; token?: string; role?: AppRole; invited_by?: string; status?: string; expires_at?: string; accepted_at?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       notes: {
-        Row: {
-          color: string
-          content: string | null
-          created_at: string
-          id: string
-          pinned: boolean
-          priority: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          color?: string
-          content?: string | null
-          created_at?: string
-          id?: string
-          pinned?: boolean
-          priority?: string
-          title?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          color?: string
-          content?: string | null
-          created_at?: string
-          id?: string
-          pinned?: boolean
-          priority?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
+        Row: { id: string; user_id: string; title: string; content: string | null; color: string; pinned: boolean; priority: string; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; title?: string; content?: string | null; color?: string; pinned?: boolean; priority?: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; title?: string; content?: string | null; color?: string; pinned?: boolean; priority?: string; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       notifications: {
-        Row: {
-          created_at: string
-          id: string
-          link: string | null
-          message: string | null
-          read: boolean
-          task_id: string | null
-          title: string
-          type: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          link?: string | null
-          message?: string | null
-          read?: boolean
-          task_id?: string | null
-          title: string
-          type?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          link?: string | null
-          message?: string | null
-          read?: boolean
-          task_id?: string | null
-          title?: string
-          type?: string
-          user_id?: string
-        }
+        Row: { id: string; user_id: string; title: string; message: string | null; type: string; read: boolean; link: string | null; task_id: string | null; created_at: string }
+        Insert: { id?: string; user_id: string; title: string; message?: string | null; type?: string; read?: boolean; link?: string | null; task_id?: string | null; created_at?: string }
+        Update: { id?: string; user_id?: string; title?: string; message?: string | null; type?: string; read?: boolean; link?: string | null; task_id?: string | null; created_at?: string }
+        Relationships: []
       }
       personal_finances: {
-        Row: {
-          amount: number
-          category: string
-          created_at: string
-          date: string
-          due_date: string | null
-          id: string
-          installment_number: number
-          installments: number
-          is_credit_card: boolean
-          notes: string | null
-          paid: boolean
-          parent_id: string | null
-          recurring: string
-          title: string
-          type: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          amount?: number
-          category?: string
-          created_at?: string
-          date?: string
-          due_date?: string | null
-          id?: string
-          installment_number?: number
-          installments?: number
-          is_credit_card?: boolean
-          notes?: string | null
-          paid?: boolean
-          parent_id?: string | null
-          recurring?: string
-          title: string
-          type?: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          amount?: number
-          category?: string
-          created_at?: string
-          date?: string
-          due_date?: string | null
-          id?: string
-          installment_number?: number
-          installments?: number
-          is_credit_card?: boolean
-          notes?: string | null
-          paid?: boolean
-          parent_id?: string | null
-          recurring?: string
-          title?: string
-          type?: string
-          updated_at?: string
-          user_id?: string
-        }
+        Row: { id: string; user_id: string; title: string; amount: number; type: string; category: string; date: string; due_date: string | null; paid: boolean; recurring: string; installments: number; installment_number: number; parent_id: string | null; is_credit_card: boolean; notes: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; title: string; amount?: number; type?: string; category?: string; date?: string; due_date?: string | null; paid?: boolean; recurring?: string; installments?: number; installment_number?: number; parent_id?: string | null; is_credit_card?: boolean; notes?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; title?: string; amount?: number; type?: string; category?: string; date?: string; due_date?: string | null; paid?: boolean; recurring?: string; installments?: number; installment_number?: number; parent_id?: string | null; is_credit_card?: boolean; notes?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       profiles: {
-        Row: {
-          avatar_url: string | null
-          created_at: string
-          full_name: string
-          id: string
-          job_title: string | null
-          updated_at: string
-        }
-        Insert: {
-          avatar_url?: string | null
-          created_at?: string
-          full_name?: string
-          id: string
-          job_title?: string | null
-          updated_at?: string
-        }
-        Update: {
-          avatar_url?: string | null
-          created_at?: string
-          full_name?: string
-          id?: string
-          job_title?: string | null
-          updated_at?: string
-        }
+        Row: { id: string; full_name: string; avatar_url: string | null; job_title: string | null; reminder_advance_minutes: number | null; reminder_snooze_minutes: number | null; created_at: string; updated_at: string }
+        Insert: { id: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       projects: {
-        Row: {
-          color: string
-          created_at: string
-          description: string | null
-          due_date: string | null
-          id: string
-          name: string
-          owner_id: string
-          progress: number
-          start_date: string | null
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          name: string
-          owner_id: string
-          progress?: number
-          start_date?: string | null
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          color?: string
-          created_at?: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          name?: string
-          owner_id?: string
-          progress?: number
-          start_date?: string | null
-          status?: string
-          updated_at?: string
-        }
+        Row: { id: string; name: string; description: string | null; owner_id: string; status: string; color: string; progress: number; due_date: string | null; start_date: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; name: string; description?: string | null; owner_id: string; status?: string; color?: string; progress?: number; due_date?: string | null; start_date?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; name?: string; description?: string | null; owner_id?: string; status?: string; color?: string; progress?: number; due_date?: string | null; start_date?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       reminders: {
-        Row: {
-          completed: boolean
-          created_at: string
-          description: string | null
-          id: string
-          priority: string
-          remind_at: string
-          repeat: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          completed?: boolean
-          created_at?: string
-          description?: string | null
-          id?: string
-          priority?: string
-          remind_at: string
-          repeat?: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          completed?: boolean
-          created_at?: string
-          description?: string | null
-          id?: string
-          priority?: string
-          remind_at?: string
-          repeat?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
+        Row: { id: string; user_id: string; title: string; description: string | null; remind_at: string; repeat: string; priority: string; completed: boolean; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; title: string; description?: string | null; remind_at: string; repeat?: string; priority?: string; completed?: boolean; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; title?: string; description?: string | null; remind_at?: string; repeat?: string; priority?: string; completed?: boolean; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       subtasks: {
-        Row: {
-          completed: boolean
-          created_at: string
-          created_by: string
-          id: string
-          position: number
-          task_id: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          completed?: boolean
-          created_at?: string
-          created_by: string
-          id?: string
-          position?: number
-          task_id: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          completed?: boolean
-          created_at?: string
-          created_by?: string
-          id?: string
-          position?: number
-          task_id?: string
-          title?: string
-          updated_at?: string
-        }
+        Row: { id: string; task_id: string; title: string; completed: boolean; position: number; created_by: string; created_at: string; updated_at: string }
+        Insert: { id?: string; task_id: string; title: string; completed?: boolean; position?: number; created_by: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; task_id?: string; title?: string; completed?: boolean; position?: number; created_by?: string; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       task_attachments: {
-        Row: {
-          comment_id: string | null
-          created_at: string
-          file_name: string
-          file_path: string
-          file_type: string | null
-          id: string
-          task_id: string
-          uploaded_by: string
-        }
-        Insert: {
-          comment_id?: string | null
-          created_at?: string
-          file_name: string
-          file_path: string
-          file_type?: string | null
-          id?: string
-          task_id: string
-          uploaded_by: string
-        }
-        Update: {
-          comment_id?: string | null
-          created_at?: string
-          file_name?: string
-          file_path?: string
-          file_type?: string | null
-          id?: string
-          task_id?: string
-          uploaded_by?: string
-        }
+        Row: { id: string; task_id: string; file_name: string; file_path: string; file_type: string | null; uploaded_by: string; created_at: string; comment_id: string | null }
+        Insert: { id?: string; task_id: string; file_name: string; file_path: string; file_type?: string | null; uploaded_by: string; created_at?: string; comment_id?: string | null }
+        Update: { id?: string; task_id?: string; file_name?: string; file_path?: string; file_type?: string | null; uploaded_by?: string; created_at?: string; comment_id?: string | null }
+        Relationships: []
       }
       task_comments: {
-        Row: {
-          content: string
-          created_at: string
-          id: string
-          task_id: string
-          user_id: string
-        }
-        Insert: {
-          content: string
-          created_at?: string
-          id?: string
-          task_id: string
-          user_id: string
-        }
-        Update: {
-          content?: string
-          created_at?: string
-          id?: string
-          task_id?: string
-          user_id?: string
-        }
+        Row: { id: string; task_id: string; user_id: string; content: string; created_at: string }
+        Insert: { id?: string; task_id: string; user_id: string; content: string; created_at?: string }
+        Update: { id?: string; task_id?: string; user_id?: string; content?: string; created_at?: string }
+        Relationships: []
       }
       task_dependencies: {
-        Row: {
-          created_at: string
-          created_by: string
-          id: string
-          predecessor_id: string
-          successor_id: string
-        }
-        Insert: {
-          created_at?: string
-          created_by: string
-          id?: string
-          predecessor_id: string
-          successor_id: string
-        }
-        Update: {
-          created_at?: string
-          created_by?: string
-          id?: string
-          predecessor_id?: string
-          successor_id?: string
-        }
+        Row: { id: string; predecessor_id: string; successor_id: string; created_by: string; created_at: string }
+        Insert: { id?: string; predecessor_id: string; successor_id: string; created_by: string; created_at?: string }
+        Update: { id?: string; predecessor_id?: string; successor_id?: string; created_by?: string; created_at?: string }
+        Relationships: []
       }
       tasks: {
-        Row: {
-          assignee_id: string | null
-          completed_at: string | null
-          created_at: string
-          creator_id: string
-          description: string | null
-          due_date: string | null
-          id: string
-          position: number
-          priority: string
-          project_id: string | null
-          start_date: string | null
-          status: string
-          tags: string[] | null
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          assignee_id?: string | null
-          completed_at?: string | null
-          created_at?: string
-          creator_id: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          position?: number
-          priority?: string
-          project_id?: string | null
-          start_date?: string | null
-          status?: string
-          tags?: string[] | null
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          assignee_id?: string | null
-          completed_at?: string | null
-          created_at?: string
-          creator_id?: string
-          description?: string | null
-          due_date?: string | null
-          id?: string
-          position?: number
-          priority?: string
-          project_id?: string | null
-          start_date?: string | null
-          status?: string
-          tags?: string[] | null
-          title?: string
-          updated_at?: string
-        }
+        Row: { id: string; title: string; description: string | null; status: string; priority: string; due_date: string | null; start_date: string | null; creator_id: string; assignee_id: string | null; project_id: string | null; position: number; tags: string[] | null; completed_at: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; title: string; description?: string | null; status?: string; priority?: string; due_date?: string | null; start_date?: string | null; creator_id: string; assignee_id?: string | null; project_id?: string | null; position?: number; tags?: string[] | null; completed_at?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; title?: string; description?: string | null; status?: string; priority?: string; due_date?: string | null; start_date?: string | null; creator_id?: string; assignee_id?: string | null; project_id?: string | null; position?: number; tags?: string[] | null; completed_at?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
       }
       time_logs: {
-        Row: {
-          created_at: string
-          description: string | null
-          duration: string | null
-          end_time: string | null
-          id: string
-          start_time: string
-          task_id: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          duration?: string | null
-          end_time?: string | null
-          id?: string
-          start_time?: string
-          task_id?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          duration?: string | null
-          end_time?: string | null
-          id?: string
-          start_time?: string
-          task_id?: string | null
-          user_id?: string
-        }
+        Row: { id: string; user_id: string; task_id: string | null; start_time: string; end_time: string | null; duration: string | null; description: string | null; created_at: string }
+        Insert: { id?: string; user_id: string; task_id?: string | null; start_time: string; end_time?: string | null; duration?: string | null; description?: string | null; created_at?: string }
+        Update: { id?: string; user_id?: string; task_id?: string | null; start_time?: string; end_time?: string | null; duration?: string | null; description?: string | null; created_at?: string }
+        Relationships: []
       }
       user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
-        }
+        Row: { id: string; user_id: string; role: AppRole; created_at: string }
+        Insert: { id?: string; user_id: string; role?: AppRole; created_at?: string }
+        Update: { id?: string; user_id?: string; role?: AppRole; created_at?: string }
+        Relationships: []
       }
     }
-    Views: {
-      [_ in string]: {
-        Row: {
-          [_ in string]: Json | null
-        }
-      }
-    }
+    Views: {}
     Functions: {
-      has_role: {
-        Args: {
-          _user_id: string
-          _role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: boolean
-      }
-      is_at_least: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-        }
-        Returns: boolean
-      }
+      has_role: { Args: { _user_id: string; _role: AppRole }; Returns: boolean }
+      is_at_least: { Args: { _role: AppRole }; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "gestor" | "colaborador"
-    }
-    CompositeTypes: {
-      [_ in string]: string[]
+      app_role: AppRole
     }
   }
 }

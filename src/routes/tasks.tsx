@@ -84,8 +84,10 @@ function TasksPage() {
     return () => { supabase.removeChannel(ch); };
   }, []);
 
+  const [creating, setCreating] = useState(false);
   const create = async () => {
     if (!form.title.trim() || !user) return;
+    setCreating(true);
     const { error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
@@ -96,6 +98,7 @@ function TasksPage() {
       creator_id: user.id,
       assignee_id: user.id,
     });
+    setCreating(false);
     if (error) return toast.error(error.message);
     toast.success("Tarefa criada");
     setOpen(false);
@@ -266,7 +269,11 @@ function TasksPage() {
                   </div>
                 </div>
               </div>
-              <DialogFooter><Button onClick={create} className="bg-gradient-primary text-primary-foreground">Criar tarefa</Button></DialogFooter>
+              <DialogFooter>
+                <Button onClick={create} disabled={creating} className="bg-gradient-primary text-primary-foreground">
+                  {creating ? "Criando..." : "Criar tarefa"}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
