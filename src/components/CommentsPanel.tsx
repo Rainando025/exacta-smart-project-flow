@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Send, MessageSquare, Trash2 } from "lucide-react";
+import { Send, MessageSquare, Trash2, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/exacta";
 
@@ -93,8 +93,11 @@ export function CommentsPanel({ taskId }: { taskId: string }) {
       </div>
 
       <div className="flex gap-2 pt-2 border-t">
+        <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-accent">
+          <Paperclip className="h-4 w-4" />
+        </Button>
         <Input 
-          placeholder="Adicione um comentário..." 
+          placeholder="Comente ou mencione alguém com @..." 
           value={newComment}
           onChange={(e) => setNewComment(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && handleSubmit()}

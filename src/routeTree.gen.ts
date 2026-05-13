@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WhiteboardsRouteImport } from './routes/whiteboards'
+import { Route as TimeTrackingRouteImport } from './routes/time-tracking'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -21,11 +23,24 @@ import { Route as KanbanRouteImport } from './routes/kanban'
 import { Route as GanttRouteImport } from './routes/gantt'
 import { Route as FinancesRouteImport } from './routes/finances'
 import { Route as FeedbackRouteImport } from './routes/feedback'
+import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as BrainstormingRouteImport } from './routes/brainstorming'
+import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AnnouncementsRouteImport } from './routes/announcements'
 import { Route as IndexRouteImport } from './routes/index'
 
+const WhiteboardsRoute = WhiteboardsRouteImport.update({
+  id: '/whiteboards',
+  path: '/whiteboards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TimeTrackingRoute = TimeTrackingRouteImport.update({
+  id: '/time-tracking',
+  path: '/time-tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TeamRoute = TeamRouteImport.update({
   id: '/team',
   path: '/team',
@@ -86,9 +101,24 @@ const FeedbackRoute = FeedbackRouteImport.update({
   path: '/feedback',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrainstormingRoute = BrainstormingRouteImport.update({
+  id: '/brainstorming',
+  path: '/brainstorming',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationsRoute = AutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -111,7 +141,10 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/announcements': typeof AnnouncementsRoute
   '/auth': typeof AuthRoute
+  '/automations': typeof AutomationsRoute
+  '/brainstorming': typeof BrainstormingRoute
   '/dashboard': typeof DashboardRoute
+  '/docs': typeof DocsRoute
   '/feedback': typeof FeedbackRoute
   '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
@@ -124,12 +157,17 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
+  '/time-tracking': typeof TimeTrackingRoute
+  '/whiteboards': typeof WhiteboardsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/announcements': typeof AnnouncementsRoute
   '/auth': typeof AuthRoute
+  '/automations': typeof AutomationsRoute
+  '/brainstorming': typeof BrainstormingRoute
   '/dashboard': typeof DashboardRoute
+  '/docs': typeof DocsRoute
   '/feedback': typeof FeedbackRoute
   '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
@@ -142,13 +180,18 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
+  '/time-tracking': typeof TimeTrackingRoute
+  '/whiteboards': typeof WhiteboardsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/announcements': typeof AnnouncementsRoute
   '/auth': typeof AuthRoute
+  '/automations': typeof AutomationsRoute
+  '/brainstorming': typeof BrainstormingRoute
   '/dashboard': typeof DashboardRoute
+  '/docs': typeof DocsRoute
   '/feedback': typeof FeedbackRoute
   '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
@@ -161,6 +204,8 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
+  '/time-tracking': typeof TimeTrackingRoute
+  '/whiteboards': typeof WhiteboardsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -168,7 +213,10 @@ export interface FileRouteTypes {
     | '/'
     | '/announcements'
     | '/auth'
+    | '/automations'
+    | '/brainstorming'
     | '/dashboard'
+    | '/docs'
     | '/feedback'
     | '/finances'
     | '/gantt'
@@ -181,12 +229,17 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/team'
+    | '/time-tracking'
+    | '/whiteboards'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/announcements'
     | '/auth'
+    | '/automations'
+    | '/brainstorming'
     | '/dashboard'
+    | '/docs'
     | '/feedback'
     | '/finances'
     | '/gantt'
@@ -199,12 +252,17 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/team'
+    | '/time-tracking'
+    | '/whiteboards'
   id:
     | '__root__'
     | '/'
     | '/announcements'
     | '/auth'
+    | '/automations'
+    | '/brainstorming'
     | '/dashboard'
+    | '/docs'
     | '/feedback'
     | '/finances'
     | '/gantt'
@@ -217,13 +275,18 @@ export interface FileRouteTypes {
     | '/settings'
     | '/tasks'
     | '/team'
+    | '/time-tracking'
+    | '/whiteboards'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnnouncementsRoute: typeof AnnouncementsRoute
   AuthRoute: typeof AuthRoute
+  AutomationsRoute: typeof AutomationsRoute
+  BrainstormingRoute: typeof BrainstormingRoute
   DashboardRoute: typeof DashboardRoute
+  DocsRoute: typeof DocsRoute
   FeedbackRoute: typeof FeedbackRoute
   FinancesRoute: typeof FinancesRoute
   GanttRoute: typeof GanttRoute
@@ -236,10 +299,26 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
+  TimeTrackingRoute: typeof TimeTrackingRoute
+  WhiteboardsRoute: typeof WhiteboardsRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/whiteboards': {
+      id: '/whiteboards'
+      path: '/whiteboards'
+      fullPath: '/whiteboards'
+      preLoaderRoute: typeof WhiteboardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/time-tracking': {
+      id: '/time-tracking'
+      path: '/time-tracking'
+      fullPath: '/time-tracking'
+      preLoaderRoute: typeof TimeTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/team': {
       id: '/team'
       path: '/team'
@@ -324,11 +403,32 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FeedbackRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brainstorming': {
+      id: '/brainstorming'
+      path: '/brainstorming'
+      fullPath: '/brainstorming'
+      preLoaderRoute: typeof BrainstormingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automations': {
+      id: '/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -359,7 +459,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnnouncementsRoute: AnnouncementsRoute,
   AuthRoute: AuthRoute,
+  AutomationsRoute: AutomationsRoute,
+  BrainstormingRoute: BrainstormingRoute,
   DashboardRoute: DashboardRoute,
+  DocsRoute: DocsRoute,
   FeedbackRoute: FeedbackRoute,
   FinancesRoute: FinancesRoute,
   GanttRoute: GanttRoute,
@@ -372,6 +475,8 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
+  TimeTrackingRoute: TimeTrackingRoute,
+  WhiteboardsRoute: WhiteboardsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

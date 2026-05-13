@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Sparkles, Target, Zap } from "lucide-react";
-import logo from "@/assets/exacta_logo.png";
+const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,

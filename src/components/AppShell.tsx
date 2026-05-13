@@ -4,12 +4,12 @@ import {
   LayoutDashboard, CheckSquare, FolderKanban, Kanban, CalendarRange,
   Megaphone, Users, LogOut, Bell, MessageSquareHeart, Wallet,
   StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
-  Moon, Sun, Command, Search, Target
+  Moon, Sun, Command, Search, Target, Brain, FileText, Presentation, Cpu, Timer
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
-const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/gen_3CpSPBsmWgKcVvejbF3BGqkl98C%20(2).png";
+const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 import { cn } from "@/lib/utils";
 import {
   CommandDialog,
@@ -39,6 +39,11 @@ const TEAM_NAV = [
   { to: "/okrs", label: "Metas e OKRs", icon: Target },
   { to: "/kanban", label: "Kanban", icon: Kanban },
   { to: "/gantt", label: "Cronograma", icon: CalendarRange },
+  { to: "/brainstorming", label: "Brainstorming", icon: Brain },
+  { to: "/docs", label: "Documentos", icon: FileText },
+  { to: "/whiteboards", label: "Quadros Brancos", icon: Presentation },
+  { to: "/automations", label: "Automação", icon: Cpu },
+  { to: "/time-tracking", label: "Rastreamento", icon: Timer },
   { to: "/announcements", label: "Mural", icon: Megaphone },
   { to: "/team", label: "Equipe", icon: Users },
   { to: "/feedback", label: "Feedback 360°", icon: MessageSquareHeart },
