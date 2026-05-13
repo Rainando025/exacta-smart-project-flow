@@ -3,6 +3,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import { Toaster } from "@/components/ui/sonner";
 import { ReminderPopup } from "@/components/ReminderPopup";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 import appCss from "../styles.css?url";
 
