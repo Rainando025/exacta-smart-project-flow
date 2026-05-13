@@ -1,10 +1,10 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import {
-  LayoutDashboard, CheckSquare, FolderKanban, Trello, CalendarRange,
+  LayoutDashboard, CheckSquare, FolderKanban, Kanban, CalendarRange,
   Megaphone, Users, LogOut, Bell, MessageSquareHeart, Wallet,
   StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
-  Moon, Sun, Command, Search
+  Moon, Sun, Command, Search, Target
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -37,7 +37,7 @@ const TEAM_NAV = [
   { to: "/tasks", label: "Tarefas", icon: CheckSquare },
   { to: "/projects", label: "Projetos", icon: FolderKanban },
   { to: "/okrs", label: "Metas e OKRs", icon: Target },
-  { to: "/kanban", label: "Kanban", icon: Trello },
+  { to: "/kanban", label: "Kanban", icon: Kanban },
   { to: "/gantt", label: "Cronograma", icon: CalendarRange },
   { to: "/announcements", label: "Mural", icon: Megaphone },
   { to: "/team", label: "Equipe", icon: Users },
@@ -74,7 +74,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (!loading && !user) {
-      navigate({ to: "/auth" });
+      navigate({ to: "/auth", search: { invite: undefined } });
     }
   }, [user, loading, navigate]);
 

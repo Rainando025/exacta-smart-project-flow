@@ -23,7 +23,7 @@ interface AuditLog { id: string; actor_id: string | null; entity_type: string; e
 function SettingsPage() { return <AppShell><SettingsContent /></AppShell>; }
 
 function SettingsContent() {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [profiles, setProfiles] = useState<Profile[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<Invitation[]>([]);

@@ -68,10 +68,10 @@ function Index() {
 
           <div className="flex items-center gap-4">
             <Button asChild variant="ghost" className="hidden sm:inline-flex">
-              <Link to="/auth">Entrar</Link>
+              <Link to="/auth" search={{ invite: undefined }}>Entrar</Link>
             </Button>
             <Button asChild className="bg-primary text-primary-foreground shadow-elegant hover:opacity-90">
-              <Link to="/auth">Começar Agora</Link>
+              <Link to="/auth" search={{ invite: undefined }}>Começar Agora</Link>
             </Button>
           </div>
         </div>
@@ -97,7 +97,7 @@ function Index() {
                 </p>
                 <div className="flex flex-col gap-4 sm:flex-row animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
                   <Button asChild size="lg" className="h-14 px-8 text-lg bg-accent text-accent-foreground hover:bg-accent/90 shadow-glow transition-all hover:scale-105">
-                    <Link to="/auth" className="flex items-center gap-2">
+                    <Link to="/auth" search={{ invite: undefined }} className="flex items-center gap-2">
                       Acessar Sistema <ArrowRight className="h-5 w-5" />
                     </Link>
                   </Button>
@@ -486,7 +486,7 @@ function Index() {
                 </p>
                 <div className="flex flex-col sm:flex-row justify-center gap-6">
                   <Button asChild size="lg" className="h-16 px-12 text-xl bg-primary text-white hover:bg-primary/90 shadow-2xl transition-all hover:scale-110">
-                    <Link to="/auth">Criar Conta Grátis</Link>
+                    <Link to="/auth" search={{ invite: undefined }}>Criar Conta Grátis</Link>
                   </Button>
                   <Button asChild variant="outline" size="lg" className="h-16 px-12 text-xl border-accent-foreground/20 bg-white/10 text-accent-foreground hover:bg-white/20 backdrop-blur-sm">
                     <a href="mailto:contato@exacta.com">Falar com Consultor</a>
