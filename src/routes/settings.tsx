@@ -71,11 +71,14 @@ function SettingsContent() {
     setCreating(true);
     const { data, error } = await supabase.auth.signUp({
       email: newEmail, password: newPassword,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: { full_name: newName } },
+      options: { 
+        emailRedirectTo: `${window.location.origin}/dashboard`, 
+        data: { full_name: newName, job_title: newJobTitle } 
+      },
     });
     if (error) { toast.error(error.message); setCreating(false); return; }
     if (data.user && newRole !== "colaborador") {
-      await supabase.from("user_roles").insert([{ user_id: data.user.id, role: newRole as any }]);
+      await supabase.from("user_roles").upsert({ user_id: data.user.id, role: newRole as any }, { onConflict: "user_id" });
     }
     toast.success(`Usuário ${newName} criado!`);
     setNewEmail(""); setNewPassword(""); setNewName(""); setNewRole("colaborador"); setNewJobTitle("");
