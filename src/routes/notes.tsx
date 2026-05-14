@@ -12,8 +12,11 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import {
-  Plus, Trash2, Pencil, Pin, PinOff, Search, StickyNote, Check, X,
+  Plus, Trash2, Pencil, Pin, PinOff, Search, StickyNote, Check, X, Network, FileText, Calendar as CalendarIcon
 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NeuralMap } from "@/components/NeuralMap";
+import { CalendarScheduler } from "@/components/CalendarScheduler";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/notes")({ component: NotesPage });
@@ -134,10 +137,18 @@ function NotesContent() {
         </Dialog>
       </header>
 
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar anotações..." className="pl-10" />
-      </div>
+      <Tabs defaultValue="notes" className="w-full">
+        <TabsList className="mb-6 bg-card/50 border border-white/5 p-1 rounded-xl">
+          <TabsTrigger value="notes" className="rounded-lg gap-2"><FileText className="h-4 w-4" /> Anotações Tradicionais</TabsTrigger>
+          <TabsTrigger value="ideas" className="rounded-lg gap-2"><Network className="h-4 w-4" /> Meu Mapa Neural</TabsTrigger>
+          <TabsTrigger value="calendar" className="rounded-lg gap-2"><CalendarIcon className="h-4 w-4" /> Calendário</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="notes" className="space-y-6 animate-in fade-in duration-500">
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar anotações..." className="pl-10" />
+          </div>
 
       {pinned.length > 0 && (
         <div>
@@ -160,6 +171,16 @@ function NotesContent() {
           {unpinned.map((n) => <NoteCard key={n.id} note={n} onEdit={openEdit} onDelete={handleDelete} onTogglePin={togglePin} onInlineSave={load} />)}
         </div>
       </div>
+        </TabsContent>
+
+        <TabsContent value="ideas" className="animate-in fade-in duration-500">
+          <NeuralMap />
+        </TabsContent>
+
+        <TabsContent value="calendar" className="animate-in fade-in duration-500">
+          <CalendarScheduler isTeam={false} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

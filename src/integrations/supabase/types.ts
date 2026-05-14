@@ -58,6 +58,33 @@ export interface Database {
         Update: { id?: string; email?: string; token?: string; role?: AppRole; invited_by?: string; status?: string; expires_at?: string; accepted_at?: string | null; created_at?: string; updated_at?: string }
         Relationships: []
       }
+      neural_edges: {
+        Row: { id: string; user_id: string; is_team: boolean; source: string; target: string; created_at: string }
+        Insert: { id?: string; user_id: string; is_team?: boolean; source: string; target: string; created_at?: string }
+        Update: { id?: string; user_id?: string; is_team?: boolean; source?: string; target?: string; created_at?: string }
+        Relationships: [
+          {
+            foreignKeyName: "neural_edges_source_fkey"
+            columns: ["source"]
+            isOneToOne: false
+            referencedRelation: "neural_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "neural_edges_target_fkey"
+            columns: ["target"]
+            isOneToOne: false
+            referencedRelation: "neural_nodes"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      neural_nodes: {
+        Row: { id: string; user_id: string; is_team: boolean; label: string; x: number; y: number; color: string; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; is_team?: boolean; label: string; x: number; y: number; color?: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; is_team?: boolean; label?: string; x?: number; y?: number; color?: string; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
       notes: {
         Row: { id: string; user_id: string; title: string; content: string | null; color: string; pinned: boolean; priority: string; created_at: string; updated_at: string }
         Insert: { id?: string; user_id: string; title?: string; content?: string | null; color?: string; pinned?: boolean; priority?: string; created_at?: string; updated_at?: string }
@@ -77,9 +104,9 @@ export interface Database {
         Relationships: []
       }
       profiles: {
-        Row: { id: string; full_name: string; avatar_url: string | null; job_title: string | null; reminder_advance_minutes: number | null; reminder_snooze_minutes: number | null; created_at: string; updated_at: string }
-        Insert: { id: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; created_at?: string; updated_at?: string }
+        Row: { id: string; full_name: string; avatar_url: string | null; job_title: string | null; reminder_advance_minutes: number | null; reminder_snooze_minutes: number | null; skills: Json | null; created_at: string; updated_at: string }
+        Insert: { id: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; skills?: Json | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; skills?: Json | null; created_at?: string; updated_at?: string }
         Relationships: []
       }
       projects: {

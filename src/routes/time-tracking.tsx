@@ -4,8 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 
+import { AppShell } from "@/components/AppShell";
+
 export const Route = createFileRoute("/time-tracking")({
-  component: TimeTrackingPage,
+  component: () => <AppShell><TimeTrackingPage /></AppShell>,
 });
 
 function TimeTrackingPage() {
@@ -42,20 +44,20 @@ function TimeTrackingPage() {
               <h2 className="text-2xl font-bold">Design de Interface: Dashboard</h2>
               <p className="text-sm text-muted-foreground">Projeto: EXACTA Smart Flow</p>
             </div>
-            
+
             <div className="flex flex-col items-center">
               <div className="text-6xl font-mono font-bold tracking-tighter mb-4 tabular-nums">
                 00:42:15
               </div>
               <div className="flex gap-3">
                 <Button size="lg" variant="outline" className="rounded-full h-12 w-12 p-0 border-emerald-500/30 text-emerald-500">
-                   <Pause className="h-5 w-5" />
+                  <Pause className="h-5 w-5" />
                 </Button>
                 <Button size="lg" className="rounded-full h-14 w-14 p-0 bg-emerald-500 hover:bg-emerald-600 text-white shadow-glow-emerald">
-                   <Play className="h-6 w-6 ml-1" />
+                  <Play className="h-6 w-6 ml-1" />
                 </Button>
                 <Button size="lg" variant="outline" className="rounded-full h-12 w-12 p-0 border-red-500/30 text-red-500">
-                   <Square className="h-5 w-5 fill-current" />
+                  <Square className="h-5 w-5 fill-current" />
                 </Button>
               </div>
             </div>
@@ -84,19 +86,19 @@ function TimeTrackingPage() {
             <ArrowUpRight className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-             <div className="text-2xl font-bold">05h 42m</div>
-             <p className="text-[10px] text-muted-foreground mt-1">Estimativa de custo: R$ 450,00</p>
+            <div className="text-2xl font-bold">05h 42m</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Estimativa de custo: R$ 450,00</p>
           </CardContent>
         </Card>
-        
+
         <Card className="bg-card/40 border-white/5">
           <CardHeader className="pb-2 flex flex-row items-center justify-between">
             <CardTitle className="text-sm font-medium text-muted-foreground">Média Semanal</CardTitle>
             <ArrowDownRight className="h-4 w-4 text-red-500" />
           </CardHeader>
           <CardContent>
-             <div className="text-2xl font-bold">06h 15m</div>
-             <p className="text-[10px] text-muted-foreground mt-1">-5% em relação à semana passada</p>
+            <div className="text-2xl font-bold">06h 15m</div>
+            <p className="text-[10px] text-muted-foreground mt-1">-5% em relação à semana passada</p>
           </CardContent>
         </Card>
 
@@ -106,8 +108,8 @@ function TimeTrackingPage() {
             <TrendingUp className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-             <div className="text-2xl font-bold">04</div>
-             <p className="text-[10px] text-muted-foreground mt-1">Mais tempo gasto em: Design</p>
+            <div className="text-2xl font-bold">04</div>
+            <p className="text-[10px] text-muted-foreground mt-1">Mais tempo gasto em: Design</p>
           </CardContent>
         </Card>
       </div>
@@ -128,13 +130,13 @@ function TimeTrackingPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-8 text-right">
-                   <div>
-                     <p className="font-mono font-bold text-sm">{log.duration}</p>
-                     <p className="text-[10px] text-muted-foreground">{log.date}</p>
-                   </div>
-                   <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Play className="h-3.5 w-3.5 text-emerald-500" />
-                   </Button>
+                  <div>
+                    <p className="font-mono font-bold text-sm">{log.duration}</p>
+                    <p className="text-[10px] text-muted-foreground">{log.date}</p>
+                  </div>
+                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Play className="h-3.5 w-3.5 text-emerald-500" />
+                  </Button>
                 </div>
               </div>
             ))}

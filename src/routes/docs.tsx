@@ -5,8 +5,10 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
+import { AppShell } from "@/components/AppShell";
+
 export const Route = createFileRoute("/docs")({
-  component: DocsPage,
+  component: () => <AppShell><DocsPage /></AppShell>,
 });
 
 function DocsPage() {

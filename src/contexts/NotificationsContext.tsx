@@ -78,6 +78,37 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
         task_id: t.id,
       });
     }
+
+    // Check Reminders / Calendar events
+    const { data: myReminders } = await supabase
+      .from("reminders")
+      .select("*")
+      .eq("user_id", user.id)
+      .eq("completed", false)
+      .lte("remind_at", new Date(now.getTime() + 60 * 60 * 1000).toISOString()); // within 1 hour
+
+    if (myReminders) {
+      for (const r of myReminders) {
+        const { data: existing } = await supabase
+          .from("notifications")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("type", "reminder")
+          .like("title", `%${r.title}%`)
+          .gte("created_at", new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
+          .limit(1);
+
+        if (!existing || existing.length === 0) {
+          await notify({
+            user_id: user.id,
+            type: "reminder",
+            title: `⏰ Compromisso: ${r.title}`,
+            message: `Agendado para ${new Date(r.remind_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}`,
+            link: "/notes",
+          });
+        }
+      }
+    }
   }, [user]);
 
   useEffect(() => {

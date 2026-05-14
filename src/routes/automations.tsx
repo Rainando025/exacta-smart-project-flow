@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 
+import { AppShell } from "@/components/AppShell";
+
 export const Route = createFileRoute("/automations")({
-  component: AutomationsPage,
+  component: () => <AppShell><AutomationsPage /></AppShell>,
 });
 
 function AutomationsPage() {

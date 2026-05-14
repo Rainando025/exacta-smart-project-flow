@@ -3,9 +3,11 @@ import { Brain, Lightbulb, MessageSquare, Plus, Sparkles, Target } from "lucide-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { AppShell } from "@/components/AppShell";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export const Route = createFileRoute("/brainstorming")({
-  component: BrainstormingPage,
+  component: () => <AppShell><BrainstormingPage /></AppShell>,
 });
 
 function BrainstormingPage() {
@@ -34,6 +36,13 @@ function BrainstormingPage() {
       participants: 8,
       lastUpdate: "3 dias atrás",
     },
+  ];
+
+  const templates = [
+    { id: 1, title: "Matriz SWOT", desc: "Análise de Forças, Fraquezas, Oportunidades e Ameaças." },
+    { id: 2, title: "Design Sprint", desc: "Processo rápido para resolver problemas e testar ideias." },
+    { id: 3, title: "Mind Map", desc: "Estruture informações de forma visual e hierárquica." },
+    { id: 4, title: "Brainwriting", desc: "Geração de ideias silenciosa em equipe para máxima inclusão." },
   ];
 
   return (
@@ -78,9 +87,29 @@ function BrainstormingPage() {
             <CardDescription>Templates prontos para estratégias de crescimento.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Button variant="outline" className="w-full border-primary/30 hover:bg-primary/10">
-              Ver Templates
-            </Button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Button variant="outline" className="w-full border-primary/30 hover:bg-primary/10">
+                  Ver Templates
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Templates de Brainstorming</DialogTitle>
+                  <DialogDescription>Escolha um framework para iniciar sua sessão.</DialogDescription>
+                </DialogHeader>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {templates.map((tpl) => (
+                    <Card key={tpl.id} className="hover:border-primary/50 transition-colors cursor-pointer group">
+                      <CardHeader className="p-4">
+                        <CardTitle className="text-sm group-hover:text-primary transition-colors">{tpl.title}</CardTitle>
+                        <CardDescription className="text-xs mt-1 line-clamp-2">{tpl.desc}</CardDescription>
+                      </CardHeader>
+                    </Card>
+                  ))}
+                </div>
+              </DialogContent>
+            </Dialog>
           </CardContent>
         </Card>
 
