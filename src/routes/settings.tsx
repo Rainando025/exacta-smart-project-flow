@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User } from "lucide-react";
+import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
@@ -155,10 +156,8 @@ function SettingsContent() {
 
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
-          <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
-          <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
           <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
-          {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="profile" className="space-y-6">
@@ -351,43 +350,101 @@ function SettingsContent() {
           </Card>
         </TabsContent>
 
-        {/* AUDIT TAB */}
+        {/* AUDIT & LOGS TAB */}
         {isAdmin && (
-          <TabsContent value="audit" className="space-y-4">
-            <h2 className="font-display text-xl font-bold">Registro de Auditoria</h2>
-            <p className="text-sm text-muted-foreground">Últimas 100 alterações em tarefas, projetos e funções.</p>
-            <Card className="shadow-card overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead><tr className="border-b bg-muted/30">
-                    <th className="text-left px-4 py-3">Quando</th>
-                    <th className="text-left px-4 py-3">Autor</th>
-                    <th className="text-left px-4 py-3">Entidade</th>
-                    <th className="text-left px-4 py-3">Ação</th>
-                    <th className="text-left px-4 py-3">Detalhes</th>
-                  </tr></thead>
-                  <tbody className="divide-y">
-                    {audits.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum registro.</td></tr>}
-                    {audits.map((a) => (
-                      <tr key={a.id} className="hover:bg-muted/30 align-top">
-                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">{new Date(a.created_at).toLocaleString("pt-BR")}</td>
-                        <td className="px-4 py-3">{profileName(a.actor_id)}</td>
-                        <td className="px-4 py-3 capitalize">{a.entity_type}</td>
-                        <td className="px-4 py-3">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${a.action === "create" ? "bg-success/10 text-success" : a.action === "delete" ? "bg-destructive/10 text-destructive" : "bg-accent/10 text-accent"}`}>{a.action}</span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <details className="text-xs">
-                            <summary className="cursor-pointer text-accent">ver</summary>
-                            <pre className="mt-2 p-2 bg-muted rounded max-w-md overflow-auto max-h-48 text-[10px]">{JSON.stringify(a.changes, null, 2)}</pre>
-                          </details>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          <TabsContent value="audit" className="space-y-6">
+            <header className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-2xl font-bold">Auditoria & Logs do Sistema</h2>
+                <p className="text-sm text-muted-foreground mt-1">Rastreamento completo de acessos e alterações críticas.</p>
               </div>
-            </Card>
+              <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={load} className="gap-2">
+                   <RefreshCw className="h-4 w-4" /> Atualizar
+                </Button>
+              </div>
+            </header>
+
+            <Tabs defaultValue="all-logs" className="w-full">
+              <TabsList className="bg-muted/50 p-1">
+                <TabsTrigger value="all-logs" className="text-xs">Todos os Registros</TabsTrigger>
+                <TabsTrigger value="access-logs" className="text-xs">Acessos (Login)</TabsTrigger>
+                <TabsTrigger value="data-changes" className="text-xs">Alterações de Dados</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="all-logs" className="mt-4">
+                <Card className="shadow-card overflow-hidden">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="border-b bg-muted/30">
+                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Quando</th>
+                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Usuário</th>
+                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Entidade</th>
+                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Ação</th>
+                        <th className="text-right px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Detalhes</th>
+                      </tr></thead>
+                      <tbody className="divide-y">
+                        {audits.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum registro encontrado.</td></tr>}
+                        {audits.map((a) => (
+                          <tr key={a.id} className="hover:bg-muted/30 align-top transition-colors">
+                            <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">{new Date(a.created_at).toLocaleString("pt-BR")}</td>
+                            <td className="px-4 py-3">
+                                <div className="flex items-center gap-2">
+                                    <div className="h-6 w-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[10px] font-bold">
+                                        {profileName(a.actor_id).slice(0, 2).toUpperCase()}
+                                    </div>
+                                    <span className="font-medium">{profileName(a.actor_id)}</span>
+                                </div>
+                            </td>
+                            <td className="px-4 py-3"><Badge variant="outline" className="capitalize text-[10px]">{a.entity_type}</Badge></td>
+                            <td className="px-4 py-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
+                                a.action === "create" ? "bg-success/10 text-success" : 
+                                a.action === "delete" ? "bg-destructive/10 text-destructive" : 
+                                a.action === "login" ? "bg-blue-500/10 text-blue-500" :
+                                "bg-accent/10 text-accent"
+                              }`}>{a.action}</span>
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-accent">DETALHES</Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                  <DialogHeader><DialogTitle>Detalhes da Auditoria</DialogTitle></DialogHeader>
+                                  <div className="mt-4 space-y-4">
+                                    <div className="grid grid-cols-2 gap-4 text-sm">
+                                      <div><Label className="text-xs">Entidade</Label><p className="font-mono mt-1 capitalize">{a.entity_type}</p></div>
+                                      <div><Label className="text-xs">Ação</Label><p className="font-mono mt-1 uppercase">{a.action}</p></div>
+                                    </div>
+                                    <div>
+                                      <Label className="text-xs">Alterações / Dados</Label>
+                                      <pre className="mt-2 p-4 bg-muted rounded-xl overflow-auto max-h-[300px] text-[11px] font-mono leading-relaxed">
+                                        {JSON.stringify(a.changes, null, 2)}
+                                      </pre>
+                                    </div>
+                                  </div>
+                                </DialogContent>
+                              </Dialog>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="access-logs" className="mt-4">
+                 <Card className="p-12 text-center text-muted-foreground bg-muted/20 border-dashed">
+                    <div className="flex flex-col items-center gap-3">
+                        <KeyRound className="h-10 w-10 opacity-20" />
+                        <p className="text-sm">Os logs de acesso direto do Supabase são filtrados aqui.</p>
+                        <p className="text-xs max-w-sm">Esta funcionalidade consome dados de autenticação em tempo real para mostrar quem entrou e saiu do sistema EXACTA.</p>
+                    </div>
+                 </Card>
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         )}
       </Tabs>

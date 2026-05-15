@@ -3,12 +3,20 @@ import { AppShell } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Target, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { 
+  Plus, Target, TrendingUp, CheckCircle2, BarChart3, 
+  ArrowUpRight, ArrowDownRight, Activity, Percent, DollarSign, Users 
+} from "lucide-react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/okrs")({
   component: () => <AppShell><OKRsPage /></AppShell>,
@@ -16,74 +24,268 @@ export const Route = createFileRoute("/okrs")({
 
 function OKRsPage() {
   const { user } = useAuth();
-  const [okrs, setOkrs] = useState<any[]>([]);
+  const { isGestor } = useRole();
+  const [kpis, setKpis] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Modal state
+  const [openKpi, setOpenKpi] = useState(false);
+  const [newKpi, setNewKpi] = useState({
+    name: "",
+    goal: "",
+    current_value: "",
+    unit: "%",
+    department_id: "",
+    period_month: new Date().getMonth() + 1,
+    period_year: new Date().getFullYear()
+  });
 
-  const load = async () => {
-    // Mock data for demo since table might not exist
-    const mockOKRs = [
-      { id: "1", objective: "Aumentar faturamento em 20%", progress: 65, status: "em_andamento", kr: "Atingir R$ 500k em vendas" },
-      { id: "2", objective: "Lançar novo módulo de IA", progress: 90, status: "quase_la", kr: "Integrar Gemini e Groq" },
-      { id: "3", objective: "Melhorar satisfação do cliente", progress: 40, status: "atrasado", kr: "NPS acima de 70" }
-    ];
-    setOkrs(mockOKRs);
+  const loadData = async () => {
+    setLoading(true);
+    const { data: kpiData } = await (supabase
+      .from("kpis" as any))
+      .select("*, departments(name)");
+    
+    const { data: deptData } = await (supabase
+      .from("departments" as any))
+      .select("*");
+
+    if (kpiData) setKpis(kpiData);
+    if (deptData) setDepartments(deptData);
+    setLoading(false);
   };
 
   useEffect(() => {
-    load();
+    loadData();
   }, []);
 
+  const handleCreateKpi = async () => {
+    if (!newKpi.name || !newKpi.department_id) {
+      toast.error("Preencha os campos obrigatórios");
+      return;
+    }
+
+    const { error } = await (supabase.from("kpis" as any)).insert({
+      ...newKpi,
+      goal: Number(newKpi.goal),
+      current_value: Number(newKpi.current_value),
+      created_by: user?.id
+    } as any);
+
+    if (error) {
+      toast.error("Erro ao criar KPI");
+    } else {
+      toast.success("KPI criado com sucesso!");
+      setOpenKpi(false);
+      loadData();
+    }
+  };
+
+  const getProgress = (current: number, goal: number) => {
+    if (goal === 0) return 0;
+    const p = (current / goal) * 100;
+    return Math.min(Math.round(p), 100);
+  };
+
   return (
-    <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-8">
-      <header className="flex items-end justify-between gap-4">
+    <div className="p-6 lg:p-10 max-w-7xl mx-auto space-y-10">
+      <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-accent font-medium uppercase tracking-wider">Estratégia</p>
-          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Metas e OKRs</h1>
-          <p className="text-muted-foreground mt-2">Alinhamento estratégico e resultados-chave.</p>
+          <p className="text-sm text-accent font-medium uppercase tracking-wider">Estratégia & Performance</p>
+          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Metas, OKRs e KPIs</h1>
+          <p className="text-muted-foreground mt-2">Acompanhe o desempenho estratégico e indicadores de cada setor.</p>
         </div>
-        <Button className="bg-gradient-primary text-primary-foreground gap-2">
-          <Plus className="h-4 w-4" /> Novo OKR
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" className="gap-2">
+            <Plus className="h-4 w-4" /> Novo OKR
+          </Button>
+          {isGestor && (
+            <Dialog open={openKpi} onOpenChange={setOpenKpi}>
+              <DialogTrigger asChild>
+                <Button className="bg-gradient-primary text-primary-foreground gap-2">
+                  <Activity className="h-4 w-4" /> Novo KPI
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Novo Indicador (KPI)</DialogTitle>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid gap-2">
+                    <Label>Nome do Indicador</Label>
+                    <Input 
+                      placeholder="Ex: NPS, Faturamento, Taxa de Conversão" 
+                      value={newKpi.name}
+                      onChange={e => setNewKpi({...newKpi, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Meta Mensal</Label>
+                      <Input 
+                        type="number" 
+                        value={newKpi.goal}
+                        onChange={e => setNewKpi({...newKpi, goal: e.target.value})}
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Unidade</Label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                        value={newKpi.unit}
+                        onChange={e => setNewKpi({...newKpi, unit: e.target.value})}
+                      >
+                        <option value="%">%</option>
+                        <option value="R$">R$</option>
+                        <option value="UN">Unidades</option>
+                        <option value="H">Horas</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid gap-2">
+                    <Label>Setor / Departamento</Label>
+                    <select 
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      value={newKpi.department_id}
+                      onChange={e => setNewKpi({...newKpi, department_id: e.target.value})}
+                    >
+                      <option value="">Selecione um setor</option>
+                      {departments.map(d => (
+                        <option key={d.id} value={d.id}>{d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button onClick={handleCreateKpi} className="bg-gradient-primary">Criar KPI</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </div>
       </header>
 
-      <div className="grid gap-6">
-        {okrs.map((okr) => (
-          <Card key={okr.id} className="p-6 shadow-card border-l-4 border-l-accent">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                  <Target className="h-6 w-6 text-accent" />
-                </div>
-                <div>
-                  <h3 className="font-display font-bold text-xl">{okr.objective}</h3>
-                  <p className="text-sm text-muted-foreground">KR: {okr.kr}</p>
-                </div>
-              </div>
-              <Badge variant="outline" className="capitalize">
-                {okr.status.replace("_", " ")}
-              </Badge>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground font-medium">Progresso Geral</span>
-                <span className="font-bold">{okr.progress}%</span>
-              </div>
-              <Progress value={okr.progress} className="h-2" />
-            </div>
+      {/* KPI Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <BarChart3 className="h-5 w-5 text-accent" />
+          <h2 className="font-display font-bold text-xl">Indicadores de Setores (KPIs)</h2>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {loading ? (
+            Array(4).fill(0).map((_, i) => (
+              <Card key={i} className="p-6 h-32 animate-pulse bg-muted/50" />
+            ))
+          ) : kpis.length > 0 ? (
+            kpis.map((kpi) => {
+              const progress = getProgress(kpi.current_value, kpi.goal);
+              const isMeetingGoal = progress >= 100;
 
-            <div className="mt-6 flex items-center gap-4 text-xs text-muted-foreground border-t pt-4">
-              <div className="flex items-center gap-1.5">
-                <TrendingUp className="h-3.5 w-3.5 text-success" /> 
-                <span>+5% desde a última semana</span>
+              return (
+                <Card key={kpi.id} className="p-5 shadow-card hover:shadow-elegant transition-all border-l-4 border-l-accent overflow-hidden group">
+                  <div className="flex justify-between items-start mb-3">
+                    <div>
+                      <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">{kpi.departments?.name || "Geral"}</p>
+                      <h3 className="font-bold text-sm leading-tight mt-1 group-hover:text-accent transition-colors">{kpi.name}</h3>
+                    </div>
+                    <div className={cn(
+                      "p-1.5 rounded-lg",
+                      isMeetingGoal ? "bg-success/10 text-success" : "bg-warning/10 text-warning"
+                    )}>
+                      {isMeetingGoal ? <ArrowUpRight className="h-4 w-4" /> : <ArrowDownRight className="h-4 w-4" />}
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-bold font-display">
+                        {kpi.unit === "R$" && "R$ "}
+                        {kpi.current_value.toLocaleString()}
+                        {kpi.unit !== "R$" && kpi.unit}
+                      </span>
+                      <span className="text-xs text-muted-foreground">/ meta {kpi.goal}{kpi.unit}</span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-[10px] font-bold uppercase">
+                        <span>Atingimento</span>
+                        <span>{progress}%</span>
+                      </div>
+                      <Progress value={progress} className={cn("h-1.5", isMeetingGoal ? "bg-success/20 [&>div]:bg-success" : "")} />
+                    </div>
+                  </div>
+                </Card>
+              );
+            })
+          ) : (
+            <Card className="col-span-full p-10 flex flex-col items-center justify-center text-muted-foreground border-dashed">
+              <Activity className="h-10 w-10 mb-2 opacity-20" />
+              <p>Nenhum KPI cadastrado para este período.</p>
+            </Card>
+          )}
+        </div>
+      </section>
+
+      {/* OKRs Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Target className="h-5 w-5 text-accent" />
+          <h2 className="font-display font-bold text-xl">Objetivos Estratégicos (OKRs)</h2>
+        </div>
+
+        <div className="grid gap-6">
+          {/* Using existing mock logic but with better styling */}
+          {[
+            { id: "1", objective: "Aumentar faturamento em 20%", progress: 65, status: "em_andamento", kr: "Atingir R$ 500k em vendas", dept: "Vendas" },
+            { id: "2", objective: "Lançar novo módulo de IA", progress: 90, status: "quase_la", kr: "Integrar Gemini e Groq", dept: "TI/Inovação" },
+          ].map((okr) => (
+            <Card key={okr.id} className="p-6 shadow-card hover:border-accent/40 transition-all border-l-4 border-l-accent relative">
+               <Badge variant="outline" className="absolute top-6 right-6 capitalize bg-accent/5 text-accent border-accent/20">
+                {okr.dept}
+              </Badge>
+              <div className="flex items-start gap-4 mb-6">
+                <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center shrink-0">
+                  <Target className="h-7 w-7 text-accent" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="font-display font-bold text-2xl tracking-tight">{okr.objective}</h3>
+                  <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                    <CheckCircle2 className="h-4 w-4 text-accent" />
+                    <span>Resultado Chave: <span className="text-foreground font-medium">{okr.kr}</span></span>
+                  </p>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-accent" /> 
-                <span>2 de 4 tarefas concluídas</span>
+              
+              <div className="grid md:grid-cols-3 gap-8 items-center pt-6 border-t">
+                <div className="space-y-2 col-span-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground font-medium">Progresso do Objetivo</span>
+                    <span className="font-bold">{okr.progress}%</span>
+                  </div>
+                  <Progress value={okr.progress} className="h-2.5" />
+                </div>
+
+                <div className="flex items-center gap-6 justify-end">
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Status</p>
+                    <p className="text-sm font-bold capitalize text-accent">{okr.status.replace("_", " ")}</p>
+                  </div>
+                  <div className="h-10 w-px bg-border" />
+                  <div className="text-right">
+                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Tendência</p>
+                    <div className="flex items-center gap-1 justify-end text-success font-bold text-sm">
+                      <TrendingUp className="h-4 w-4" />
+                      <span>+5%</span>
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
-          </Card>
-        ))}
-      </div>
+            </Card>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }

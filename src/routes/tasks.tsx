@@ -45,7 +45,26 @@ function TasksPage() {
   const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
 
   const load = async () => {
-    const { data } = await supabase.from("tasks").select("*").order("created_at", { ascending: false });
+    const mode = localStorage.getItem("exacta-mode") || "team";
+    let query = supabase.from("tasks").select("*");
+
+    if (mode === "personal") {
+      // No modo pessoal, apenas as minhas tarefas
+      if (user?.id) {
+        query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+      }
+    } else {
+      // No modo equipe, gestores veem tudo. Colaboradores veem o que lhes pertence.
+      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user?.id || "").maybeSingle();
+      const role = roleData?.role || "colaborador";
+      
+      if (role === "colaborador" && user?.id) {
+        query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+      }
+      // Se for admin/gestor, não filtra (vê tudo)
+    }
+
+    const { data } = await query.order("created_at", { ascending: false });
     if (data) {
       setTasks(data);
       // Carrega contagens de subtarefas e anexos

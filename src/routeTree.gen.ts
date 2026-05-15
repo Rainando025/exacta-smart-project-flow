@@ -25,6 +25,7 @@ import { Route as FinancesRouteImport } from './routes/finances'
 import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as ChatRouteImport } from './routes/chat'
 import { Route as BrainstormingRouteImport } from './routes/brainstorming'
 import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -111,6 +112,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrainstormingRoute = BrainstormingRouteImport.update({
   id: '/brainstorming',
   path: '/brainstorming',
@@ -143,6 +149,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/automations': typeof AutomationsRoute
   '/brainstorming': typeof BrainstormingRoute
+  '/chat': typeof ChatRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/feedback': typeof FeedbackRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/automations': typeof AutomationsRoute
   '/brainstorming': typeof BrainstormingRoute
+  '/chat': typeof ChatRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/feedback': typeof FeedbackRoute
@@ -190,6 +198,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/automations': typeof AutomationsRoute
   '/brainstorming': typeof BrainstormingRoute
+  '/chat': typeof ChatRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
   '/feedback': typeof FeedbackRoute
@@ -215,6 +224,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/automations'
     | '/brainstorming'
+    | '/chat'
     | '/dashboard'
     | '/docs'
     | '/feedback'
@@ -238,6 +248,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/automations'
     | '/brainstorming'
+    | '/chat'
     | '/dashboard'
     | '/docs'
     | '/feedback'
@@ -261,6 +272,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/automations'
     | '/brainstorming'
+    | '/chat'
     | '/dashboard'
     | '/docs'
     | '/feedback'
@@ -285,6 +297,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AutomationsRoute: typeof AutomationsRoute
   BrainstormingRoute: typeof BrainstormingRoute
+  ChatRoute: typeof ChatRoute
   DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRoute
   FeedbackRoute: typeof FeedbackRoute
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/brainstorming': {
       id: '/brainstorming'
       path: '/brainstorming'
@@ -461,6 +481,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   AutomationsRoute: AutomationsRoute,
   BrainstormingRoute: BrainstormingRoute,
+  ChatRoute: ChatRoute,
   DashboardRoute: DashboardRoute,
   DocsRoute: DocsRoute,
   FeedbackRoute: FeedbackRoute,

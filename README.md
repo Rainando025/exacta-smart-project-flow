@@ -15,3 +15,7 @@ adicione nas despesas no modo pessoal, despesas recorrentes que automaticamente 
 dentro da aba de objetivo adicione uma seção de GARGALOS, para descrever os gargalos/problemas que enfretamos, e como selecionar. podemos usar a IA para dar informações e ajudar tambem
 
 
+coloque a opção de sininho e de alternar o modo escuro ou claro perto da busca rapida, e tambem ta um espaço muito grande entre o nome ajustes e o que mostra o perfil
+falta o botao de criar o grafico de Gantt, adicione tambem um botao de recolher o menu
+
+e adicione total responsividade para todos os tipos de telas e resoluções
