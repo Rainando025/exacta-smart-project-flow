@@ -5,13 +5,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { priorityColor } from "@/lib/exacta";
-import { Link2, Trash2, Info, Plus, CalendarDays, CalendarRange as RangeIcon, ChevronLeft, ChevronRight, Settings2, X } from "lucide-react";
+import { priorityColor, STATUSES, PRIORITIES } from "@/lib/exacta";
+import { Link2, Trash2, Info, Plus, CalendarDays, CalendarRange as RangeIcon, ChevronLeft, ChevronRight, Settings2, X, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useRole } from "@/hooks/useRole";
+import { Textarea } from "@/components/ui/textarea";
 
 export const Route = createFileRoute("/gantt")({
   component: () => (
@@ -44,6 +46,8 @@ function GanttPage() {
   const [newGanttOpen, setNewGanttOpen] = useState(false);
   const [newGanttData, setNewGanttData] = useState({ title: "", projectId: "", days: 7 });
   const containerRef = useRef<HTMLDivElement>(null);
+  const { canDeleteTask, canEditTask, isGestor } = useRole();
+  const [editingTask, setEditingTask] = useState<any | null>(null);
 
   const dayWidth = viewMode === "days" ? 40 : 12;
 
@@ -151,6 +155,35 @@ function GanttPage() {
     const { error } = await supabase.from("task_dependencies").delete().eq("id", id);
     if (error) toast.error(error.message);
     else toast.success("Vínculo removido");
+  };
+
+  const removeTask = async (id: string) => {
+    if (!confirm("Excluir esta tarefa permanentemente? Todas as dependências vinculadas também serão removidas.")) return;
+    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+        toast.success("Tarefa excluída do banco de dados");
+        load();
+    }
+  };
+
+  const saveTaskEdit = async () => {
+    if (!editingTask) return;
+    const { error } = await supabase.from("tasks").update({
+        title: editingTask.title,
+        description: editingTask.description,
+        priority: editingTask.priority,
+        status: editingTask.status,
+        due_date: editingTask.due_date,
+        start_date: editingTask.start_date
+    }).eq("id", editingTask.id);
+    
+    if (error) toast.error(error.message);
+    else {
+        toast.success("Tarefa atualizada");
+        setEditingTask(null);
+        load();
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -335,11 +368,19 @@ function GanttPage() {
                         className="h-2 w-2 rounded-full"
                         style={{ backgroundColor: priorityColor(t.priority) }}
                       />
-                      <div className="min-w-0">
+                      <div className="min-w-0 flex-1">
                         <p className="text-sm font-medium truncate">{t.title}</p>
                         {proj && (
                           <p className="text-[10px] text-muted-foreground truncate">{proj.name}</p>
                         )}
+                      </div>
+                      <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                         {canEditTask(t.creator_id) && (
+                             <button onClick={() => setEditingTask(t)} className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-accent transition-colors"><Pencil className="h-3 w-3" /></button>
+                         )}
+                         {canDeleteTask(t.creator_id) && (
+                             <button onClick={() => removeTask(t.id)} className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-destructive transition-colors"><Trash2 className="h-3 w-3" /></button>
+                         )}
                       </div>
                     </div>
                   );
@@ -527,6 +568,54 @@ function GanttPage() {
           </ul>
         </Card>
       )}
+
+      {/* Edit Task Dialog (Gantt Context) */}
+      <Dialog open={!!editingTask} onOpenChange={o => !o && setEditingTask(null)}>
+        <DialogContent>
+            <DialogHeader><DialogTitle>Editar Tarefa no Cronograma</DialogTitle></DialogHeader>
+            {editingTask && (
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Título</Label>
+                        <Input value={editingTask.title} onChange={e => setEditingTask({...editingTask, title: e.target.value})} />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Descrição</Label>
+                        <Textarea value={editingTask.description || ""} onChange={e => setEditingTask({...editingTask, description: e.target.value})} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Início</Label>
+                            <Input type="date" value={editingTask.start_date ? editingTask.start_date.slice(0, 10) : ""} onChange={e => setEditingTask({...editingTask, start_date: e.target.value})} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Fim (Prazo)</Label>
+                            <Input type="date" value={editingTask.due_date ? editingTask.due_date.slice(0, 10) : ""} onChange={e => setEditingTask({...editingTask, due_date: e.target.value})} />
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Prioridade</Label>
+                            <Select value={editingTask.priority} onValueChange={v => setEditingTask({...editingTask, priority: v})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>{PRIORITIES.map(p => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Status</Label>
+                            <Select value={editingTask.status} onValueChange={v => setEditingTask({...editingTask, status: v})}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent>{STATUSES.map(s => <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>)}</SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                </div>
+            )}
+            <DialogFooter>
+                <Button onClick={saveTaskEdit} className="w-full bg-gradient-primary">Salvar Alterações</Button>
+            </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

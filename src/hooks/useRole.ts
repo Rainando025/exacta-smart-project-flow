@@ -27,9 +27,10 @@ export function useRole() {
   const canManageTeam = isGestor;
   const canExportDashboard = isGestor;
   const canCreateProject = isGestor;
-  const canDeleteTask = (creatorId?: string) => isAdmin || creatorId === user?.id;
+  const canDeleteAnything = isGestor; // "so gestor e admin que pode excluir"
+  const canDeleteTask = (creatorId?: string) => isGestor || creatorId === user?.id;
   const canEditTask = (creatorId?: string, assigneeId?: string) =>
-    isAdmin || creatorId === user?.id || assigneeId === user?.id;
+    isGestor || creatorId === user?.id || assigneeId === user?.id;
 
-  return { role, loading, isAdmin, isGestor, canManageTeam, canExportDashboard, canCreateProject, canDeleteTask, canEditTask };
+  return { role, loading, isAdmin, isGestor, canManageTeam, canExportDashboard, canCreateProject, canDeleteTask, canEditTask, canDeleteAnything };
 }

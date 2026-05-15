@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Plus, Target, TrendingUp, CheckCircle2, BarChart3, 
-  ArrowUpRight, ArrowDownRight, Activity, Percent, DollarSign, Users 
+  ArrowUpRight, ArrowDownRight, Activity, Percent, DollarSign, Users, Pencil, Trash2 
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -40,6 +40,7 @@ function OKRsPage() {
     period_month: new Date().getMonth() + 1,
     period_year: new Date().getFullYear()
   });
+  const [editingKpi, setEditingKpi] = useState<any | null>(null);
 
   const loadData = async () => {
     setLoading(true);
@@ -78,6 +79,37 @@ function OKRsPage() {
     } else {
       toast.success("KPI criado com sucesso!");
       setOpenKpi(false);
+      setNewKpi({ name: "", goal: "", current_value: "", unit: "%", department_id: "", period_month: new Date().getMonth() + 1, period_year: new Date().getFullYear() });
+      loadData();
+    }
+  };
+
+  const handleUpdateKpi = async () => {
+    if (!editingKpi) return;
+    const { error } = await (supabase.from("kpis" as any)).update({
+      name: editingKpi.name,
+      goal: Number(editingKpi.goal),
+      current_value: Number(editingKpi.current_value),
+      unit: editingKpi.unit,
+      department_id: editingKpi.department_id
+    } as any).eq("id", editingKpi.id);
+
+    if (error) {
+      toast.error("Erro ao atualizar KPI");
+    } else {
+      toast.success("KPI atualizado!");
+      setEditingKpi(null);
+      loadData();
+    }
+  };
+
+  const handleDeleteKpi = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este indicador permanentemente?")) return;
+    const { error } = await (supabase.from("kpis" as any)).delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir KPI");
+    } else {
+      toast.success("KPI excluído!");
       loadData();
     }
   };
@@ -86,6 +118,12 @@ function OKRsPage() {
     if (goal === 0) return 0;
     const p = (current / goal) * 100;
     return Math.min(Math.round(p), 100);
+  };
+
+  const handleDeleteOkr = async (id: string) => {
+    if (!confirm("Excluir este OKR permanentemente? Todas as sub-metas serão perdidas.")) return;
+    toast.info("Função de exclusão de OKR acionada (mock)");
+    // Aqui seria supabase.from("okrs").delete().eq("id", id)
   };
 
   return (
@@ -198,6 +236,13 @@ function OKRsPage() {
                     </div>
                   </div>
 
+                  {isGestor && (
+                    <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => setEditingKpi(kpi)} className="p-1 rounded bg-background border hover:bg-muted text-muted-foreground"><Pencil className="h-3 w-3" /></button>
+                        <button onClick={() => handleDeleteKpi(kpi.id)} className="p-1 rounded bg-background border hover:bg-destructive hover:text-destructive-foreground text-muted-foreground"><Trash2 className="h-3 w-3" /></button>
+                    </div>
+                  )}
+
                   <div className="space-y-3">
                     <div className="flex items-baseline gap-1">
                       <span className="text-2xl font-bold font-display">
@@ -256,6 +301,12 @@ function OKRsPage() {
                     <span>Resultado Chave: <span className="text-foreground font-medium">{okr.kr}</span></span>
                   </p>
                 </div>
+                {isGestor && (
+                  <div className="flex gap-1">
+                    <button onClick={() => toast.info("Editar OKR")} className="p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => handleDeleteOkr(okr.id)} className="p-2 rounded-lg bg-muted/50 hover:bg-destructive hover:text-destructive-foreground transition-colors"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                )}
               </div>
               
               <div className="grid md:grid-cols-3 gap-8 items-center pt-6 border-t">
@@ -286,6 +337,47 @@ function OKRsPage() {
           ))}
         </div>
       </section>
+
+      {/* Edit KPI Dialog */}
+      <Dialog open={!!editingKpi} onOpenChange={(o) => !o && setEditingKpi(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Editar Indicador (KPI)</DialogTitle></DialogHeader>
+          {editingKpi && (
+            <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Nome do Indicador</Label>
+                <Input value={editingKpi.name} onChange={e => setEditingKpi({...editingKpi, name: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Meta</Label>
+                  <Input type="number" value={editingKpi.goal} onChange={e => setEditingKpi({...editingKpi, goal: e.target.value})} />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Valor Atual</Label>
+                  <Input type="number" value={editingKpi.current_value} onChange={e => setEditingKpi({...editingKpi, current_value: e.target.value})} />
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label>Setor</Label>
+                <select 
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  value={editingKpi.department_id}
+                  onChange={e => setEditingKpi({...editingKpi, department_id: e.target.value})}
+                >
+                  <option value="">Selecione um setor</option>
+                  {departments.map(d => (
+                    <option key={d.id} value={d.id}>{d.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={handleUpdateKpi} className="bg-gradient-primary">Salvar Alterações</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 
-export type NotifyType = "task_assigned" | "task_updated" | "task_due" | "feedback" | "info";
+export type NotifyType = "task_assigned" | "task_updated" | "task_due" | "feedback" | "info" | "reminder";
 
 interface NotifyParams {
   user_id: string;

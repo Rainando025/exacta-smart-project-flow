@@ -92,16 +92,16 @@ function ChatPage() {
   }, [activeChannel]);
 
   const loadMessages = useCallback(async (channelId: string) => {
-    const { data } = await (supabase.from("chat_messages" as any)
+    const { data } = await ((supabase.from("chat_messages" as any)
       .select(`*, attachments:chat_attachments(*), reactions:chat_reactions(*), audit:chat_audits(*)`)
       .eq("channel_id" as any, channelId)
       .eq("is_deleted" as any, false)
-      .order("created_at", { ascending: true }) as any);
+      .order("created_at", { ascending: true })) as any);
     if (!data) return;
 
     const ids = [...new Set(data.map((m: any) => m.sender_id))];
     if (ids.length) {
-      const { data: ps } = await supabase.from("profiles").select("id,full_name,avatar_url").in("id", ids);
+      const { data: ps } = await supabase.from("profiles").select("id,full_name,avatar_url").in("id", ids as string[]);
       if (ps) setProfiles(prev => ({ ...prev, ...Object.fromEntries(ps.map(p => [p.id, p])) }));
     }
     
@@ -174,6 +174,27 @@ function ChatPage() {
       } as any);
     }
     setUploading(false);
+  };
+
+  const deleteMessage = async (id: string) => {
+    if (!confirm("Excluir esta mensagem permanentemente?")) return;
+    const { error } = await (supabase.from("chat_messages" as any)).delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+        toast.success("Mensagem excluída");
+        if (activeChannel) loadMessages(activeChannel.id);
+    }
+  };
+
+  const deleteChannel = async (id: string) => {
+    if (!confirm("Excluir este canal e todas as suas mensagens? Esta ação não pode ser desfeita.")) return;
+    const { error } = await (supabase.from("chat_channels" as any)).delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+        toast.success("Canal excluído");
+        loadChannels();
+        setActiveChannel(null);
+    }
   };
 
   const toggleReaction = async (msgId: string, emoji: string) => {
@@ -287,10 +308,10 @@ function ChatPage() {
                     ))}
                     <div className="w-px h-4 bg-border mx-1" />
                     <button onClick={() => setReplyTo(msg)} className="h-7 w-7 flex items-center justify-center hover:bg-muted rounded transition-colors" title="Responder"><Reply className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                    {isMe && (
+                    {(isMe || isGestor) && (
                         <>
-                            <button onClick={() => { setEditingMsg(msg); setEditText(msg.content || ""); }} className="h-7 w-7 flex items-center justify-center hover:bg-muted rounded transition-colors" title="Editar"><Edit3 className="h-3.5 w-3.5 text-muted-foreground" /></button>
-                            <button onClick={() => {}} className="h-7 w-7 flex items-center justify-center hover:bg-muted rounded transition-colors" title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive/60" /></button>
+                            {isMe && <button onClick={() => { setEditingMsg(msg); setEditText(msg.content || ""); }} className="h-7 w-7 flex items-center justify-center hover:bg-muted rounded transition-colors" title="Editar"><Edit3 className="h-3.5 w-3.5 text-muted-foreground" /></button>}
+                            <button onClick={() => deleteMessage(msg.id)} className="h-7 w-7 flex items-center justify-center hover:bg-muted rounded transition-colors" title="Excluir"><Trash2 className="h-3.5 w-3.5 text-destructive/60" /></button>
                         </>
                     )}
                 </div>
