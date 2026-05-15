@@ -44,16 +44,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     const now = new Date();
     const in3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
 
-    const { data: myTasks } = await supabase
-      .from("tasks")
+    const { data: myTasks } = await (supabase
+      .from("tasks" as any)
       .select("id,title,due_date,status,assignee_id,creator_id")
-      .or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`)
-      .neq("status", "done")
-      .not("due_date", "is", null);
+      .or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`) as any);
+    
+    // Filter locally to avoid complex PostgREST parsing issues if server is picky
+    const filteredTasks = (myTasks || []).filter((t: any) => t.status !== 'done' && t.due_date !== null);
 
-    if (!myTasks) return;
-
-    for (const t of myTasks) {
+    if (!filteredTasks) return;
+    for (const t of filteredTasks) {
       const due = new Date(t.due_date as string);
       const isSoon = due >= now && due <= in3;
       const overdue = isOverdue(t.due_date, t.status);

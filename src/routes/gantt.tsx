@@ -6,8 +6,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { priorityColor } from "@/lib/exacta";
-import { Link2, Trash2, Info } from "lucide-react";
+import { Link2, Trash2, Info, Plus, CalendarDays, CalendarRange as RangeIcon, ChevronLeft, ChevronRight, Settings2, X } from "lucide-react";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export const Route = createFileRoute("/gantt")({
   component: () => (
@@ -36,7 +40,12 @@ function GanttPage() {
   const [linkFrom, setLinkFrom] = useState<string | null>(null);
   const [hoverTask, setHoverTask] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
+  const [viewMode, setViewMode] = useState<"days" | "weeks">("days");
+  const [newGanttOpen, setNewGanttOpen] = useState(false);
+  const [newGanttData, setNewGanttData] = useState({ title: "", projectId: "", days: 7 });
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const dayWidth = viewMode === "days" ? 40 : 12;
 
   const load = async () => {
     const t = await supabase.from("tasks").select("*").not("due_date", "is", null).order("due_date");
@@ -96,14 +105,14 @@ function GanttPage() {
         const from = itemById[d.predecessor_id];
         const to = itemById[d.successor_id];
         if (!from || !to) return null;
-        const x1 = (from.offsetDays + from.duration) * DAY_WIDTH - 2;
+        const x1 = (from.offsetDays + from.duration) * dayWidth - 2;
         const y1 = from.rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
-        const x2 = to.offsetDays * DAY_WIDTH;
+        const x2 = to.offsetDays * dayWidth;
         const y2 = to.rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2;
         return { id: d.id, x1, y1, x2, y2 };
       })
       .filter(Boolean) as { id: string; x1: number; y1: number; x2: number; y2: number }[];
-  }, [deps, itemById]);
+  }, [deps, itemById, dayWidth]);
 
   const startLink = (taskId: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -158,29 +167,107 @@ function GanttPage() {
   const fromItem = linkFrom ? itemById[linkFrom] : null;
   const ghostStart = fromItem
     ? {
-        x: (fromItem.offsetDays + fromItem.duration) * DAY_WIDTH - 2,
+        x: (fromItem.offsetDays + fromItem.duration) * dayWidth - 2,
         y: fromItem.rowIndex * ROW_HEIGHT + ROW_HEIGHT / 2,
       }
     : null;
 
+  const createGanttTask = async () => {
+    if (!newGanttData.title || !user) return;
+    const { error } = await (supabase.from("tasks" as any)).insert({
+        title: newGanttData.title,
+        project_id: newGanttData.projectId || null,
+        due_date: new Date(Date.now() + newGanttData.days * 86400000).toISOString(),
+        start_date: new Date().toISOString(),
+        creator_id: user.id,
+        status: "todo",
+        priority: "medium"
+    } as any);
+
+    if (error) toast.error("Erro ao criar cronograma");
+    else {
+        toast.success("Novo item adicionado ao Gantt!");
+        setNewGanttOpen(false);
+        setNewGanttData({ title: "", projectId: "", days: 7 });
+        load();
+    }
+  };
+
   return (
     <div className="p-6 lg:p-10 max-w-[1600px] mx-auto space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-sm text-accent font-medium uppercase tracking-wider">Cronograma</p>
-          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">
-            Gantt — visão temporal
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Linha do tempo com dependências entre tarefas. Clique no <Link2 className="inline h-3.5 w-3.5 text-accent" /> da
-            ponta direita de uma barra e arraste até outra para criar um vínculo.
+      <header className="flex flex-wrap items-center justify-between gap-6 bg-card/40 p-6 rounded-2xl border shadow-sm">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-accent">
+            <RangeIcon className="h-4 w-4" />
+            <p className="text-xs font-bold uppercase tracking-[0.2em]">Cronograma Estratégico</p>
+          </div>
+          <h1 className="font-display text-3xl font-black tracking-tight">Gantt Flow</h1>
+          <p className="text-sm text-muted-foreground max-w-md">
+            Visualize prazos, arraste o <Link2 className="inline h-3 w-3 text-accent" /> para vincular dependências e organize seu fluxo temporal.
           </p>
         </div>
-        {linkFrom && (
-          <Button onClick={cancelLink} variant="outline" size="sm">
-            Cancelar vínculo
-          </Button>
-        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="flex items-center bg-muted/50 rounded-xl p-1 border shadow-inner">
+            <Button 
+                variant={viewMode === "days" ? "secondary" : "ghost"} 
+                size="sm" 
+                onClick={() => setViewMode("days")}
+                className="h-8 gap-2 rounded-lg text-xs font-bold"
+            >
+              <CalendarDays className="h-3.5 w-3.5" /> Diário
+            </Button>
+            <Button 
+                variant={viewMode === "weeks" ? "secondary" : "ghost"} 
+                size="sm" 
+                onClick={() => setViewMode("weeks")}
+                className="h-8 gap-2 rounded-lg text-xs font-bold"
+            >
+              <RangeIcon className="h-3.5 w-3.5" /> Semanal
+            </Button>
+          </div>
+
+          <Dialog open={newGanttOpen} onOpenChange={setNewGanttOpen}>
+            <DialogTrigger asChild>
+                <Button className="h-10 gap-2 bg-gradient-primary text-primary-foreground shadow-glow px-6 font-bold uppercase tracking-widest text-[10px]">
+                    <Plus className="h-4 w-4" /> Novo Gantt
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Novo Planejamento de Gantt</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="space-y-2">
+                        <Label>Título do Item / Tarefa</Label>
+                        <Input value={newGanttData.title} onChange={e => setNewGanttData({...newGanttData, title: e.target.value})} placeholder="Ex: Lançamento de Campanha" />
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Projeto Vinculado</Label>
+                        <Select value={newGanttData.projectId} onValueChange={v => setNewGanttData({...newGanttData, projectId: v})}>
+                            <SelectTrigger><SelectValue placeholder="Selecione o projeto" /></SelectTrigger>
+                            <SelectContent>
+                                {projects.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label>Duração Estimada (Dias)</Label>
+                        <Input type="number" value={newGanttData.days} onChange={e => setNewGanttData({...newGanttData, days: parseInt(e.target.value)})} />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button onClick={createGanttTask} className="w-full bg-gradient-primary">Criar e Visualizar no Gantt</Button>
+                </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {linkFrom && (
+            <Button onClick={cancelLink} variant="destructive" size="sm" className="h-10 gap-2 font-bold px-4">
+              <X className="h-4 w-4" /> Cancelar vínculo
+            </Button>
+          )}
+        </div>
       </header>
 
       {tasks.length > 0 && deps.length > 0 && (
@@ -218,7 +305,7 @@ function GanttPage() {
                       className={`shrink-0 border-r text-center text-[10px] py-2 ${
                         isToday ? "bg-accent/20 font-bold" : isWeekend ? "bg-muted/50" : ""
                       }`}
-                      style={{ width: DAY_WIDTH }}
+                      style={{ width: dayWidth }}
                     >
                       <div className="text-muted-foreground">
                         {d
@@ -262,7 +349,7 @@ function GanttPage() {
               {/* Timeline */}
               <div
                 className="relative"
-                style={{ width: totalDays * DAY_WIDTH, height: items.length * ROW_HEIGHT }}
+                style={{ width: totalDays * dayWidth, height: items.length * ROW_HEIGHT }}
               >
                 {/* Grid background */}
                 {Array.from({ length: totalDays }).map((_, i) => {
@@ -276,7 +363,7 @@ function GanttPage() {
                       className={`absolute top-0 bottom-0 border-r ${
                         isToday ? "bg-accent/10" : isWeekend ? "bg-muted/30" : ""
                       }`}
-                      style={{ left: i * DAY_WIDTH, width: DAY_WIDTH }}
+                      style={{ left: i * dayWidth, width: dayWidth }}
                     />
                   );
                 })}
@@ -319,8 +406,8 @@ function GanttPage() {
                           isLinking ? "ring-2 ring-accent ring-offset-2" : ""
                         } ${isHover ? "ring-2 ring-accent" : ""}`}
                         style={{
-                          left: t.offsetDays * DAY_WIDTH,
-                          width: Math.max(t.duration * DAY_WIDTH - 4, 32),
+                          left: t.offsetDays * dayWidth,
+                          width: Math.max(t.duration * dayWidth - 4, 32),
                           background: proj?.color
                             ? `linear-gradient(90deg, ${proj.color}, ${proj.color}dd)`
                             : "linear-gradient(135deg, oklch(0.35 0.15 250), oklch(0.55 0.18 220))",
@@ -334,7 +421,7 @@ function GanttPage() {
                         onClick={(e) => startLink(t.id, e)}
                         className="absolute top-1/2 -translate-y-1/2 h-5 w-5 rounded-full bg-accent text-accent-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 hover:scale-110 transition shadow-glow z-10"
                         style={{
-                          left: (t.offsetDays + t.duration) * DAY_WIDTH - 8,
+                          left: (t.offsetDays + t.duration) * dayWidth - 8,
                         }}
                         title="Criar dependência"
                       >
@@ -347,7 +434,7 @@ function GanttPage() {
                 {/* SVG arrows for dependencies */}
                 <svg
                   className="absolute inset-0 pointer-events-none"
-                  width={totalDays * DAY_WIDTH}
+                  width={totalDays * dayWidth}
                   height={items.length * ROW_HEIGHT}
                   style={{ overflow: "visible" }}
                 >
