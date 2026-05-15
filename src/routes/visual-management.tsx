@@ -1,15 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { 
   Target, AlertTriangle, ListChecks, BarChart3, Star, Workflow, 
   Plus, Trash2, Info, ArrowRight, Save, LayoutGrid, Brain, 
   HelpCircle, MoreHorizontal, MousePointer2, Square, Diamond, 
   Circle, Database, MoveRight, Type, Download, Share2, Sparkles, Loader2,
-  CalendarRange, Users, FolderKanban
+  CalendarRange, Users, FolderKanban, Minus
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -283,10 +284,107 @@ function GutMatrix({ issues, setIssues }: { issues: any[], setIssues: any }) {
 }
 
 // --- Flowchart Tool ---
-function FlowchartTool({ nodes, setNodes }: { nodes: any[], setNodes: any }) {
+function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], setNodes: any, edges: any[], setEdges: any }) {
+  const [draggingNode, setDraggingNode] = useState<string | null>(null);
+  const [connectingNode, setConnectingNode] = useState<string | null>(null);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, zoom: 1 });
+  const [selectedElement, setSelectedElement] = useState<{ type: 'node' | 'edge', id: string } | null>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  const exportToImage = () => {
+    if (!svgRef.current) return;
+    const svg = svgRef.current;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    const svgSize = svg.getBoundingClientRect();
+    
+    canvas.width = svgSize.width * 2; // High resolution
+    canvas.height = svgSize.height * 2;
+    
+    img.onload = () => {
+      if (ctx) {
+        ctx.fillStyle = "#f9fafb"; // Background color
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        const pngFile = canvas.toDataURL("image/png");
+        const downloadLink = document.createElement("a");
+        downloadLink.download = "fluxograma-exacta.png";
+        downloadLink.href = pngFile;
+        downloadLink.click();
+      }
+    };
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
   const addNode = (type: string) => {
-    const id = (nodes.length + 1).toString();
-    setNodes([...nodes, { id, type, x: 100, y: 100, label: "Novo " + type }]);
+    const id = Math.random().toString(36).substr(2, 9);
+    const newNode = { 
+      id, 
+      type, 
+      x: (200 - viewTransform.x) / viewTransform.zoom, 
+      y: (200 - viewTransform.y) / viewTransform.zoom, 
+      label: type === 'text' ? 'Novo Texto' : 'Novo ' + type,
+      color: '#3b82f6'
+    };
+    setNodes([...nodes, newNode]);
+  };
+
+  const handleMouseDown = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (e.shiftKey) {
+      setConnectingNode(id);
+    } else {
+      const node = nodes.find(n => n.id === id);
+      if (node) {
+        setDraggingNode(id);
+        setOffset({ x: e.clientX - node.x * viewTransform.zoom, y: e.clientY - node.y * viewTransform.zoom });
+      }
+    }
+    setSelectedElement({ type: 'node', id });
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (draggingNode) {
+      setNodes(nodes.map(n => 
+        n.id === draggingNode 
+          ? { ...n, x: (e.clientX - offset.x) / viewTransform.zoom, y: (e.clientY - offset.y) / viewTransform.zoom } 
+          : n
+      ));
+    }
+  };
+
+  const handleMouseUp = (id?: string) => {
+    if (connectingNode && id && connectingNode !== id) {
+      const sourceNode = nodes.find(n => n.id === connectingNode);
+      let edgeLabel = "";
+      if (sourceNode?.type === 'decision') {
+        const existingEdges = edges.filter(e => e.source === connectingNode);
+        edgeLabel = existingEdges.length === 0 ? "Sim" : "Não";
+      }
+      setEdges([...edges, { id: Math.random().toString(36).substr(2, 9), source: connectingNode, target: id, label: edgeLabel }]);
+    }
+    setDraggingNode(null);
+    setConnectingNode(null);
+  };
+
+  const deleteElement = () => {
+    if (!selectedElement) return;
+    if (selectedElement.type === 'node') {
+      setNodes(nodes.filter(n => n.id !== selectedElement.id));
+      setEdges(edges.filter(e => e.source !== selectedElement.id && e.target !== selectedElement.id));
+    } else {
+      setEdges(edges.filter(e => e.id !== selectedElement.id));
+    }
+    setSelectedElement(null);
+  };
+
+  const updateSelectedNode = (updates: any) => {
+    if (selectedElement?.type === 'node') {
+      setNodes(nodes.map(n => n.id === selectedElement.id ? { ...n, ...updates } : n));
+    }
   };
 
   const tools = [
@@ -294,23 +392,171 @@ function FlowchartTool({ nodes, setNodes }: { nodes: any[], setNodes: any }) {
     { type: "process", icon: Square, label: "Processo" },
     { type: "decision", icon: Diamond, label: "Decisão" },
     { type: "data", icon: Database, label: "Dados" },
+    { type: "text", icon: Type, label: "Texto" },
   ];
 
+  const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#ec4899", "#ffffff"];
+
   return (
-    <div className="flex h-[calc(100vh-350px)] min-h-[500px] border rounded-2xl overflow-hidden bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] dark:bg-[radial-gradient(#1f2937_1px,transparent_1px)] [background-size:20px_20px] relative animate-in fade-in duration-700">
-      <div className="absolute left-4 top-1/2 -translate-y-1/2 flex flex-col gap-2 p-2 rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-elegant z-10">
+    <div className="flex flex-col h-[calc(100vh-250px)] min-h-[600px] border rounded-2xl overflow-hidden bg-muted/5 relative" onMouseMove={handleMouseMove} onMouseUp={() => handleMouseUp()}>
+      {/* Toolbar */}
+      <div className="absolute left-4 top-4 flex flex-col gap-2 p-2 rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-elegant z-20">
         {tools.map(t => (
           <Button key={t.type} variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-accent/20 hover:text-accent" title={t.label} onClick={() => addNode(t.type)}>
             <t.icon className="h-5 w-5" />
           </Button>
         ))}
+        <div className="h-px bg-white/10 mx-2" />
+        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-accent/20 hover:text-accent" title="Exportar PNG" onClick={exportToImage}>
+          <Download className="h-5 w-5" />
+        </Button>
+        <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl text-destructive hover:bg-destructive/10" title="Excluir Selecionado" onClick={deleteElement}>
+          <Trash2 className="h-5 w-5" />
+        </Button>
       </div>
-      <div className="flex-1 relative">
-        {nodes.map(node => (
-          <div key={node.id} className={cn("absolute p-4 flex items-center justify-center text-xs font-bold shadow-lg border-2 bg-card", node.type === "start" ? "rounded-full w-24 h-24" : node.type === "decision" ? "rotate-45 w-24 h-24" : "rounded-lg w-32 h-20")} style={{ left: node.x, top: node.y }}>
-            <div className={node.type === "decision" ? "-rotate-45" : ""}>{node.label}</div>
+
+      {/* Viewport controls */}
+      <div className="absolute right-4 top-4 flex items-center gap-2 p-1 rounded-xl border border-white/10 bg-card/80 backdrop-blur-xl z-20">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewTransform(t => ({ ...t, zoom: t.zoom * 1.1 }))}><Plus className="h-4 w-4" /></Button>
+        <span className="text-[10px] font-bold min-w-[30px] text-center">{Math.round(viewTransform.zoom * 100)}%</span>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewTransform(t => ({ ...t, zoom: t.zoom / 1.1 }))}><Minus className="h-4 w-4" /></Button>
+      </div>
+
+      {/* Properties Panel */}
+      {selectedElement?.type === 'node' && (
+        <div className="absolute right-4 bottom-4 w-64 p-4 rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-elegant z-20 animate-in slide-in-from-right-4">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Propriedades</h4>
+          <div className="space-y-4">
+            <div>
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Tipo de Forma</Label>
+              <select 
+                value={nodes.find(n => n.id === selectedElement.id)?.type || ""} 
+                onChange={(e) => updateSelectedNode({ type: e.target.value })}
+                className="w-full h-8 text-xs bg-muted/20 rounded-md border border-white/10 px-2"
+              >
+                {tools.map(t => <option key={t.type} value={t.type}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Rótulo</Label>
+              <Input 
+                value={nodes.find(n => n.id === selectedElement.id)?.label || ""} 
+                onChange={(e) => updateSelectedNode({ label: e.target.value })}
+                className="h-8 text-xs bg-muted/20"
+              />
+            </div>
+            <div>
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cor</Label>
+              <div className="flex flex-wrap gap-2">
+                {colors.map(c => (
+                  <button 
+                    key={c} 
+                    onClick={() => updateSelectedNode({ color: c })}
+                    className={cn("h-5 w-5 rounded-full border border-white/20", nodes.find(n => n.id === selectedElement.id)?.color === c && "ring-2 ring-accent ring-offset-2 ring-offset-background")}
+                    style={{ backgroundColor: c }}
+                  />
+                ))}
+              </div>
+            </div>
           </div>
-        ))}
+        </div>
+      )}
+
+      {/* SVG Canvas */}
+      <svg 
+        ref={svgRef}
+        className="w-full h-full cursor-crosshair outline-none" 
+        onMouseDown={(e) => {
+          if (e.button === 0 && e.target === e.currentTarget) {
+             setSelectedElement(null);
+          }
+        }}
+      >
+        <g transform={`translate(${viewTransform.x}, ${viewTransform.y}) scale(${viewTransform.zoom})`}>
+          {/* Grid lines for professional look */}
+          <defs>
+            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeOpacity="0.05" strokeWidth="1"/>
+            </pattern>
+          </defs>
+          <rect width="5000" height="5000" x="-2500" y="-2500" fill="url(#grid)" />
+
+          {/* Edges */}
+          {edges.map(edge => {
+            const source = nodes.find(n => n.id === edge.source);
+            const target = nodes.find(n => n.id === edge.target);
+            if (!source || !target) return null;
+            
+            const d = `M ${source.x + (source.type === 'process' ? 64 : 48)} ${source.y + (source.type === 'process' ? 40 : 48)} L ${target.x + (target.type === 'process' ? 64 : 48)} ${target.y + (target.type === 'process' ? 40 : 48)}`;
+            
+            return (
+              <g key={edge.id} onClick={() => setSelectedElement({ type: 'edge', id: edge.id })}>
+                <path 
+                  d={d} 
+                  stroke={selectedElement?.id === edge.id ? "#3b82f6" : "#94a3b8"} 
+                  strokeWidth="2" 
+                  fill="none" 
+                  markerEnd="url(#arrowhead)" 
+                />
+                {edge.label && (
+                   <text 
+                    x={(source.x + target.x) / 2 + 60} 
+                    y={(source.y + target.y) / 2 + 50} 
+                    className="text-[10px] font-bold fill-muted-foreground bg-background"
+                   >
+                    {edge.label}
+                   </text>
+                )}
+              </g>
+            );
+          })}
+
+          <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
+            </marker>
+          </defs>
+
+          {/* Nodes */}
+          {nodes.map(node => (
+            <g 
+              key={node.id} 
+              transform={`translate(${node.x}, ${node.y})`}
+              onMouseDown={(e) => handleMouseDown(node.id, e)}
+              onMouseUp={() => handleMouseUp(node.id)}
+              className={cn("cursor-move group", selectedElement?.id === node.id && "filter drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]")}
+            >
+              {node.type === 'start' && <circle r="48" cx="48" cy="48" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
+              {node.type === 'process' && <rect width="128" height="80" rx="8" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
+              {node.type === 'decision' && <polygon points="64,0 128,64 64,128 0,64" transform="scale(0.75)" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
+              {node.type === 'data' && <polygon points="20,0 128,0 108,80 0,80" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
+              {node.type === 'text' && <text dy="1em" className="text-sm font-medium fill-foreground">{node.label}</text>}
+              
+              {node.type !== 'text' && (
+                <text 
+                  x={node.type === 'process' ? 64 : node.type === 'decision' ? 48 : 48} 
+                  y={node.type === 'process' ? 40 : node.type === 'decision' ? 48 : 48} 
+                  textAnchor="middle" 
+                  dominantBaseline="middle"
+                  className="text-[10px] font-black uppercase tracking-tight fill-foreground"
+                >
+                  {node.label}
+                </text>
+              )}
+
+              {/* Connecting ports */}
+              <circle cx="48" cy="48" r="4" className="opacity-0 group-hover:opacity-100 fill-accent" />
+            </g>
+          ))}
+        </g>
+      </svg>
+      
+      {/* Help Overlay */}
+      <div className="absolute left-4 bottom-4 p-3 rounded-xl border border-white/5 bg-black/20 backdrop-blur-md text-[10px] text-muted-foreground space-y-1">
+        <p>• Arraste para mover as formas</p>
+        <p>• SHIFT + Arraste entre formas para conectar</p>
+        <p>• Clique em uma forma para editar propriedades</p>
+        <p>• Decisões criam 'Sim'/'Não' automaticamente</p>
       </div>
     </div>
   );
@@ -325,6 +571,7 @@ function VisualManagementPage() {
   const [smart, setSmart] = useState({ specific: "", measurable: "", achievable: "", relevant: "", timeBound: "" });
   const [gut, setGut] = useState([{ id: "1", issue: "Servidor", gravity: 5, urgency: 5, tendency: 5 }]);
   const [nodes, setNodes] = useState([{ id: "1", type: "start", x: 400, y: 50, label: "Início" }]);
+  const [edges, setEdges] = useState<any[]>([]);
 
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -341,7 +588,7 @@ function VisualManagementPage() {
       name: suggestedProject.name,
       description: suggestedProject.description,
       status: "planning",
-      user_id: user.id
+      owner_id: user.id
     });
 
     if (error) toast.error("Erro ao criar projeto: " + error.message);
@@ -353,7 +600,8 @@ function VisualManagementPage() {
     const { user } = (await supabase.auth.getUser()).data;
     if (!user) return;
 
-    const { error } = await supabase.from("okrs").insert({
+    const table: any = supabase.from("okrs" as any);
+    const { error } = await table.insert({
       title: suggestedOKR.title,
       description: suggestedOKR.description,
       target_value: 100,
@@ -367,11 +615,12 @@ function VisualManagementPage() {
 
   const handleAIAnalysis = async () => {
     setLoadingAI(true);
-    const dataToAnalyze = { swot, eisenhower, fiveW, pareto, smart, gut };
+    const dataToAnalyze = { swot, eisenhower, fiveW, pareto, smart, gut, nodes, edges };
     const prompt = `
-      Analise os seguintes dados estratégicos da plataforma EXACTA e forneça insights acionáveis.
+      Analise os seguintes dados estratégicos e o fluxo de processo da plataforma EXACTA e forneça insights acionáveis, incluindo otimizações para o fluxograma.
       
-      Dados: ${JSON.stringify(dataToAnalyze)}
+      Dados Estratégicos: ${JSON.stringify({ swot, eisenhower, fiveW, pareto, smart, gut })}
+      Fluxograma (Nós e Conexões): ${JSON.stringify({ nodes, edges })}
       
       IMPORTANTE: No final da sua resposta, inclua obrigatoriamente um bloco JSON estruturado como este (não use blocos de código, apenas o JSON bruto após o texto):
       ---JSON_SUGGESTION---
@@ -454,7 +703,7 @@ function VisualManagementPage() {
           <TabsContent value="pareto" className="mt-0"><ParetoDiagram data={pareto} setData={setPareto} /></TabsContent>
           <TabsContent value="smart" className="mt-0"><SmartMatrix goal={smart} setGoal={setSmart} /></TabsContent>
           <TabsContent value="gut" className="mt-0"><GutMatrix issues={gut} setIssues={setGut} /></TabsContent>
-          <TabsContent value="flowchart" className="mt-0"><FlowchartTool nodes={nodes} setNodes={setNodes} /></TabsContent>
+          <TabsContent value="flowchart" className="mt-0"><FlowchartTool nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} /></TabsContent>
         </Card>
       </Tabs>
 
