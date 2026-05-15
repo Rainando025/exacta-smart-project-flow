@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useState, useRef } from "react";
-import { 
-  Target, AlertTriangle, ListChecks, BarChart3, Star, Workflow, 
-  Plus, Trash2, Info, ArrowRight, Save, LayoutGrid, Brain, 
-  HelpCircle, MoreHorizontal, MousePointer2, Square, Diamond, 
+import {
+  Target, AlertTriangle, ListChecks, BarChart3, Star, Workflow,
+  Plus, Trash2, Info, ArrowRight, Save, LayoutGrid, Brain,
+  HelpCircle, MoreHorizontal, MousePointer2, Square, Diamond,
   Circle, Database, MoveRight, Type, Download, Share2, Sparkles, Loader2,
   CalendarRange, Users, FolderKanban, Minus
 } from "lucide-react";
@@ -143,10 +143,10 @@ function FiveWTwoH({ rows, setRows }: { rows: any[], setRows: any }) {
             <tr key={i} className="hover:bg-muted/10 transition-colors">
               {Object.keys(row).map((field) => (
                 <td key={field} className="p-4">
-                  <Input 
-                    value={row[field]} 
+                  <Input
+                    value={row[field]}
                     onChange={e => updateRow(i, field, e.target.value)}
-                    className="h-9 border-transparent hover:border-border focus:border-accent bg-transparent" 
+                    className="h-9 border-transparent hover:border-border focus:border-accent bg-transparent"
                   />
                 </td>
               ))}
@@ -190,9 +190,9 @@ function ParetoDiagram({ data, setData }: { data: any[], setData: any }) {
               <span className="text-muted-foreground">{item.occurrences} ocorrências ({item.percentage}%)</span>
             </div>
             <div className="h-2 w-full bg-muted rounded-full overflow-hidden flex">
-              <div 
-                className={cn("h-full transition-all duration-1000", i === 0 ? "bg-accent" : i < 3 ? "bg-primary" : "bg-muted-foreground/30")} 
-                style={{ width: `${item.percentage}%` }} 
+              <div
+                className={cn("h-full transition-all duration-1000", i === 0 ? "bg-accent" : i < 3 ? "bg-primary" : "bg-muted-foreground/30")}
+                style={{ width: `${item.percentage}%` }}
               />
             </div>
           </div>
@@ -218,9 +218,9 @@ function SmartMatrix({ goal, setGoal }: { goal: any, setGoal: any }) {
         <Card key={c.key} className="p-5 shadow-card hover:border-accent/30 transition-all border-2">
           <h4 className="font-bold text-accent mb-1">{c.label}</h4>
           <p className="text-xs text-muted-foreground mb-3">{c.desc}</p>
-          <Textarea 
-            value={goal[c.key]} 
-            onChange={(e) => setGoal({...goal, [c.key]: e.target.value})}
+          <Textarea
+            value={goal[c.key]}
+            onChange={(e) => setGoal({ ...goal, [c.key]: e.target.value })}
             className="text-sm min-h-[100px] bg-muted/20 border-transparent focus:border-accent"
           />
         </Card>
@@ -264,12 +264,12 @@ function GutMatrix({ issues, setIssues }: { issues: any[], setIssues: any }) {
                 <td className="p-4 font-medium">{item.issue}</td>
                 {["gravity", "urgency", "tendency"].map(field => (
                   <td key={field} className="p-4 text-center">
-                    <select 
-                      value={item[field]} 
+                    <select
+                      value={item[field]}
                       onChange={(e) => updateVal(item.id, field, parseInt(e.target.value))}
                       className="h-8 w-12 rounded border bg-background text-xs text-center"
                     >
-                      {[1,2,3,4,5].map(n => <option key={n} value={n}>{n}</option>)}
+                      {[1, 2, 3, 4, 5].map(n => <option key={n} value={n}>{n}</option>)}
                     </select>
                   </td>
                 ))}
@@ -300,10 +300,10 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
     const ctx = canvas.getContext("2d");
     const img = new Image();
     const svgSize = svg.getBoundingClientRect();
-    
+
     canvas.width = svgSize.width * 2; // High resolution
     canvas.height = svgSize.height * 2;
-    
+
     img.onload = () => {
       if (ctx) {
         ctx.fillStyle = "#f9fafb"; // Background color
@@ -321,11 +321,11 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
 
   const addNode = (type: string) => {
     const id = Math.random().toString(36).substr(2, 9);
-    const newNode = { 
-      id, 
-      type, 
-      x: (200 - viewTransform.x) / viewTransform.zoom, 
-      y: (200 - viewTransform.y) / viewTransform.zoom, 
+    const newNode = {
+      id,
+      type,
+      x: (200 - viewTransform.x) / viewTransform.zoom,
+      y: (200 - viewTransform.y) / viewTransform.zoom,
       label: type === 'text' ? 'Novo Texto' : 'Novo ' + type,
       color: '#3b82f6'
     };
@@ -348,9 +348,9 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (draggingNode) {
-      setNodes(nodes.map(n => 
-        n.id === draggingNode 
-          ? { ...n, x: (e.clientX - offset.x) / viewTransform.zoom, y: (e.clientY - offset.y) / viewTransform.zoom } 
+      setNodes(nodes.map(n =>
+        n.id === draggingNode
+          ? { ...n, x: (e.clientX - offset.x) / viewTransform.zoom, y: (e.clientY - offset.y) / viewTransform.zoom }
           : n
       ));
     }
@@ -429,8 +429,8 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
           <div className="space-y-4">
             <div>
               <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Tipo de Forma</Label>
-              <select 
-                value={nodes.find(n => n.id === selectedElement.id)?.type || ""} 
+              <select
+                value={nodes.find(n => n.id === selectedElement.id)?.type || ""}
                 onChange={(e) => updateSelectedNode({ type: e.target.value })}
                 className="w-full h-8 text-xs bg-muted/20 rounded-md border border-white/10 px-2"
               >
@@ -439,8 +439,8 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
             </div>
             <div>
               <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Rótulo</Label>
-              <Input 
-                value={nodes.find(n => n.id === selectedElement.id)?.label || ""} 
+              <Input
+                value={nodes.find(n => n.id === selectedElement.id)?.label || ""}
                 onChange={(e) => updateSelectedNode({ label: e.target.value })}
                 className="h-8 text-xs bg-muted/20"
               />
@@ -449,8 +449,8 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
               <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cor</Label>
               <div className="flex flex-wrap gap-2">
                 {colors.map(c => (
-                  <button 
-                    key={c} 
+                  <button
+                    key={c}
                     onClick={() => updateSelectedNode({ color: c })}
                     className={cn("h-5 w-5 rounded-full border border-white/20", nodes.find(n => n.id === selectedElement.id)?.color === c && "ring-2 ring-accent ring-offset-2 ring-offset-background")}
                     style={{ backgroundColor: c }}
@@ -463,12 +463,12 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
       )}
 
       {/* SVG Canvas */}
-      <svg 
+      <svg
         ref={svgRef}
-        className="w-full h-full cursor-crosshair outline-none" 
+        className="w-full h-full cursor-crosshair outline-none"
         onMouseDown={(e) => {
           if (e.button === 0 && e.target === e.currentTarget) {
-             setSelectedElement(null);
+            setSelectedElement(null);
           }
         }}
       >
@@ -476,7 +476,7 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
           {/* Grid lines for professional look */}
           <defs>
             <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeOpacity="0.05" strokeWidth="1"/>
+              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeOpacity="0.05" strokeWidth="1" />
             </pattern>
           </defs>
           <rect width="5000" height="5000" x="-2500" y="-2500" fill="url(#grid)" />
@@ -486,26 +486,26 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
             const source = nodes.find(n => n.id === edge.source);
             const target = nodes.find(n => n.id === edge.target);
             if (!source || !target) return null;
-            
+
             const d = `M ${source.x + (source.type === 'process' ? 64 : 48)} ${source.y + (source.type === 'process' ? 40 : 48)} L ${target.x + (target.type === 'process' ? 64 : 48)} ${target.y + (target.type === 'process' ? 40 : 48)}`;
-            
+
             return (
               <g key={edge.id} onClick={() => setSelectedElement({ type: 'edge', id: edge.id })}>
-                <path 
-                  d={d} 
-                  stroke={selectedElement?.id === edge.id ? "#3b82f6" : "#94a3b8"} 
-                  strokeWidth="2" 
-                  fill="none" 
-                  markerEnd="url(#arrowhead)" 
+                <path
+                  d={d}
+                  stroke={selectedElement?.id === edge.id ? "#3b82f6" : "#94a3b8"}
+                  strokeWidth="2"
+                  fill="none"
+                  markerEnd="url(#arrowhead)"
                 />
                 {edge.label && (
-                   <text 
-                    x={(source.x + target.x) / 2 + 60} 
-                    y={(source.y + target.y) / 2 + 50} 
+                  <text
+                    x={(source.x + target.x) / 2 + 60}
+                    y={(source.y + target.y) / 2 + 50}
                     className="text-[10px] font-bold fill-muted-foreground bg-background"
-                   >
+                  >
                     {edge.label}
-                   </text>
+                  </text>
                 )}
               </g>
             );
@@ -519,8 +519,8 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
 
           {/* Nodes */}
           {nodes.map(node => (
-            <g 
-              key={node.id} 
+            <g
+              key={node.id}
               transform={`translate(${node.x}, ${node.y})`}
               onMouseDown={(e) => handleMouseDown(node.id, e)}
               onMouseUp={() => handleMouseUp(node.id)}
@@ -531,12 +531,12 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
               {node.type === 'decision' && <polygon points="64,0 128,64 64,128 0,64" transform="scale(0.75)" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
               {node.type === 'data' && <polygon points="20,0 128,0 108,80 0,80" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
               {node.type === 'text' && <text dy="1em" className="text-sm font-medium fill-foreground">{node.label}</text>}
-              
+
               {node.type !== 'text' && (
-                <text 
-                  x={node.type === 'process' ? 64 : node.type === 'decision' ? 48 : 48} 
-                  y={node.type === 'process' ? 40 : node.type === 'decision' ? 48 : 48} 
-                  textAnchor="middle" 
+                <text
+                  x={node.type === 'process' ? 64 : node.type === 'decision' ? 48 : 48}
+                  y={node.type === 'process' ? 40 : node.type === 'decision' ? 48 : 48}
+                  textAnchor="middle"
                   dominantBaseline="middle"
                   className="text-[10px] font-black uppercase tracking-tight fill-foreground"
                 >
@@ -550,7 +550,7 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
           ))}
         </g>
       </svg>
-      
+
       {/* Help Overlay */}
       <div className="absolute left-4 bottom-4 p-3 rounded-xl border border-white/5 bg-black/20 backdrop-blur-md text-[10px] text-muted-foreground space-y-1">
         <p>• Arraste para mover as formas</p>
@@ -639,7 +639,7 @@ function VisualManagementPage() {
       } catch {
         result = await askGemini(prompt);
       }
-      
+
       if (result) {
         const parts = result.split("---JSON_SUGGESTION---");
         setAiResult(parts[0]);
@@ -668,10 +668,10 @@ function VisualManagementPage() {
           <p className="text-muted-foreground mt-2">Ferramentas estratégicas para análise de alta performance.</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            onClick={handleAIAnalysis} 
+          <Button
+            onClick={handleAIAnalysis}
             disabled={loadingAI}
-            variant="outline" 
+            variant="outline"
             className="gap-2 border-accent/20 text-accent hover:bg-accent/10 shadow-glow-accent"
           >
             {loadingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
@@ -718,36 +718,36 @@ function VisualManagementPage() {
               Insights Estratégicos (IA)
             </DialogTitle>
           </DialogHeader>
-          
+
           <div className="mt-4 prose prose-invert prose-accent max-w-none">
             {aiResult && <ReactMarkdown>{aiResult}</ReactMarkdown>}
           </div>
 
           {(suggestedProject || suggestedOKR) && (
             <div className="mt-8 space-y-4 pt-6 border-t border-white/10">
-                <h4 className="text-sm font-bold uppercase tracking-widest text-accent">Ações Recomendadas pela IA</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {suggestedProject && (
-                        <Card className="p-4 bg-accent/5 border-accent/20 flex flex-col gap-2">
-                            <div className="flex items-center gap-2 text-accent">
-                                <FolderKanban className="h-4 w-4" />
-                                <span className="text-xs font-bold uppercase">Novo Projeto</span>
-                            </div>
-                            <p className="text-sm font-bold">{suggestedProject.name}</p>
-                            <Button size="sm" onClick={handleCreateProject} className="mt-2 bg-accent text-accent-foreground font-bold">Criar Projeto</Button>
-                        </Card>
-                    )}
-                    {suggestedOKR && (
-                        <Card className="p-4 bg-primary/5 border-primary/20 flex flex-col gap-2">
-                            <div className="flex items-center gap-2 text-primary">
-                                <Target className="h-4 w-4" />
-                                <span className="text-xs font-bold uppercase">Nova Meta / OKR</span>
-                            </div>
-                            <p className="text-sm font-bold">{suggestedOKR.title}</p>
-                            <Button size="sm" onClick={handleCreateOKR} className="mt-2 bg-primary text-primary-foreground font-bold">Adicionar OKR</Button>
-                        </Card>
-                    )}
-                </div>
+              <h4 className="text-sm font-bold uppercase tracking-widest text-accent">Ações Recomendadas pela IA</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {suggestedProject && (
+                  <Card className="p-4 bg-accent/5 border-accent/20 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-accent">
+                      <FolderKanban className="h-4 w-4" />
+                      <span className="text-xs font-bold uppercase">Novo Projeto</span>
+                    </div>
+                    <p className="text-sm font-bold">{suggestedProject.name}</p>
+                    <Button size="sm" onClick={handleCreateProject} className="mt-2 bg-accent text-accent-foreground font-bold">Criar Projeto</Button>
+                  </Card>
+                )}
+                {suggestedOKR && (
+                  <Card className="p-4 bg-primary/5 border-primary/20 flex flex-col gap-2">
+                    <div className="flex items-center gap-2 text-primary">
+                      <Target className="h-4 w-4" />
+                      <span className="text-xs font-bold uppercase">Nova Meta / OKR</span>
+                    </div>
+                    <p className="text-sm font-bold">{suggestedOKR.title}</p>
+                    <Button size="sm" onClick={handleCreateOKR} className="mt-2 bg-primary text-primary-foreground font-bold">Adicionar OKR</Button>
+                  </Card>
+                )}
+              </div>
             </div>
           )}
 

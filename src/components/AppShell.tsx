@@ -59,13 +59,6 @@ const PERSONAL_NAV: readonly NavGroup[] = [
       { to: "/finances", label: "Finanças", icon: Wallet },
       { to: "/reminders", label: "Lembretes", icon: BellRing },
     ]
-  },
-  {
-    title: "Configurações",
-    items: [
-      { to: "/notifications", label: "Avisos", icon: Bell },
-      { to: "/settings", label: "Ajustes", icon: Settings },
-    ]
   }
 ];
 
@@ -111,13 +104,6 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/team", label: "Equipe", icon: Users },
       { to: "/feedback", label: "Feedback 360°", icon: MessageSquareHeart },
     ]
-  },
-  {
-    title: "Sistema",
-    items: [
-      { to: "/notifications", label: "Avisos", icon: Bell },
-      { to: "/settings", label: "Ajustes", icon: Settings },
-    ]
   }
 ];
 
@@ -129,13 +115,32 @@ export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("sidebar-collapsed");
+      return saved !== null ? saved === "true" : true; // Default to true (collapsed)
+    }
+    return true;
+  });
   const [mode, setMode] = useState<AppMode>(() => {
     if (typeof window !== "undefined") {
       return (localStorage.getItem("exacta-mode") as AppMode) || "team";
     }
     return "team";
   });
+
+  useEffect(() => {
+    localStorage.setItem("sidebar-collapsed", String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
+
+  // Auto-collapse logic based on route
+  useEffect(() => {
+    if (location.pathname === "/dashboard") {
+      setSidebarCollapsed(false);
+    } else {
+      setSidebarCollapsed(true);
+    }
+  }, [location.pathname]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -240,7 +245,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
 
         {/* Nav */}
-        <nav className="flex-1 space-y-4 p-2 overflow-y-auto">
+        <nav className="flex-1 space-y-2 p-2 overflow-y-auto">
           {NAV.map((group) => (
             <div key={group.title} className="space-y-0.5">
               {!sidebarCollapsed && (
@@ -278,6 +283,38 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Bottom: profile + actions */}
         <div className="border-t border-sidebar-border p-2 space-y-1">
+          {/* Settings & Notifications moved here to balance space */}
+          <Link
+            to="/notifications"
+            title={sidebarCollapsed ? "Avisos" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+              sidebarCollapsed ? "justify-center px-2" : "",
+              location.pathname === "/notifications"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            )}
+          >
+            <Bell className="h-4 w-4 shrink-0" />
+            {!sidebarCollapsed && "Avisos"}
+          </Link>
+          <Link
+            to="/settings"
+            title={sidebarCollapsed ? "Ajustes" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
+              sidebarCollapsed ? "justify-center px-2" : "",
+              location.pathname === "/settings"
+                ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+            )}
+          >
+            <Settings className="h-4 w-4 shrink-0" />
+            {!sidebarCollapsed && "Ajustes"}
+          </Link>
+
+          <div className="h-px bg-sidebar-border/40 my-1" />
+
           {/* Theme toggle */}
           <button
             onClick={toggleTheme}

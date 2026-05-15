@@ -9,14 +9,20 @@ export const Route = createFileRoute("/calendar")({
 function CalendarPage() {
   return (
     <AppShell>
-      <div className="p-6 lg:p-10 h-full max-w-[1400px] mx-auto">
-        <header className="mb-8">
-          <p className="text-sm text-accent font-medium uppercase tracking-wider">Planejamento</p>
-          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Calendário e Agendamentos</h1>
-          <p className="text-muted-foreground mt-2">Gerencie seus compromissos e receba alertas inteligentes.</p>
+      <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden">
+        <header className="p-4 border-b border-white/5 bg-card/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-accent font-bold uppercase tracking-widest">Planejamento Estratégico</p>
+              <h1 className="font-display text-xl font-bold">Calendário Inteligente</h1>
+            </div>
+            <div className="flex gap-2">
+               {/* Opções extras se necessário */}
+            </div>
+          </div>
         </header>
 
-        <div className="bg-card rounded-2xl border border-white/10 shadow-card p-6 h-[calc(100vh-250px)] min-h-[600px]">
+        <div className="flex-1 overflow-hidden">
           <CalendarScheduler isTeam={true} />
         </div>
       </div>
