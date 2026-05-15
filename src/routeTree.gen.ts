@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as WhiteboardsRouteImport } from './routes/whiteboards'
+import { Route as VisualManagementRouteImport } from './routes/visual-management'
 import { Route as TimeTrackingRouteImport } from './routes/time-tracking'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TasksRouteImport } from './routes/tasks'
@@ -26,6 +27,7 @@ import { Route as FeedbackRouteImport } from './routes/feedback'
 import { Route as DocsRouteImport } from './routes/docs'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as CalendarRouteImport } from './routes/calendar'
 import { Route as BrainstormingRouteImport } from './routes/brainstorming'
 import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -35,6 +37,11 @@ import { Route as IndexRouteImport } from './routes/index'
 const WhiteboardsRoute = WhiteboardsRouteImport.update({
   id: '/whiteboards',
   path: '/whiteboards',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VisualManagementRoute = VisualManagementRouteImport.update({
+  id: '/visual-management',
+  path: '/visual-management',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TimeTrackingRoute = TimeTrackingRouteImport.update({
@@ -117,6 +124,11 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BrainstormingRoute = BrainstormingRouteImport.update({
   id: '/brainstorming',
   path: '/brainstorming',
@@ -149,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/automations': typeof AutomationsRoute
   '/brainstorming': typeof BrainstormingRoute
+  '/calendar': typeof CalendarRoute
   '/chat': typeof ChatRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
@@ -165,6 +178,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/time-tracking': typeof TimeTrackingRoute
+  '/visual-management': typeof VisualManagementRoute
   '/whiteboards': typeof WhiteboardsRoute
 }
 export interface FileRoutesByTo {
@@ -173,6 +187,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/automations': typeof AutomationsRoute
   '/brainstorming': typeof BrainstormingRoute
+  '/calendar': typeof CalendarRoute
   '/chat': typeof ChatRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
@@ -189,6 +204,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/time-tracking': typeof TimeTrackingRoute
+  '/visual-management': typeof VisualManagementRoute
   '/whiteboards': typeof WhiteboardsRoute
 }
 export interface FileRoutesById {
@@ -198,6 +214,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/automations': typeof AutomationsRoute
   '/brainstorming': typeof BrainstormingRoute
+  '/calendar': typeof CalendarRoute
   '/chat': typeof ChatRoute
   '/dashboard': typeof DashboardRoute
   '/docs': typeof DocsRoute
@@ -214,6 +231,7 @@ export interface FileRoutesById {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/time-tracking': typeof TimeTrackingRoute
+  '/visual-management': typeof VisualManagementRoute
   '/whiteboards': typeof WhiteboardsRoute
 }
 export interface FileRouteTypes {
@@ -224,6 +242,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/automations'
     | '/brainstorming'
+    | '/calendar'
     | '/chat'
     | '/dashboard'
     | '/docs'
@@ -240,6 +259,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/time-tracking'
+    | '/visual-management'
     | '/whiteboards'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -248,6 +268,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/automations'
     | '/brainstorming'
+    | '/calendar'
     | '/chat'
     | '/dashboard'
     | '/docs'
@@ -264,6 +285,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/time-tracking'
+    | '/visual-management'
     | '/whiteboards'
   id:
     | '__root__'
@@ -272,6 +294,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/automations'
     | '/brainstorming'
+    | '/calendar'
     | '/chat'
     | '/dashboard'
     | '/docs'
@@ -288,6 +311,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/time-tracking'
+    | '/visual-management'
     | '/whiteboards'
   fileRoutesById: FileRoutesById
 }
@@ -297,6 +321,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   AutomationsRoute: typeof AutomationsRoute
   BrainstormingRoute: typeof BrainstormingRoute
+  CalendarRoute: typeof CalendarRoute
   ChatRoute: typeof ChatRoute
   DashboardRoute: typeof DashboardRoute
   DocsRoute: typeof DocsRoute
@@ -313,6 +338,7 @@ export interface RootRouteChildren {
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
   TimeTrackingRoute: typeof TimeTrackingRoute
+  VisualManagementRoute: typeof VisualManagementRoute
   WhiteboardsRoute: typeof WhiteboardsRoute
 }
 
@@ -323,6 +349,13 @@ declare module '@tanstack/react-router' {
       path: '/whiteboards'
       fullPath: '/whiteboards'
       preLoaderRoute: typeof WhiteboardsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/visual-management': {
+      id: '/visual-management'
+      path: '/visual-management'
+      fullPath: '/visual-management'
+      preLoaderRoute: typeof VisualManagementRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/time-tracking': {
@@ -437,6 +470,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/brainstorming': {
       id: '/brainstorming'
       path: '/brainstorming'
@@ -481,6 +521,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   AutomationsRoute: AutomationsRoute,
   BrainstormingRoute: BrainstormingRoute,
+  CalendarRoute: CalendarRoute,
   ChatRoute: ChatRoute,
   DashboardRoute: DashboardRoute,
   DocsRoute: DocsRoute,
@@ -497,6 +538,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
   TimeTrackingRoute: TimeTrackingRoute,
+  VisualManagementRoute: VisualManagementRoute,
   WhiteboardsRoute: WhiteboardsRoute,
 }
 export const routeTree = rootRouteImport

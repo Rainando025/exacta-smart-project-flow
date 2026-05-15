@@ -77,6 +77,7 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/tasks", label: "Tarefas", icon: CheckSquare },
       { to: "/projects", label: "Projetos", icon: FolderKanban },
       { to: "/okrs", label: "Metas e OKRs", icon: Target },
+      { to: "/calendar", label: "Calendário", icon: CalendarPlus },
     ]
   },
   {
@@ -84,6 +85,7 @@ const TEAM_NAV: readonly NavGroup[] = [
     items: [
       { to: "/kanban", label: "Kanban", icon: Kanban },
       { to: "/gantt", label: "Cronograma", icon: CalendarRange },
+      { to: "/visual-management", label: "Gestão Visual", icon: Presentation },
     ]
   },
   {
@@ -181,6 +183,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     docs: "Documentos", whiteboards: "Quadros", announcements: "Mural",
     automations: "Automação", "time-tracking": "Rastreamento", team: "Equipe",
     feedback: "Feedback 360°", chat: "Chat da Equipe", painel: "Painel",
+    calendar: "Calendário", "visual-management": "Gestão Visual",
   };
   const currentPageLabel = pageLabels[pageName] ?? pageName;
 

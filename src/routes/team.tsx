@@ -196,7 +196,6 @@ function TeamPage() {
           <TabsTrigger value="members" className="rounded-lg gap-2"><User className="h-4 w-4" /> Membros</TabsTrigger>
           <TabsTrigger value="skills" className="rounded-lg gap-2"><BrainCircuit className="h-4 w-4" /> Competências</TabsTrigger>
           <TabsTrigger value="ideas" className="rounded-lg gap-2"><Network className="h-4 w-4" /> Mapa Neural</TabsTrigger>
-          <TabsTrigger value="calendar" className="rounded-lg gap-2"><CalendarIcon className="h-4 w-4" /> Calendário</TabsTrigger>
         </TabsList>
 
         {/* ── MEMBERS TAB ── */}
@@ -337,7 +336,6 @@ function TeamPage() {
         </TabsContent>
 
         <TabsContent value="ideas" className="animate-in fade-in duration-300"><NeuralMap /></TabsContent>
-        <TabsContent value="calendar" className="animate-in fade-in duration-300"><CalendarScheduler isTeam={true} /></TabsContent>
       </Tabs>
 
       {/* ── SKILL MANAGEMENT DIALOG ── */}

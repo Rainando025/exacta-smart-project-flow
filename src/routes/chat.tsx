@@ -92,11 +92,13 @@ function ChatPage() {
   }, [activeChannel]);
 
   const loadMessages = useCallback(async (channelId: string) => {
-    const { data } = await ((supabase.from("chat_messages" as any)
+    const query: any = supabase.from("chat_messages" as any)
       .select(`*, attachments:chat_attachments(*), reactions:chat_reactions(*), audit:chat_audits(*)`)
-      .eq("channel_id" as any, channelId)
-      .eq("is_deleted" as any, false)
-      .order("created_at", { ascending: true })) as any);
+      .eq("channel_id", channelId)
+      .eq("is_deleted", false)
+      .order("created_at", { ascending: true });
+    
+    const { data } = await query;
     if (!data) return;
 
     const ids = [...new Set(data.map((m: any) => m.sender_id))];
@@ -200,10 +202,11 @@ function ChatPage() {
   const toggleReaction = async (msgId: string, emoji: string) => {
     if (!user) return;
     const existing = messages.find(m => m.id === msgId)?.reactions?.find(r => r.emoji === emoji && r.user_id === user.id);
+    const table: any = supabase.from("chat_reactions" as any);
     if (existing) {
-      await (supabase.from("chat_reactions" as any)).delete().eq("message_id" as any, msgId).eq("user_id" as any, user.id).eq("emoji" as any, emoji);
+      await table.delete().eq("message_id", msgId).eq("user_id", user.id).eq("emoji", emoji);
     } else {
-      await (supabase.from("chat_reactions" as any)).insert({ message_id: msgId, user_id: user.id, emoji } as any);
+      await table.insert({ message_id: msgId, user_id: user.id, emoji });
     }
   };
 

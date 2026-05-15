@@ -14,7 +14,7 @@ import { toast } from "sonner";
 interface Event {
   id: string;
   title: string;
-  description: string;
+  description: string | null;
   remind_at: string;
   priority: string;
 }
