@@ -83,9 +83,10 @@ function AuthPage() {
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Hero side */}
       <div className="relative hidden lg:flex flex-col justify-between bg-gradient-hero p-12 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-10" style={{
-          backgroundImage: "radial-gradient(circle at 20% 20%, white 1px, transparent 1px), radial-gradient(circle at 80% 60%, white 1px, transparent 1px)",
-          backgroundSize: "60px 60px",
+        <div className="absolute inset-0 opacity-30 mix-blend-overlay" style={{
+          backgroundImage: "url('https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/exactaback.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
         }} />
 
         <div className="relative flex items-center gap-3">
