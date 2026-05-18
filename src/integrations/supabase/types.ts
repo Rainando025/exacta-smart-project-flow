@@ -5,9 +5,9 @@ export interface Database {
   public: {
     Tables: {
       announcements: {
-        Row: { id: string; title: string; content: string; author_id: string; pinned: boolean; created_at: string }
-        Insert: { id?: string; title: string; content: string; author_id: string; pinned?: boolean; created_at?: string }
-        Update: { id?: string; title?: string; content?: string; author_id?: string; pinned?: boolean; created_at?: string }
+        Row: { id: string; title: string; content: string; author_id: string; pinned: boolean; type: string; target_user_id: string | null; created_at: string }
+        Insert: { id?: string; title: string; content: string; author_id: string; pinned?: boolean; type?: string; target_user_id?: string | null; created_at?: string }
+        Update: { id?: string; title?: string; content?: string; author_id?: string; pinned?: boolean; type?: string; target_user_id?: string | null; created_at?: string }
         Relationships: []
       }
       attachments: {

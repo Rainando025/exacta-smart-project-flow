@@ -89,6 +89,7 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/docs", label: "Documentos", icon: FileText },
       { to: "/whiteboards", label: "Quadros", icon: Presentation },
       { to: "/announcements", label: "Mural", icon: Megaphone },
+      { to: "/notifications", label: "Avisos", icon: Bell },
     ]
   },
   {
@@ -132,15 +133,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem("sidebar-collapsed", String(sidebarCollapsed));
   }, [sidebarCollapsed]);
-
-  // Auto-collapse logic based on route
-  useEffect(() => {
-    if (location.pathname === "/dashboard") {
-      setSidebarCollapsed(false);
-    } else {
-      setSidebarCollapsed(true);
-    }
-  }, [location.pathname]);
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -204,16 +196,31 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         {/* Logo */}
         <div className={cn(
-          "flex items-center gap-3 border-b border-sidebar-border transition-all duration-300",
-          sidebarCollapsed ? "px-3 py-5 justify-center" : "px-4 py-4"
+          "flex items-center border-b border-sidebar-border transition-all duration-300",
+          sidebarCollapsed ? "flex-col py-4 gap-3" : "justify-between px-4 py-4 gap-2"
         )}>
-          <img src={logo} alt="EXACTA" className="h-10 w-10 rounded-lg object-contain shrink-0" />
-          {!sidebarCollapsed && (
-            <div className="min-w-0">
-              <h1 className="font-display text-base font-bold tracking-tight leading-tight">EXACTA</h1>
-              <p className="text-[10px] uppercase tracking-widest text-accent leading-tight">Precisão em gestão</p>
-            </div>
-          )}
+          <div className={cn(
+            "flex items-center gap-3",
+            sidebarCollapsed ? "justify-center" : ""
+          )}>
+            <img src={logo} alt="EXACTA" className="h-10 w-10 rounded-lg object-contain shrink-0" />
+            {!sidebarCollapsed && (
+              <div className="min-w-0">
+                <h1 className="font-display text-base font-bold tracking-tight leading-tight">EXACTA</h1>
+                <p className="text-[10px] uppercase tracking-widest text-accent leading-tight">Precisão em gestão</p>
+              </div>
+            )}
+          </div>
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
+            className="flex items-center justify-center rounded-lg p-1.5 text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground shrink-0"
+          >
+            {sidebarCollapsed
+              ? <PanelLeftOpen className="h-4 w-4" />
+              : <PanelLeftClose className="h-4 w-4" />
+            }
+          </button>
         </div>
 
         {/* Mode switcher */}
@@ -283,21 +290,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
         {/* Bottom: profile + actions */}
         <div className="border-t border-sidebar-border p-2 space-y-1">
-          {/* Settings & Notifications moved here to balance space */}
-          <Link
-            to="/notifications"
-            title={sidebarCollapsed ? "Avisos" : undefined}
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
-              sidebarCollapsed ? "justify-center px-2" : "",
-              location.pathname === "/notifications"
-                ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-            )}
-          >
-            <Bell className="h-4 w-4 shrink-0" />
-            {!sidebarCollapsed && "Avisos"}
-          </Link>
+          {/* Settings moved here to balance space */}
           <Link
             to="/settings"
             title={sidebarCollapsed ? "Ajustes" : undefined}
@@ -344,8 +337,8 @@ export function AppShell({ children }: { children: ReactNode }) {
             )}
           </div>
 
-          {/* Logout + collapse */}
-          <div className={cn("flex gap-1", sidebarCollapsed ? "flex-col" : "")}>
+          {/* Logout */}
+          <div className="flex gap-1 mt-1">
             <button
               onClick={signOut}
               title="Sair"
@@ -356,16 +349,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             >
               <LogOut className="h-4 w-4 shrink-0" />
               {!sidebarCollapsed && "Sair"}
-            </button>
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              title={sidebarCollapsed ? "Expandir menu" : "Recolher menu"}
-              className="flex items-center justify-center rounded-lg p-2 text-sidebar-foreground/50 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
-            >
-              {sidebarCollapsed
-                ? <PanelLeftOpen className="h-4 w-4" />
-                : <PanelLeftClose className="h-4 w-4" />
-              }
             </button>
           </div>
         </div>

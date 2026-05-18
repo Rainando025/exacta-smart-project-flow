@@ -247,7 +247,7 @@ function Index() {
             <h2 className="text-4xl font-extrabold text-primary mb-6">Pronto para elevar o nível da sua gestão?</h2>
             <p className="text-muted-foreground mb-10 max-w-2xl mx-auto">Junte-se a centenas de líderes que já transformaram seus fluxos de trabalho com a EXACTA.</p>
             <Button asChild size="lg" className="bg-primary text-primary-foreground h-14 px-12 text-lg shadow-elegant hover:scale-105 transition-transform">
-              <Link to="/auth">Começar Gratuitamente</Link>
+              <Link to="/auth" search={{ invite: undefined }}>Começar Gratuitamente</Link>
             </Button>
           </div>
         </section>
