@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Pin, Megaphone, Trash2, Pencil, Filter } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Plus, Pin, Megaphone, Trash2, Pencil, Filter, ShieldAlert, AlertTriangle, Users } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/announcements")({
@@ -21,42 +22,60 @@ function AnnouncementsPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<Record<string, any>>({});
+  const [allProfilesList, setAllProfilesList] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [form, setForm] = useState({ title: "", content: "", pinned: false });
+  const [form, setForm] = useState({ title: "", content: "", pinned: false, type: "aviso", target_user_id: "all" });
 
   const load = async () => {
-    const { data } = await supabase.from("announcements").select("*").order("pinned", { ascending: false }).order("created_at", { ascending: false });
-    if (data) {
-      setItems(data);
-      const ids = [...new Set(data.map((d) => d.author_id))];
-      if (ids.length) {
-        const { data: ps } = await supabase.from("profiles").select("*").in("id", ids);
-        if (ps) setProfiles(Object.fromEntries(ps.map((p) => [p.id, p])));
-      }
+    const [{ data: announcementsData }, { data: profilesData }] = await Promise.all([
+      supabase.from("announcements").select("*").order("pinned", { ascending: false }).order("created_at", { ascending: false }),
+      supabase.from("profiles").select("*").order("full_name", { ascending: true })
+    ]);
+    
+    if (profilesData) {
+      setAllProfilesList(profilesData);
+      setProfiles(Object.fromEntries(profilesData.map((p) => [p.id, p])));
+    }
+
+    if (announcementsData) {
+      setItems(announcementsData);
     }
   };
   useEffect(() => { load(); }, []);
 
   const create = async () => {
     if (!form.title.trim() || !form.content.trim() || !user) return;
-    const { error } = await supabase.from("announcements").insert({ ...form, author_id: user.id });
+    const payload = {
+      title: form.title,
+      content: form.content,
+      pinned: form.pinned,
+      type: form.type,
+      target_user_id: form.target_user_id === "all" ? null : form.target_user_id,
+      author_id: user.id
+    };
+    const { error } = await supabase.from("announcements").insert(payload);
     if (error) return toast.error(error.message);
-    toast.success("Aviso publicado");
+    toast.success(form.type === "auditoria" ? "Auditoria registrada" : "Aviso publicado");
     setOpen(false);
-    setForm({ title: "", content: "", pinned: false });
+    setForm({ title: "", content: "", pinned: false, type: "aviso", target_user_id: "all" });
     load();
   };
 
   const saveEdit = async () => {
     if (!editing) return;
-    const { error } = await supabase.from("announcements").update({
-      title: editing.title, content: editing.content, pinned: editing.pinned,
-    }).eq("id", editing.id);
+    const payload = {
+      title: editing.title,
+      content: editing.content,
+      pinned: editing.pinned,
+      type: editing.type,
+      target_user_id: editing.target_user_id === "all" || !editing.target_user_id ? null : editing.target_user_id,
+    };
+    const { error } = await supabase.from("announcements").update(payload).eq("id", editing.id);
     if (error) return toast.error(error.message);
-    toast.success("Aviso atualizado");
+    toast.success("Comunicado atualizado");
     setEditing(null);
     load();
   };
@@ -91,6 +110,30 @@ function AnnouncementsPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>Publicar aviso</DialogTitle></DialogHeader>
             <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={form.type} onValueChange={(v) => setForm({ ...form, type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aviso">Aviso (Geral)</SelectItem>
+                      <SelectItem value="auditoria">Auditoria / Notificação Crítica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Para quem?</Label>
+                  <Select value={form.target_user_id} onValueChange={(v) => setForm({ ...form, target_user_id: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos da equipe</SelectItem>
+                      {allProfilesList.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div><Label>Título</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
               <div><Label>Conteúdo</Label><Textarea rows={5} value={form.content} onChange={(e) => setForm({ ...form, content: e.target.value })} /></div>
               <div className="flex items-center gap-2"><Switch checked={form.pinned} onCheckedChange={(v) => setForm({ ...form, pinned: v })} /><Label>Fixar no topo</Label></div>
@@ -129,14 +172,16 @@ function AnnouncementsPage() {
             <Card key={a.id} className={`p-5 shadow-card relative ${a.pinned ? "border-l-4 border-l-accent" : ""}`}>
               {a.pinned && <Pin className="absolute top-3 right-3 h-4 w-4 text-accent fill-accent" />}
               <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-full bg-gradient-accent flex items-center justify-center text-accent-foreground font-bold text-sm shrink-0">
-                  {(author?.full_name || "U").slice(0, 2).toUpperCase()}
+                <div className={`h-10 w-10 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${a.type === 'auditoria' ? 'bg-destructive/10 text-destructive' : 'bg-gradient-accent text-accent-foreground'}`}>
+                  {a.type === 'auditoria' ? <ShieldAlert className="h-5 w-5" /> : (author?.full_name || "U").slice(0, 2).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-display font-bold">{a.title}</h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    {a.type === 'auditoria' && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-destructive text-white"><AlertTriangle className="h-3 w-3" /> Auditoria</span>}
+                    {a.target_user_id && <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-warning/20 text-warning-foreground"><Users className="h-3 w-3" /> Apenas para: {profiles[a.target_user_id]?.full_name || 'Usuário'}</span>}
                   </div>
-                  <p className="text-xs text-muted-foreground">{author?.full_name || "Usuário"} • {new Date(a.created_at).toLocaleDateString("pt-BR")}</p>
+                  <h3 className="font-display font-bold text-lg">{a.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{author?.full_name || "Usuário"} • {new Date(a.created_at).toLocaleDateString("pt-BR")}</p>
                   <p className="text-sm mt-3 whitespace-pre-wrap">{a.content}</p>
                 </div>
                 {isOwner && (
@@ -161,6 +206,30 @@ function AnnouncementsPage() {
           <DialogHeader><DialogTitle>Editar aviso</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Tipo</Label>
+                  <Select value={editing.type || "aviso"} onValueChange={(v) => setEditing({ ...editing, type: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="aviso">Aviso (Geral)</SelectItem>
+                      <SelectItem value="auditoria">Auditoria / Notificação Crítica</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Para quem?</Label>
+                  <Select value={editing.target_user_id || "all"} onValueChange={(v) => setEditing({ ...editing, target_user_id: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos da equipe</SelectItem>
+                      {allProfilesList.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.full_name || p.id.slice(0, 8)}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
               <div><Label>Título</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
               <div><Label>Conteúdo</Label><Textarea rows={5} value={editing.content} onChange={(e) => setEditing({ ...editing, content: e.target.value })} /></div>
               <div className="flex items-center gap-2"><Switch checked={editing.pinned} onCheckedChange={(v) => setEditing({ ...editing, pinned: v })} /><Label>Fixar no topo</Label></div>
