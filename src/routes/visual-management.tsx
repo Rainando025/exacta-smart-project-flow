@@ -21,9 +21,11 @@ import { toast } from "sonner";
 import { askGroq, askGemini } from "@/lib/ai";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 export const Route = createFileRoute("/visual-management")({
-  component: VisualManagementPage,
+  component: () => <AppShell><VisualManagementPage /></AppShell>,
 });
 
 // --- SWOT Matrix Component ---
@@ -573,6 +575,9 @@ function VisualManagementPage() {
   const [nodes, setNodes] = useState([{ id: "1", type: "start", x: 400, y: 50, label: "Início" }]);
   const [edges, setEdges] = useState<any[]>([]);
 
+  const printRef = useRef<HTMLDivElement>(null);
+  const [exportingPDF, setExportingPDF] = useState(false);
+
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
@@ -593,6 +598,27 @@ function VisualManagementPage() {
 
     if (error) toast.error("Erro ao criar projeto: " + error.message);
     else toast.success("Projeto sugerido criado com sucesso!");
+  };
+
+  const handleExportPDF = async () => {
+    if (!printRef.current) return;
+    setExportingPDF(true);
+    try {
+      const canvas = await html2canvas(printRef.current, { scale: 2, backgroundColor: "#ffffff", useCORS: true });
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? "landscape" : "portrait",
+        unit: "px",
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height);
+      pdf.save("gestao-visual-exacta.pdf");
+      toast.success("Projeto exportado em PDF com sucesso!");
+    } catch (e) {
+      toast.error("Erro ao exportar PDF.");
+    } finally {
+      setExportingPDF(false);
+    }
   };
 
   const handleCreateOKR = async () => {
@@ -677,8 +703,13 @@ function VisualManagementPage() {
             {loadingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
             Sugerir Análise com IA
           </Button>
-          <Button className="bg-gradient-primary gap-2 shadow-glow">
-            <Save className="h-4 w-4" /> Salvar Projeto
+          <Button
+            onClick={handleExportPDF}
+            disabled={exportingPDF}
+            className="bg-gradient-primary gap-2 shadow-glow"
+          >
+            {exportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} 
+            {exportingPDF ? "Exportando..." : "Exportar para PDF"}
           </Button>
         </div>
       </header>
@@ -696,7 +727,7 @@ function VisualManagementPage() {
           </TabsList>
         </div>
 
-        <Card className="mt-6 p-6 border-white/5 bg-card/30 backdrop-blur-sm min-h-[500px] shadow-elegant relative">
+        <Card ref={printRef} className="mt-6 p-6 border-white/5 bg-card/30 backdrop-blur-sm min-h-[500px] shadow-elegant relative overflow-hidden">
           <TabsContent value="swot" className="mt-0"><SwotMatrix data={swot} setData={setSwot} /></TabsContent>
           <TabsContent value="eisenhower" className="mt-0"><EisenhowerMatrix tasks={eisenhower} setTasks={setEisenhower} /></TabsContent>
           <TabsContent value="5w2h" className="mt-0"><FiveWTwoH rows={fiveW} setRows={setFiveW} /></TabsContent>

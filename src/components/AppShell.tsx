@@ -393,14 +393,17 @@ export function AppShell({ children }: { children: ReactNode }) {
             {location.pathname !== "/dashboard" ? (
               <button
                 onClick={() => navigate({ to: "/dashboard" })}
-                className="inline-flex h-8 w-8 items-center justify-center rounded-lg hover:bg-sidebar-accent/50"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg hover:bg-sidebar-accent/50 px-2 text-accent"
               >
                 <ArrowLeft className="h-4 w-4" />
+                <span className="text-xs font-bold whitespace-nowrap">Voltar pro Menu</span>
               </button>
             ) : (
-              <img src={logo} alt="EXACTA" className="h-8 w-8 rounded object-contain" />
+              <div className="flex items-center gap-2">
+                <img src={logo} alt="EXACTA" className="h-8 w-8 rounded object-contain" />
+                <span className="font-display font-bold text-sm">EXACTA</span>
+              </div>
             )}
-            <span className="font-display font-bold text-sm">EXACTA</span>
           </div>
           <div className="flex items-center gap-1">
             <button
@@ -447,7 +450,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 onClick={() => navigate({ to: "/dashboard" })}
               >
                 <ArrowLeft className="h-3.5 w-3.5" />
-                <span className="text-xs font-semibold hidden sm:inline">Voltar</span>
+                <span className="text-xs font-semibold hidden sm:inline">Voltar pro Menu</span>
               </Button>
             )}
             <h2 className="text-sm font-bold capitalize truncate">{currentPageLabel}</h2>

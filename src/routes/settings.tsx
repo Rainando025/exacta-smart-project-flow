@@ -156,6 +156,8 @@ function SettingsContent() {
 
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList>
+          <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
+          <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
           <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
           {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
         </TabsList>
@@ -202,7 +204,7 @@ function SettingsContent() {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-xl font-bold">Usuários do Sistema</h2>
             <div className="flex gap-2">
-              <Dialog open={openInvite} onOpenChange={setOpenInvite}>
+              {isAdmin && <Dialog open={openInvite} onOpenChange={setOpenInvite}>
                 <DialogTrigger asChild><Button variant="outline" className="gap-2"><Mail className="h-4 w-4" />Convidar</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Convidar Usuário</DialogTitle></DialogHeader>
@@ -223,9 +225,9 @@ function SettingsContent() {
                     </Button>
                   </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
 
-              <Dialog open={openCreate} onOpenChange={setOpenCreate}>
+              {isAdmin && <Dialog open={openCreate} onOpenChange={setOpenCreate}>
                 <DialogTrigger asChild><Button className="bg-gradient-primary text-primary-foreground gap-2"><UserPlus className="h-4 w-4" />Criar</Button></DialogTrigger>
                 <DialogContent>
                   <DialogHeader><DialogTitle>Criar Novo Usuário</DialogTitle></DialogHeader>
@@ -251,7 +253,7 @@ function SettingsContent() {
                     </Button>
                   </div>
                 </DialogContent>
-              </Dialog>
+              </Dialog>}
             </div>
           </div>
 
