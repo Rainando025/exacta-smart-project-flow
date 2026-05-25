@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { isOverdue, formatDate } from "@/lib/exacta";
 import { notify } from "@/lib/notify";
-
+import { toast } from "sonner";
 interface Notification {
   id: string;
   type: string;
@@ -21,6 +21,48 @@ interface NotificationsContextType {
   markAllRead: () => Promise<void>;
   markRead: (id: string) => Promise<void>;
 }
+
+const getAudioContext = () => {
+  if (typeof window === "undefined") return null;
+  const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+  if (!AudioContextClass) return null;
+  if (!(window as any).__sharedAudioContext) {
+    (window as any).__sharedAudioContext = new AudioContextClass();
+  }
+  return (window as any).__sharedAudioContext as AudioContext;
+};
+
+const playNotificationSound = () => {
+  try {
+    const ctx = getAudioContext();
+    if (!ctx) return;
+    if (ctx.state === "suspended") {
+      ctx.resume().catch(() => {});
+    }
+
+    const playNote = (freq: number, startTime: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + startTime);
+
+      gain.gain.setValueAtTime(0, ctx.currentTime + startTime);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + startTime + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + startTime + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(ctx.currentTime + startTime);
+      osc.stop(ctx.currentTime + startTime + duration);
+    };
+
+    // Som tipo "ding-dong" de aviso suave
+    playNote(523.25, 0, 0.3); // C5
+    playNote(659.25, 0.1, 0.4); // E5
+  } catch (e) {
+    console.error("Audio error", e);
+  }
+};
 
 const NotificationsContext = createContext<NotificationsContextType | undefined>(undefined);
 
@@ -48,9 +90,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .from("tasks" as any)
       .select("id,title,due_date,status,assignee_id,creator_id")
       .or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`) as any);
-    
+
     // Filter locally to avoid complex PostgREST parsing issues if server is picky
-    const filteredTasks = (myTasks || []).filter((t: any) => t.status !== 'done' && t.due_date !== null);
+    const filteredTasks = (myTasks || []).filter(
+      (t: any) => t.status !== "done" && t.due_date !== null,
+    );
 
     if (!filteredTasks) return;
     for (const t of filteredTasks) {
@@ -103,13 +147,31 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
             user_id: user.id,
             type: "reminder",
             title: `⏰ Compromisso: ${r.title}`,
-            message: `Agendado para ${new Date(r.remind_at).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}`,
+            message: `Agendado para ${new Date(r.remind_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
             link: "/notes",
           });
         }
       }
     }
   }, [user]);
+
+  // Desbloqueia o AudioContext na primeira interação do usuário (exigência dos navegadores)
+  useEffect(() => {
+    const unlockAudio = () => {
+      const ctx = getAudioContext();
+      if (ctx && ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
+      document.removeEventListener("click", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
+    };
+    document.addEventListener("click", unlockAudio);
+    document.addEventListener("keydown", unlockAudio);
+    return () => {
+      document.removeEventListener("click", unlockAudio);
+      document.removeEventListener("keydown", unlockAudio);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -126,7 +188,16 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` },
-        () => { load(); }
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            playNotificationSound();
+            const record = payload.new as Notification;
+            if (record && record.title) {
+              toast.info("Nova notificação", { description: record.title });
+            }
+          }
+          load();
+        },
       )
       .subscribe();
 
@@ -142,7 +213,11 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const markAllRead = async () => {
     if (!user || unread === 0) return;
-    await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
     load();
   };
 
