@@ -24,6 +24,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, LineChart, Line,
 } from "recharts";
+import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
 
 export const Route = createFileRoute("/finances")({ component: FinancesPage });
 
@@ -59,6 +60,12 @@ function getDefaultMonth() {
 function addMonths(dateStr: string, months: number) {
   const d = new Date(dateStr + "T00:00:00");
   d.setMonth(d.getMonth() + months);
+  return d.toISOString().split("T")[0];
+}
+
+function addWeeks(dateStr: string, weeks: number) {
+  const d = new Date(dateStr + "T00:00:00");
+  d.setDate(d.getDate() + weeks * 7);
   return d.toISOString().split("T")[0];
 }
 
@@ -162,6 +169,32 @@ function FinancesContent() {
           if (e2) { toast.error(e2.message); return; }
         }
         toast.success(`${totalInstallments} parcelas criadas!`);
+      } else if (recurring !== "none") {
+        const occurrences = recurring === "monthly" ? 12 : 52;
+        const parentRes = await supabase.from("personal_finances").insert({
+          user_id: user.id, title: title.trim(), amount: amountNum, type, category, date,
+          notes: notes.trim() || null, recurring,
+          due_date: dueDate || null, is_credit_card: false,
+          installments: occurrences, installment_number: 1, paid: false,
+        }).select("id").single();
+        if (parentRes.error) { toast.error(parentRes.error.message); return; }
+        
+        const childRows = [];
+        for (let i = 2; i <= occurrences; i++) {
+          const nextDate = recurring === "monthly" ? addMonths(date, i - 1) : addWeeks(date, i - 1);
+          childRows.push({
+            user_id: user.id, title: title.trim(), amount: amountNum, type, category,
+            date: nextDate, notes: notes.trim() || null, recurring,
+            due_date: dueDate ? (recurring === "monthly" ? addMonths(dueDate, i - 1) : addWeeks(dueDate, i - 1)) : null,
+            is_credit_card: false, installments: occurrences, installment_number: i,
+            parent_id: parentRes.data.id, paid: false,
+          });
+        }
+        if (childRows.length > 0) {
+          const { error: e2 } = await supabase.from("personal_finances").insert(childRows);
+          if (e2) { toast.error(e2.message); return; }
+        }
+        toast.success(`Registro recorrente adicionado (${occurrences} repetições)!`);
       } else {
         const { error } = await supabase.from("personal_finances").insert({
           user_id: user.id, title: title.trim(), amount: amountNum, type, category, date,
@@ -280,21 +313,6 @@ function FinancesContent() {
   const reportTotalDespesa = reportItems.filter((f) => f.type === "despesa").reduce((s, f) => s + Number(f.amount), 0);
   const reportSaldo = reportTotalReceita - reportTotalDespesa;
 
-  const loadLogoBase64 = (): Promise<string> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.onload = () => {
-        const c = document.createElement("canvas");
-        c.width = img.width; c.height = img.height;
-        c.getContext("2d")!.drawImage(img, 0, 0);
-        resolve(c.toDataURL("image/png"));
-      };
-      img.onerror = () => resolve("");
-      img.src = logoUrl;
-    });
-  };
-
   const exportPDF = async () => {
     const { default: jsPDF } = await import("jspdf");
     const { default: autoTable } = await import("jspdf-autotable");
@@ -304,37 +322,14 @@ function FinancesContent() {
       ? new Date(reportMonth + "-15").toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
       : `${reportFrom || "início"} a ${reportTo || "hoje"}`;
 
-    const logoB64 = await loadLogoBase64();
-
-    // ─── Branded header ───
-    doc.setFillColor(30, 58, 138);
-    doc.rect(0, 0, pw, 42, "F");
-    doc.setFillColor(8, 145, 178);
-    doc.rect(0, 42, pw, 2, "F");
-
-    // Logo
-    if (logoB64) {
-      doc.addImage(logoB64, "PNG", 12, 5, 32, 32);
-    }
-
-    // Brand text
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.text("EXACTA", logoB64 ? 48 : 14, 20);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("Precisão em Gestão", logoB64 ? 48 : 14, 28);
-
-    // Report title on the right
-    doc.setFontSize(12);
-    doc.text("Relatório de Finanças Pessoais", pw - 14, 18, { align: "right" });
-    doc.setFontSize(9);
-    doc.text(`Período: ${periodLabel}`, pw - 14, 25, { align: "right" });
-    doc.text(`Gerado em: ${new Date().toLocaleDateString("pt-BR")}`, pw - 14, 32, { align: "right" });
+    let y = await addBrandedHeader(
+      doc, 
+      "Relatório de Finanças Pessoais", 
+      `Período: ${periodLabel}`, 
+      `Gerado em: ${new Date().toLocaleDateString("pt-BR")}`
+    );
 
     // ─── Summary Cards ───
-    let y = 54;
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(13);
     doc.setFont("helvetica", "bold");
@@ -415,17 +410,7 @@ function FinancesContent() {
     });
 
     // ─── Footer ───
-    const pages = doc.getNumberOfPages();
-    for (let i = 1; i <= pages; i++) {
-      doc.setPage(i);
-      const ph = doc.internal.pageSize.getHeight();
-      doc.setFillColor(30, 58, 138);
-      doc.rect(0, ph - 12, pw, 12, "F");
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(7);
-      doc.text("EXACTA — Precisão em Gestão", 14, ph - 4);
-      doc.text(`Página ${i} de ${pages}`, pw - 14, ph - 4, { align: "right" });
-    }
+    addBrandedFooter(doc);
 
     doc.save(`financas-${reportMode === "month" ? reportMonth : "periodo"}.pdf`);
     toast.success("PDF exportado!");

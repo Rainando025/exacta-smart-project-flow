@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles, FileDown, FileSpreadsheet, Filter } from "lucide-react";
+import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
 import { isOverdue, priorityColor, priorityLabel, formatDate } from "@/lib/exacta";
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
@@ -164,17 +165,12 @@ function Dashboard() {
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
 
-    doc.setFillColor(30, 58, 138);
-    doc.rect(0, 0, pw, 32, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.text("EXACTA — Produtividade da Equipe", 14, 15);
-    doc.setFontSize(9);
-    doc.text(`Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`, 14, 24);
-    doc.setFillColor(6, 182, 212);
-    doc.rect(0, 32, pw, 2, "F");
-
-    let y = 42;
+    let y = await addBrandedHeader(
+      doc, 
+      "Produtividade da Equipe", 
+      "Resumo Geral", 
+      `Gerado em ${new Date().toLocaleDateString("pt-BR")} às ${new Date().toLocaleTimeString("pt-BR")}`
+    );
     // Filters block
     doc.setTextColor(80, 80, 80);
     doc.setFontSize(9);
@@ -239,13 +235,9 @@ function Dashboard() {
       margin: { left: 14, right: 14 },
     });
 
-    const totalPages = doc.getNumberOfPages();
-    for (let i = 1; i <= totalPages; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8); doc.setTextColor(140, 140, 140);
-      doc.text(`EXACTA — Precisão em Gestão | Página ${i}/${totalPages}`, pw / 2, doc.internal.pageSize.getHeight() - 8, { align: "center" });
-    }
-    doc.save(`exacta-produtividade-${todayISO()}.pdf`);
+    addBrandedFooter(doc);
+
+    doc.save("produtividade.pdf");
     toast.success("PDF exportado!");
   };
 

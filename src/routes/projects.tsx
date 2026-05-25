@@ -15,6 +15,7 @@ import { Slider } from "@/components/ui/slider";
 import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip, FileDown } from "lucide-react";
 import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
+import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
 import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 
 const COLORS = ["#1e3a8a", "#0891b2", "#7c3aed", "#059669", "#dc2626", "#d97706"];
@@ -91,19 +92,12 @@ function ProjectsPage() {
     const doc = new jsPDF();
     const pw = doc.internal.pageSize.getWidth();
 
-    // Header EXACTA
-    doc.setFillColor(30, 58, 138);
-    doc.rect(0, 0, pw, 35, "F");
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text("EXACTA — Relatório de Projeto", 14, 15);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text(`Projeto: ${project.name}`, 14, 24);
-    doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 14, 29);
-
-    let y = 45;
+    let y = await addBrandedHeader(
+      doc, 
+      "Relatório de Projeto", 
+      `Projeto: ${project.name}`, 
+      `Data: ${new Date().toLocaleDateString("pt-BR")}`
+    );
     doc.setTextColor(30, 58, 138);
     doc.setFontSize(14);
     doc.text("Informações Gerais", 14, y);
@@ -157,6 +151,8 @@ function ProjectsPage() {
         headStyles: { fillColor: [8, 145, 178] },
       });
     }
+
+    addBrandedFooter(doc);
 
     doc.save(`exacta-projeto-${project.name.toLowerCase().replace(/\s+/g, "-")}.pdf`);
     toast.success("PDF gerado!");

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { BottleneckAnalysis } from "@/components/BottleneckAnalysis";
 
 export const Route = createFileRoute("/okrs")({
   component: () => <AppShell><OKRsPage /></AppShell>,
@@ -336,6 +337,15 @@ function OKRsPage() {
             </Card>
           ))}
         </div>
+      </section>
+
+      {/* Bottleneck Analysis Section */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-2 mb-2">
+          <Activity className="h-5 w-5 text-destructive" />
+          <h2 className="font-display font-bold text-xl text-destructive">Gargalos e Soluções (IA)</h2>
+        </div>
+        <BottleneckAnalysis />
       </section>
 
       {/* Edit KPI Dialog */}
