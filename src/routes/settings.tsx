@@ -115,7 +115,7 @@ function SettingsContent() {
       preferredProvider,
     });
     setAiConfigState(updated);
-    toast.success("Configura├º├Áes de Intelig├¬ncia Artificial salvas!");
+    toast.success("Configurações de Inteligência Artificial salvas!");
   };
 
   const handleTestAI = async (provider: "gemini" | "groq") => {
@@ -134,11 +134,11 @@ function SettingsContent() {
 
   const getRoleForUser = (uid: string) => roles.find((ro) => ro.user_id === uid)?.role || "colaborador";
   const roleLabel = (r: string) => r === "admin" ? "Administrador" : r === "gestor" ? "Gestor" : "Colaborador";
-  const getDeptName = (deptId: string | null) => deptId ? (departments.find((d) => d.id === deptId)?.name || "ÔÇö") : "ÔÇö";
+  const getDeptName = (deptId: string | null) => deptId ? (departments.find((d) => d.id === deptId)?.name || "--") : "--";
 
   const handleCreateUser = async () => {
-    if (!newEmail || !newPassword || !newName) return toast.error("Preencha todos os campos obrigat├│rios.");
-    if (newPassword.length < 6) return toast.error("Senha m├¡nima de 6 caracteres.");
+    if (!newEmail || !newPassword || !newName) return toast.error("Preencha todos os campos obrigatórios.");
+    if (newPassword.length < 6) return toast.error("Senha mínima de 6 caracteres.");
     setCreating(true);
     const { data, error } = await supabase.auth.signUp({
       email: newEmail, password: newPassword,
@@ -151,7 +151,7 @@ function SettingsContent() {
     if (data.user && newRole !== "colaborador") {
       await supabase.from("user_roles").upsert({ user_id: data.user.id, role: newRole as any }, { onConflict: "user_id" });
     }
-    toast.success(`Usu├írio ${newName} criado!`);
+    toast.success(`Usuário ${newName} criado!`);
     setNewEmail(""); setNewPassword(""); setNewName(""); setNewRole("colaborador"); setNewJobTitle("");
     setOpenCreate(false);
     setTimeout(load, 1500);
@@ -195,7 +195,7 @@ function SettingsContent() {
   };
 
   const handlePasswordReset = async (email: string) => {
-    if (!email) return toast.error("Email obrigat├│rio.");
+    if (!email) return toast.error("Email obrigatório.");
     setResetting(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/auth` });
     if (error) toast.error(error.message); else toast.success(`Link enviado para ${email}`);
@@ -206,7 +206,7 @@ function SettingsContent() {
     const existing = roles.find((r) => r.user_id === userId);
     if (existing) await supabase.from("user_roles").delete().eq("id", existing.id);
     if (role !== "colaborador") await supabase.from("user_roles").insert([{ user_id: userId, role: role as any }]);
-    toast.success("Fun├º├úo atualizada!");
+    toast.success("Função atualizada!");
     load();
   };
 
@@ -265,7 +265,7 @@ function SettingsContent() {
   };
 
   const saveDept = async () => {
-    if (!deptName.trim()) return toast.error("Nome do setor ├® obrigat├│rio.");
+    if (!deptName.trim()) return toast.error("Nome do setor é obrigatório.");
     setSavingDept(true);
     if (editingDept) {
       const { error } = await supabase.from("departments").update({ name: deptName.trim(), color: deptColor }).eq("id", editingDept.id);
@@ -280,11 +280,11 @@ function SettingsContent() {
   };
 
   const deleteDept = async (id: string) => {
-    if (!confirm("Excluir este setor? Os usu├írios ser├úo desvinculados.")) return;
+    if (!confirm("Excluir este setor? Os usuários serão desvinculados.")) return;
     // Unlink users from this dept
     await supabase.from("profiles").update({ department_id: null } as any).eq("department_id", id);
     const { error } = await supabase.from("departments").delete().eq("id", id);
-    if (error) toast.error(error.message); else { toast.success("Setor exclu├¡do."); load(); }
+    if (error) toast.error(error.message); else { toast.success("Setor excluído."); load(); }
   };
 
   const profileNameFn = (id: string | null) => id ? (profiles.find((p) => p.id === id)?.full_name || id.slice(0, 8)) : "Sistema";
@@ -297,15 +297,15 @@ function SettingsContent() {
     <div className="p-6 lg:p-10 space-y-8 max-w-5xl mx-auto">
       <header>
         <p className="text-sm text-accent font-medium uppercase tracking-wider">Sistema</p>
-        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Configura├º├Áes</h1>
-        <p className="text-muted-foreground mt-1">Gerencie usu├írios, setores, convites e auditoria.</p>
+        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Configurações</h1>
+        <p className="text-muted-foreground mt-1">Gerencie usuários, setores, convites e auditoria.</p>
       </header>
 
       <Tabs defaultValue="users" className="space-y-6">
         <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usu├írios</TabsTrigger>
+          <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
           <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
-          <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Intelig├¬ncia Artificial</TabsTrigger>
+          <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Inteligência Artificial</TabsTrigger>
           <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
           {isGestor && <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>}
           {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
@@ -314,7 +314,7 @@ function SettingsContent() {
         {/* ÔöÇÔöÇ MEU PERFIL TAB ÔöÇÔöÇ */}
         <TabsContent value="profile" className="space-y-6">
           <Card className="p-6 shadow-card max-w-2xl">
-            <h3 className="font-display font-bold text-xl mb-6">Informa├º├Áes Pessoais</h3>
+            <h3 className="font-display font-bold text-xl mb-6">Informações Pessoais</h3>
             <div className="space-y-5">
               {/* Avatar */}
               <div className="flex items-center gap-5">
@@ -347,8 +347,8 @@ function SettingsContent() {
                   <Input value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder="Seu nome" />
                 </div>
                 <div className="space-y-2">
-                  <Label>Cargo / T├¡tulo</Label>
-                  <Input value={profileJobTitle} onChange={(e) => setProfileJobTitle(e.target.value)} placeholder="Ex: Desenvolvedor S├¬nior" />
+                  <Label>Cargo / Título</Label>
+                  <Input value={profileJobTitle} onChange={(e) => setProfileJobTitle(e.target.value)} placeholder="Ex: Desenvolvedor Sênior" />
                 </div>
               </div>
               <div className="space-y-2">
@@ -357,7 +357,7 @@ function SettingsContent() {
               </div>
               <div className="pt-2 flex justify-end">
                 <Button onClick={saveProfile} disabled={savingProfile} className="bg-gradient-primary text-primary-foreground gap-2">
-                  {savingProfile ? <><Loader2 className="h-4 w-4 animate-spin" />SalvandoÔÇª</> : "Salvar Altera├º├Áes"}
+                  {savingProfile ? <><Loader2 className="h-4 w-4 animate-spin" />Salvando...</> : "Salvar Alterações"}
                 </Button>
               </div>
             </div>
@@ -365,7 +365,7 @@ function SettingsContent() {
 
           <Card className="p-6 shadow-card max-w-2xl border-destructive/20">
             <h3 className="font-display font-bold text-xl mb-2 text-destructive">Zona de Perigo</h3>
-            <p className="text-sm text-muted-foreground mb-4">A exclus├úo da conta ├® permanente e n├úo pode ser desfeita.</p>
+            <p className="text-sm text-muted-foreground mb-4">A exclusão da conta é permanente e não pode ser desfeita.</p>
             <Button variant="destructive" className="shadow-elegant">Excluir minha conta</Button>
           </Card>
         </TabsContent>
@@ -373,15 +373,15 @@ function SettingsContent() {
         {/* ÔöÇÔöÇ USERS TAB ÔöÇÔöÇ */}
         <TabsContent value="users" className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-display text-xl font-bold">Usu├írios do Sistema</h2>
+            <h2 className="font-display text-xl font-bold">Usuários do Sistema</h2>
             <div className="flex gap-2">
               {isAdmin && <Dialog open={openInvite} onOpenChange={setOpenInvite}>
                 <DialogTrigger asChild><Button variant="outline" className="gap-2"><Mail className="h-4 w-4" />Convidar</Button></DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Convidar Usu├írio</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Convidar Usuário</DialogTitle></DialogHeader>
                   <div className="space-y-4 mt-2">
                     <div className="space-y-2"><Label>Email *</Label><Input type="email" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} placeholder="email@empresa.com" /></div>
-                    <div className="space-y-2"><Label>Fun├º├úo</Label>
+                    <div className="space-y-2"><Label>Função</Label>
                       <Select value={inviteRole} onValueChange={setInviteRole}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -392,7 +392,7 @@ function SettingsContent() {
                       </Select>
                     </div>
                     <Button onClick={handleInvite} disabled={inviting} className="w-full bg-gradient-primary text-primary-foreground">
-                      {inviting ? "EnviandoÔÇª" : "Enviar Convite"}
+                      {inviting ? "Enviando..." : "Enviar Convite"}
                     </Button>
                   </div>
                 </DialogContent>
@@ -401,13 +401,13 @@ function SettingsContent() {
               {isAdmin && <Dialog open={openCreate} onOpenChange={setOpenCreate}>
                 <DialogTrigger asChild><Button className="bg-gradient-primary text-primary-foreground gap-2"><UserPlus className="h-4 w-4" />Criar</Button></DialogTrigger>
                 <DialogContent>
-                  <DialogHeader><DialogTitle>Criar Novo Usu├írio</DialogTitle></DialogHeader>
+                  <DialogHeader><DialogTitle>Criar Novo Usuário</DialogTitle></DialogHeader>
                   <div className="space-y-4 mt-2">
                     <div className="space-y-2"><Label>Nome *</Label><Input value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
                     <div className="space-y-2"><Label>Email *</Label><Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} /></div>
-                    <div className="space-y-2"><Label>Senha *</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="M├¡n. 6" /></div>
+                    <div className="space-y-2"><Label>Senha *</Label><Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Mín. 6" /></div>
                     <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2"><Label>Fun├º├úo</Label>
+                      <div className="space-y-2"><Label>Função</Label>
                         <Select value={newRole} onValueChange={setNewRole}>
                           <SelectTrigger><SelectValue /></SelectTrigger>
                           <SelectContent>
@@ -420,7 +420,7 @@ function SettingsContent() {
                       <div className="space-y-2"><Label>Cargo</Label><Input value={newJobTitle} onChange={(e) => setNewJobTitle(e.target.value)} /></div>
                     </div>
                     <Button onClick={handleCreateUser} disabled={creating} className="w-full bg-gradient-primary text-primary-foreground">
-                      {creating ? "CriandoÔÇª" : "Criar Usu├írio"}
+                      {creating ? "Criando..." : "Criar Usuário"}
                     </Button>
                   </div>
                 </DialogContent>
@@ -432,10 +432,10 @@ function SettingsContent() {
             <div className="flex flex-wrap items-end gap-3">
               <div className="flex-1 min-w-[200px] space-y-1">
                 <Label className="text-xs">Redefinir senha</Label>
-                <Input type="email" placeholder="Email do usu├írio" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="h-9" />
+                <Input type="email" placeholder="Email do usuário" value={resetEmail} onChange={(e) => setResetEmail(e.target.value)} className="h-9" />
               </div>
               <Button variant="outline" onClick={() => handlePasswordReset(resetEmail)} disabled={resetting || !resetEmail} className="gap-2 h-9">
-                <KeyRound className="h-4 w-4" />{resetting ? "EnviandoÔÇª" : "Enviar link"}
+                <KeyRound className="h-4 w-4" />{resetting ? "Enviando..." : "Enviar link"}
               </Button>
             </div>
           </Card>
@@ -446,13 +446,13 @@ function SettingsContent() {
                 <thead><tr className="border-b bg-muted/30">
                   <th className="text-left px-4 py-3 font-semibold">Nome</th>
                   <th className="text-left px-4 py-3 font-semibold">Cargo</th>
-                  <th className="text-left px-4 py-3 font-semibold">Fun├º├úo</th>
+                  <th className="text-left px-4 py-3 font-semibold">Função</th>
                   <th className="text-left px-4 py-3 font-semibold">Setor</th>
                   <th className="text-left px-4 py-3 font-semibold">Criado em</th>
-                  {isAdmin && <th className="text-right px-4 py-3 font-semibold">A├º├Áes</th>}
+                  {isAdmin && <th className="text-right px-4 py-3 font-semibold">Ações</th>}
                 </tr></thead>
                 <tbody className="divide-y">
-                  {profiles.length === 0 && <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Nenhum usu├írio.</td></tr>}
+                  {profiles.length === 0 && <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Nenhum usuário.</td></tr>}
                   {profiles.map((p) => {
                     const role = getRoleForUser(p.id);
                     const isSelf = p.id === user?.id;
@@ -464,9 +464,9 @@ function SettingsContent() {
                           ) : (
                             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent text-accent-foreground text-xs font-bold">{(p.full_name || "U").slice(0, 2).toUpperCase()}</div>
                           )}
-                          <div><p className="font-medium">{p.full_name || "Sem nome"}</p>{isSelf && <span className="text-[10px] text-accent">(voc├¬)</span>}</div>
+                          <div><p className="font-medium">{p.full_name || "Sem nome"}</p>{isSelf && <span className="text-[10px] text-accent">(você)</span>}</div>
                         </div></td>
-                        <td className="px-4 py-3 text-muted-foreground">{p.job_title || "ÔÇö"}</td>
+                        <td className="px-4 py-3 text-muted-foreground">{p.job_title || "--"}</td>
                         <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${role === "admin" ? "bg-destructive/10 text-destructive" : role === "gestor" ? "bg-warning/10 text-warning" : "bg-accent/10 text-accent"}`}><Shield className="h-3 w-3" />{roleLabel(role)}</span></td>
                         <td className="px-4 py-3">
                           {isAdmin ? (
@@ -509,10 +509,10 @@ function SettingsContent() {
               <table className="w-full text-sm">
                 <thead><tr className="border-b bg-muted/30">
                   <th className="text-left px-4 py-3">Email</th>
-                  <th className="text-left px-4 py-3">Fun├º├úo</th>
+                  <th className="text-left px-4 py-3">Função</th>
                   <th className="text-left px-4 py-3">Status</th>
                   <th className="text-left px-4 py-3">Expira em</th>
-                  <th className="text-right px-4 py-3">A├º├Áes</th>
+                  <th className="text-right px-4 py-3">Ações</th>
                 </tr></thead>
                 <tbody className="divide-y">
                   {invites.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum convite.</td></tr>}
@@ -612,7 +612,7 @@ function SettingsContent() {
             <header className="flex items-center justify-between">
               <div>
                 <h2 className="font-display text-2xl font-bold">Auditoria & Logs do Sistema</h2>
-                <p className="text-sm text-muted-foreground mt-1">Rastreamento completo de acessos e altera├º├Áes cr├¡ticas.</p>
+                <p className="text-sm text-muted-foreground mt-1">Rastreamento completo de acessos e alterações críticas.</p>
               </div>
               <Button variant="outline" size="sm" onClick={load} className="gap-2">
                 <RefreshCw className="h-4 w-4" /> Atualizar
@@ -624,9 +624,9 @@ function SettingsContent() {
                 <table className="w-full text-sm">
                   <thead><tr className="border-b bg-muted/30">
                     <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Quando</th>
-                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Usu├írio</th>
+                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Usuário</th>
                     <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Entidade</th>
-                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">A├º├úo</th>
+                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Ação</th>
                     <th className="text-right px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Detalhes</th>
                   </tr></thead>
                   <tbody className="divide-y">
@@ -661,10 +661,10 @@ function SettingsContent() {
                               <div className="mt-4 space-y-4">
                                 <div className="grid grid-cols-2 gap-4 text-sm">
                                   <div><Label className="text-xs">Entidade</Label><p className="font-mono mt-1 capitalize">{a.entity_type}</p></div>
-                                  <div><Label className="text-xs">A├º├úo</Label><p className="font-mono mt-1 uppercase">{a.action}</p></div>
+                                  <div><Label className="text-xs">Ação</Label><p className="font-mono mt-1 uppercase">{a.action}</p></div>
                                 </div>
                                 <div>
-                                  <Label className="text-xs">Altera├º├Áes / Dados</Label>
+                                  <Label className="text-xs">Alterações / Dados</Label>
                                   <pre className="mt-2 p-4 bg-muted rounded-xl overflow-auto max-h-[300px] text-[11px] font-mono leading-relaxed">
                                     {JSON.stringify(a.changes, null, 2)}
                                   </pre>
@@ -691,8 +691,8 @@ function SettingsContent() {
                   <Sparkles className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="font-display font-bold text-xl">Configura├º├úo do Agente IA (Gemini & Groq)</h3>
-                  <p className="text-xs text-muted-foreground">Configure provedores de IA generativa para automa├º├úo de tarefas, an├ílise de gargalos e chat executivo.</p>
+                  <h3 className="font-display font-bold text-xl">Configuração do Agente IA (Gemini & Groq)</h3>
+                  <p className="text-xs text-muted-foreground">Configure provedores de IA generativa para automação de tarefas, análise de gargalos e chat executivo.</p>
                 </div>
               </div>
 
@@ -705,9 +705,9 @@ function SettingsContent() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="auto">Autom├ítico (Groq se dispon├¡vel, sen├úo Gemini ou Heur├¡stico)</SelectItem>
-                      <SelectItem value="gemini">Google Gemini (Recomendado para racioc├¡nio complexo)</SelectItem>
-                      <SelectItem value="groq">Groq Llama 3.3 (Recomendado para velocidade instant├ónea)</SelectItem>
+                      <SelectItem value="auto">Automático (Groq se disponível, senão Gemini ou Heurístico)</SelectItem>
+                      <SelectItem value="gemini">Google Gemini (Recomendado para raciocínio complexo)</SelectItem>
+                      <SelectItem value="groq">Groq Llama 3.3 (Recomendado para velocidade instantÊnea)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -744,7 +744,7 @@ function SettingsContent() {
                       className="h-10 font-bold shrink-0"
                     >
                       {testingAI === "gemini" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                      Testar Conex├úo
+                      Testar Conexão
                     </Button>
                   </div>
                 </div>
@@ -781,7 +781,7 @@ function SettingsContent() {
                       className="h-10 font-bold shrink-0"
                     >
                       {testingAI === "groq" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
-                      Testar Conex├úo
+                      Testar Conexão
                     </Button>
                   </div>
                 </div>
@@ -810,7 +810,7 @@ function SettingsContent() {
                 {/* Save Button */}
                 <div className="pt-2 flex justify-end">
                   <Button onClick={handleSaveAIConfig} className="bg-gradient-primary shadow-glow font-bold px-6">
-                    Salvar Chaves e Prefer├¬ncias
+                    Salvar Chaves e Preferências
                   </Button>
                 </div>
               </div>
@@ -822,10 +822,10 @@ function SettingsContent() {
                 Onde o Agente de IA atua no sistema:
               </h4>
               <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-5">
-                <li><strong>Chat Global & Assistente Flutuante:</strong> Dispon├¡vel em todas as telas com contexto de produtividade.</li>
-                <li><strong>Gera├º├úo Autom├ítica de Tarefas:</strong> Cria├º├úo de planos de a├º├úo divididos em etapas em <em>Tarefas</em>.</li>
-                <li><strong>Diagn├│stico de Gargalos:</strong> Identifica├º├úo de atrasos e recomenda├º├Áes no <em>Dashboard</em>.</li>
-                <li><strong>An├ílise Estrat├®gica:</strong> Sugest├Áes de matrizes SWOT, GUT e fluxogramas em <em>Gest├úo Visual</em>.</li>
+                <li><strong>Chat Global & Assistente Flutuante:</strong> Disponível em todas as telas com contexto de produtividade.</li>
+                <li><strong>Geração Automática de Tarefas:</strong> Criação de planos de ação divididos em etapas em <em>Tarefas</em>.</li>
+                <li><strong>Diagnóstico de Gargalos:</strong> Identificação de atrasos e recomendações no <em>Dashboard</em>.</li>
+                <li><strong>Análise Estratégica:</strong> Sugestões de matrizes SWOT, GUT e fluxogramas em <em>Gestão Visual</em>.</li>
               </ul>
             </Card>
           </div>
@@ -839,7 +839,7 @@ function SettingsContent() {
           <div className="space-y-4">
             <div className="space-y-2">
               <Label>Nome do Setor *</Label>
-              <Input value={deptName} onChange={(e) => setDeptName(e.target.value)} placeholder="Ex: Engenharia, MarketingÔÇª" onKeyDown={(e) => e.key === "Enter" && saveDept()} />
+              <Input value={deptName} onChange={(e) => setDeptName(e.target.value)} placeholder="Ex: Engenharia, Marketing..." onKeyDown={(e) => e.key === "Enter" && saveDept()} />
             </div>
             <div className="space-y-2">
               <Label>Cor</Label>
@@ -856,7 +856,7 @@ function SettingsContent() {
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setDeptDialog(false)}>Cancelar</Button>
             <Button onClick={saveDept} disabled={savingDept} className="bg-gradient-primary text-primary-foreground">
-              {savingDept ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />SalvandoÔÇª</> : (editingDept ? "Salvar" : "Criar Setor")}
+              {savingDept ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Salvando...</> : (editingDept ? "Salvar" : "Criar Setor")}
             </Button>
           </DialogFooter>
         </DialogContent>

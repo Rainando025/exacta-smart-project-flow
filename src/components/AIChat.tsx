@@ -35,7 +35,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
       {
         id: "welcome-1",
         role: "assistant",
-        content: "­ƒæï Ol├í! Sou o **Agente IA da EXACTA**.\n\nEstou pronto para analisar seus projetos, calcular prazos, diagnosticar gargalos e sugerir planos de a├º├úo. Como posso te ajudar hoje?",
+        content: "­ƒæï Olá! Sou o **Agente IA da EXACTA**.\n\nEstou pronto para analisar seus projetos, calcular prazos, diagnosticar gargalos e sugerir planos de ação. Como posso te ajudar hoje?",
         timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
       }
     ];
@@ -92,7 +92,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
       preferredProvider: preferredProviderInput,
     });
     setAiConfigState(updated);
-    toast.success("Configura├º├Áes de IA salvas com sucesso!");
+    toast.success("Configurações de IA salvas com sucesso!");
     setSettingsOpen(false);
   };
 
@@ -115,7 +115,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
       {
         id: "welcome-new",
         role: "assistant",
-        content: "Hist├│rico limpo. Como posso ajudar com seus projetos agora?",
+        content: "Histórico limpo. Como posso ajudar com seus projetos agora?",
         timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
       }
     ];
@@ -143,12 +143,12 @@ export function AIChat({ contextData }: { contextData?: any }) {
 
     try {
       const fullPrompt = `
-        Contexto do Usu├írio e Sistema EXACTA (JSON): ${JSON.stringify(contextData || {})}
+        Contexto do Usuário e Sistema EXACTA (JSON): ${JSON.stringify(contextData || {})}
         
-        Solicita├º├úo do Usu├írio: ${promptText}
+        Solicitação do Usuário: ${promptText}
         
-        Voc├¬ ├® o assistente oficial de gest├úo inteligente de projetos e produtividade da EXACTA.
-        Seja anal├¡tico, objetivo, propositivo e responda em portugu├¬s brasileiro com formata├º├úo Markdown limpa e elegante.
+        Você é o assistente oficial de gestão inteligente de projetos e produtividade da EXACTA.
+        Seja analítico, objetivo, propositivo e responda em português brasileiro com formatação Markdown limpa e elegante.
       `;
 
       const aiResponse = await askAI(fullPrompt, "chat_interaction");
@@ -168,7 +168,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
         {
           id: "bot-err-" + Date.now(),
           role: "assistant",
-          content: "ÔÜá´©Å Tive uma instabilidade ao processar sua pergunta. Verifique suas chaves de API nas configura├º├Áes ou tente novamente.",
+          content: "ÔÜá´©Å Tive uma instabilidade ao processar sua pergunta. Verifique suas chaves de API nas configurações ou tente novamente.",
           timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         }
       ]);
@@ -229,7 +229,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
                     {aiConfig.geminiKey ? "Gemini" : aiConfig.groqKey ? "Groq" : "Ativo"}
                   </span>
                 </div>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Assistente Executivo de Gest├úo</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Assistente Executivo de Gestão</p>
               </div>
             </div>
 
@@ -337,7 +337,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
           {messages.length <= 2 && (
             <div className="px-4 py-2 border-t border-white/5 bg-muted/10">
               <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center gap-1">
-                <Lightbulb className="h-3 w-3 text-accent" /> Sugest├Áes R├ípidas:
+                <Lightbulb className="h-3 w-3 text-accent" /> Sugestões Rápidas:
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {suggestions.map((s, idx) => (
@@ -366,7 +366,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
               <Input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Pergunte sobre tarefas, gargalos, prazos ou estrat├®gias..."
+                placeholder="Pergunte sobre tarefas, gargalos, prazos ou estratégias..."
                 disabled={loading}
                 className="h-10 text-xs sm:text-sm bg-muted/30 border-white/10 focus:border-accent/40 rounded-xl"
               />
@@ -389,7 +389,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-lg font-bold">
               <Sparkles className="h-5 w-5 text-accent" />
-              Configura├º├úo do Agente IA
+              Configuração do Agente IA
             </DialogTitle>
             <DialogDescription className="text-xs">
               Configure chaves de API para Google Gemini ou Groq para liberar todo o potencial generativo.
@@ -410,9 +410,9 @@ export function AIChat({ contextData }: { contextData?: any }) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="auto">Autom├ítico (Groq se dispon├¡vel, sen├úo Gemini)</SelectItem>
+                  <SelectItem value="auto">Automático (Groq se disponível, senão Gemini)</SelectItem>
                   <SelectItem value="gemini">Google Gemini 1.5 Flash</SelectItem>
-                  <SelectItem value="groq">Groq (Llama 3.3 70B - Ultra R├ípido)</SelectItem>
+                  <SelectItem value="groq">Groq (Llama 3.3 70B - Ultra Rápido)</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -429,7 +429,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
                   rel="noreferrer"
                   className="text-[10px] text-accent hover:underline flex items-center gap-1"
                 >
-                  Obter gr├ítis <ExternalLink className="h-2.5 w-2.5" />
+                  Obter grátis <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
               <div className="flex gap-2">
@@ -465,7 +465,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
                   rel="noreferrer"
                   className="text-[10px] text-accent hover:underline flex items-center gap-1"
                 >
-                  Obter gr├ítis <ExternalLink className="h-2.5 w-2.5" />
+                  Obter grátis <ExternalLink className="h-2.5 w-2.5" />
                 </a>
               </div>
               <div className="flex gap-2">
@@ -512,7 +512,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
               Cancelar
             </Button>
             <Button size="sm" onClick={handleSaveSettings} className="bg-gradient-primary shadow-glow font-bold">
-              Salvar Configura├º├Áes
+              Salvar Configurações
             </Button>
           </DialogFooter>
         </DialogContent>

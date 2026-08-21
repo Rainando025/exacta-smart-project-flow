@@ -56,8 +56,8 @@ const PERSONAL_NAV: readonly NavGroup[] = [
   {
     title: "Produtividade",
     items: [
-      { to: "/notes", label: "Anota├º├Áes", icon: StickyNote },
-      { to: "/finances", label: "Finan├ºas", icon: Wallet },
+      { to: "/notes", label: "Anotações", icon: StickyNote },
+      { to: "/finances", label: "Finanças", icon: Wallet },
       { to: "/reminders", label: "Lembretes", icon: BellRing },
     ]
   }
@@ -71,19 +71,19 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/tasks", label: "Tarefas", icon: CheckSquare },
       { to: "/projects", label: "Projetos", icon: FolderKanban },
       { to: "/okrs", label: "Metas e OKRs", icon: Target },
-      { to: "/calendar", label: "Calend├írio", icon: CalendarPlus },
+      { to: "/calendar", label: "Calendário", icon: CalendarPlus },
     ]
   },
   {
-    title: "Visualiza├º├úo",
+    title: "Visualização",
     items: [
       { to: "/kanban", label: "Kanban", icon: Kanban },
       { to: "/gantt", label: "Cronograma", icon: CalendarRange },
-      { to: "/visual-management", label: "Gest├úo Visual", icon: Presentation },
+      { to: "/visual-management", label: "Gestão Visual", icon: Presentation },
     ]
   },
   {
-    title: "Colabora├º├úo",
+    title: "Colaboração",
     items: [
       { to: "/chat", label: "Chat da Equipe", icon: MessageSquare },
       { to: "/brainstorming", label: "Brainstorm", icon: Brain },
@@ -94,17 +94,17 @@ const TEAM_NAV: readonly NavGroup[] = [
     ]
   },
   {
-    title: "Opera├º├Áes",
+    title: "Operações",
     items: [
-      { to: "/automations", label: "Automa├º├úo", icon: Cpu },
+      { to: "/automations", label: "Automação", icon: Cpu },
       { to: "/time-tracking", label: "Tempo", icon: Timer },
     ]
   },
   {
-    title: "Gest├úo de Pessoas",
+    title: "Gestão de Pessoas",
     items: [
       { to: "/team", label: "Equipe", icon: Users },
-      { to: "/feedback", label: "Feedback 360┬░", icon: MessageSquareHeart },
+      { to: "/feedback", label: "Feedback 360°", icon: MessageSquareHeart },
     ]
   }
 ];
@@ -161,7 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Carregando EXACTAÔÇª</p>
+          <p className="text-sm text-muted-foreground">Carregando EXACTA...</p>
         </div>
       </div>
     );
@@ -175,13 +175,13 @@ export function AppShell({ children }: { children: ReactNode }) {
   const pageName = location.pathname.split("/").filter(Boolean).pop() || "painel";
   const pageLabels: Record<string, string> = {
     dashboard: "Dashboard", tasks: "Tarefas", projects: "Projetos",
-    kanban: "Kanban", gantt: "Cronograma", notes: "Anota├º├Áes",
-    finances: "Finan├ºas", reminders: "Lembretes", notifications: "Avisos",
+    kanban: "Kanban", gantt: "Cronograma", notes: "Anotações",
+    finances: "Finanças", reminders: "Lembretes", notifications: "Avisos",
     settings: "Ajustes", okrs: "Metas e OKRs", brainstorming: "Brainstorm",
     docs: "Documentos", whiteboards: "Quadros", announcements: "Mural",
-    automations: "Automa├º├úo", "time-tracking": "Rastreamento", team: "Equipe",
-    feedback: "Feedback 360┬░", chat: "Chat da Equipe", painel: "Painel",
-    calendar: "Calend├írio", "visual-management": "Gest├úo Visual",
+    automations: "Automação", "time-tracking": "Rastreamento", team: "Equipe",
+    feedback: "Feedback 360°", chat: "Chat da Equipe", painel: "Painel",
+    calendar: "Calendário", "visual-management": "Gestão Visual",
   };
   const currentPageLabel = pageLabels[pageName] ?? pageName;
 
@@ -208,7 +208,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             {!sidebarCollapsed && (
               <div className="min-w-0">
                 <h1 className="font-display text-base font-bold tracking-tight leading-tight">EXACTA</h1>
-                <p className="text-[10px] uppercase tracking-widest text-accent leading-tight">Precis├úo em gest├úo</p>
+                <p className="text-[10px] uppercase tracking-widest text-accent leading-tight">Precisão em gestão</p>
               </div>
             )}
           </div>
@@ -360,7 +360,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <CommandInput placeholder="Digite um comando ou busque..." />
         <CommandList>
           <CommandEmpty>Nenhum resultado encontrado.</CommandEmpty>
-          <CommandGroup heading="P├íginas">
+          <CommandGroup heading="Páginas">
             {NAV.flatMap(g => g.items).map((item: NavItem) => (
               <CommandItem
                 key={item.to}
@@ -372,7 +372,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </CommandGroup>
           <CommandSeparator />
-          <CommandGroup heading="A├º├Áes">
+          <CommandGroup heading="Ações">
             <CommandItem onSelect={() => { toggleTheme(); setOpen(false); }}>
               {theme === "light" ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
               <span>Alternar Tema</span>
@@ -466,7 +466,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               onClick={() => setOpen(true)}
             >
               <Search className="h-3.5 w-3.5 text-muted-foreground" />
-              <span className="hidden sm:inline">Busca r├ípida</span>
+              <span className="hidden sm:inline">Busca rápida</span>
               <kbd className="ml-1 hidden sm:inline-flex pointer-events-none h-4 select-none items-center gap-0.5 rounded border bg-muted px-1 font-mono text-[10px] font-medium text-muted-foreground">
                 <span className="text-xs">Ôîÿ</span>K
               </kbd>
@@ -507,14 +507,14 @@ export function AppShell({ children }: { children: ReactNode }) {
                   <CalendarPlus className="h-4 w-4 text-accent" /> Gantt
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/notes" })} className="gap-2">
-                  <StickyNote className="h-4 w-4 text-accent" /> Anota├º├úo
+                  <StickyNote className="h-4 w-4 text-accent" /> Anotação
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate({ to: "/docs" })} className="gap-2">
                   <FileText className="h-4 w-4 text-accent" /> Documento
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="gap-2 font-semibold text-accent">
-                  <Sparkles className="h-4 w-4" /> Sugest├úo da IA
+                  <Sparkles className="h-4 w-4" /> Sugestão da IA
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -544,7 +544,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 <FolderKanban className="h-4 w-4 text-accent" /> Projeto
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate({ to: "/notes" })} className="gap-2 py-2.5">
-                <StickyNote className="h-4 w-4 text-accent" /> Anota├º├úo
+                <StickyNote className="h-4 w-4 text-accent" /> Anotação
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem className="gap-2 font-semibold text-accent py-2.5">

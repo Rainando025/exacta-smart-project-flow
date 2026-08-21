@@ -61,7 +61,7 @@ function TasksPage() {
       const role = roleData?.role || "colaborador";
       
       if (role === "colaborador" && user?.id) {
-        // Obter setor do usu├írio para compartilhar tarefas da equipe no mesmo setor
+        // Obter setor do usuário para compartilhar tarefas da equipe no mesmo setor
         const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
         if (userProfile?.department_id) {
           const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
@@ -75,7 +75,7 @@ function TasksPage() {
           query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
         }
       }
-      // Se for admin/gestor, n├úo filtra (v├¬ tudo)
+      // Se for admin/gestor, não filtra (vê tudo)
     }
 
     const { data } = await query.order("created_at", { ascending: false });
@@ -151,7 +151,7 @@ function TasksPage() {
     if (!confirm("Excluir esta tarefa?")) return;
     const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Tarefa exclu├¡da"); load(); }
+    else { toast.success("Tarefa excluída"); load(); }
   };
 
   const saveEdit = async () => {
@@ -167,12 +167,12 @@ function TasksPage() {
       assignee_id: editing.assignee_id || null,
     }).eq("id", editing.id);
     if (error) return toast.error(error.message);
-    // Notifica├º├Áes
+    // Notificações
     if (original && editing.assignee_id && original.assignee_id !== editing.assignee_id && editing.assignee_id !== user.id) {
       await notify({
         user_id: editing.assignee_id,
         type: "task_assigned",
-        title: `Nova tarefa atribu├¡da: ${editing.title}`,
+        title: `Nova tarefa atribuída: ${editing.title}`,
         message: editing.due_date ? `Prazo: ${formatDate(editing.due_date)}` : undefined,
         link: "/tasks",
         task_id: editing.id,
@@ -198,7 +198,7 @@ function TasksPage() {
     try {
       const generated = await generateStructuredTasks(aiPrompt.trim());
       if (!generated?.length) {
-        toast.error("IA n├úo retornou tarefas.");
+        toast.error("IA não retornou tarefas.");
         return;
       }
 
@@ -255,12 +255,12 @@ function TasksPage() {
               <DialogHeader><DialogTitle className="flex items-center gap-2"><Sparkles className="h-5 w-5 text-accent" /> Gerar tarefas com IA</DialogTitle></DialogHeader>
               <div className="space-y-3">
                 <Label>Descreva o objetivo ou projeto</Label>
-                <Textarea rows={5} placeholder="Ex: Lan├ºar landing page para nova feature em 2 semanas" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
+                <Textarea rows={5} placeholder="Ex: Lançar landing page para nova feature em 2 semanas" value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)} />
                 <p className="text-xs text-muted-foreground">A IA vai gerar uma lista de tarefas com prioridade e prazo sugerido.</p>
               </div>
               <DialogFooter>
                 <Button onClick={generateAI} disabled={aiLoading} className="bg-gradient-primary text-primary-foreground gap-2">
-                  <Sparkles className="h-4 w-4" /> {aiLoading ? "GerandoÔÇª" : "Gerar tarefas"}
+                  <Sparkles className="h-4 w-4" /> {aiLoading ? "Gerando..." : "Gerar tarefas"}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -273,8 +273,8 @@ function TasksPage() {
             <DialogContent>
               <DialogHeader><DialogTitle>Nova tarefa</DialogTitle></DialogHeader>
               <div className="space-y-3">
-                <div><Label>T├¡tulo</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="O que precisa ser feito?" /></div>
-                <div><Label>Descri├º├úo</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+                <div><Label>Título</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="O que precisa ser feito?" /></div>
+                <div><Label>Descrição</Label><Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label>Prioridade</Label>
@@ -319,7 +319,7 @@ function TasksPage() {
       <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Filter className="h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar tarefaÔÇª" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs h-9" />
+          <Input placeholder="Buscar tarefa..." value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs h-9" />
           <Select value={priorityFilter} onValueChange={setPriorityFilter}>
             <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -342,8 +342,8 @@ function TasksPage() {
             { v: "mine", l: "Minhas" },
             { v: "todo", l: "A fazer" },
             { v: "doing", l: "Em andamento" },
-            { v: "review", l: "Revis├úo" },
-            { v: "done", l: "Conclu├¡das" },
+            { v: "review", l: "Revisão" },
+            { v: "done", l: "Concluídas" },
             { v: "overdue", l: "Atrasadas" },
           ].map((f) => (
             <button key={f.v} onClick={() => setFilter(f.v)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${filter === f.v ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}>
@@ -407,8 +407,8 @@ function TasksPage() {
           <DialogHeader><DialogTitle>Editar tarefa</DialogTitle></DialogHeader>
           {editing && (
             <div className="space-y-3">
-              <div><Label>T├¡tulo</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
-              <div><Label>Descri├º├úo</Label><Textarea value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
+              <div><Label>Título</Label><Input value={editing.title} onChange={(e) => setEditing({ ...editing, title: e.target.value })} /></div>
+              <div><Label>Descrição</Label><Textarea value={editing.description || ""} onChange={(e) => setEditing({ ...editing, description: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <Label>Prioridade</Label>
@@ -440,7 +440,7 @@ function TasksPage() {
               </div>
             </div>
           )}
-          <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar altera├º├Áes</Button></DialogFooter>
+          <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>
         </DialogContent>
       </Dialog>
 
