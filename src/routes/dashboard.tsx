@@ -16,7 +16,6 @@ import { isOverdue, priorityColor, priorityLabel, formatDate } from "@/lib/exact
 import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { toCSV, downloadCSV } from "@/lib/csv";
-import { AIChat } from "@/components/AIChat";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { BottleneckAnalysis } from "@/components/BottleneckAnalysis";
 
@@ -437,8 +436,6 @@ function Dashboard() {
       <div className="mt-8">
         <BottleneckAnalysis data={{ tasks, overdue, projects, productivity }} />
       </div>
-
-      <AIChat contextData={{ tasks: tasks.length, overdue: overdue.length, active_projects: projects.length, productivity }} />
     </div>
   );
 }

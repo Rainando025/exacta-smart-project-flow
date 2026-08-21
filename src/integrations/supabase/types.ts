@@ -34,6 +34,12 @@ export interface Database {
         Update: { id?: string; title?: string; description?: string | null; created_by?: string; created_at?: string; updated_at?: string; tags?: string[] | null }
         Relationships: []
       }
+      departments: {
+        Row: { id: string; name: string; color: string | null; created_at: string; updated_at?: string }
+        Insert: { id?: string; name: string; color?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; name?: string; color?: string | null; created_at?: string; updated_at?: string }
+        Relationships: []
+      }
       documents: {
         Row: { id: string; title: string; content: string | null; type: string; owner_id: string; is_starred: boolean | null; data: Json | null; created_at: string; updated_at: string }
         Insert: { id?: string; title: string; content?: string | null; type?: string; owner_id: string; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
