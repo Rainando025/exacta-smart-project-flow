@@ -64,7 +64,7 @@ function GanttPage() {
   const dayWidth = viewMode === "days" ? 40 : viewMode === "weeks" ? 12 : 3;
 
   const load = async () => {
-    const t = await supabase.from("tasks").select("*").not("due_date", "is", null).order("due_date");
+    const t = await supabase.from("tasks").select("*").eq("is_personal", false).not("due_date", "is", null).order("due_date");
     const p = await supabase.from("projects").select("*");
     const pr = await supabase.from("profiles").select("id, full_name");
     const d = await supabase.from("task_dependencies").select("*");
@@ -339,7 +339,7 @@ function GanttPage() {
         if (newGanttData.predecessorId && newGanttData.predecessorId !== "none" && data) {
             await supabase.from("task_dependencies").insert({
                 predecessor_id: newGanttData.predecessorId,
-                successor_id: data.id,
+                successor_id: (data as any).id,
                 created_by: user.id
             });
         }

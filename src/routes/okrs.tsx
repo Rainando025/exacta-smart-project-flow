@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { 
   Plus, Target, TrendingUp, CheckCircle2, BarChart3, 
@@ -27,7 +28,9 @@ function OKRsPage() {
   const { user } = useAuth();
   const { isGestor } = useRole();
   const [kpis, setKpis] = useState<any[]>([]);
+  const [okrs, setOkrs] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modal state
@@ -38,23 +41,41 @@ function OKRsPage() {
     current_value: "",
     unit: "%",
     department_id: "",
+    project_id: "",
     period_month: new Date().getMonth() + 1,
     period_year: new Date().getFullYear()
   });
   const [editingKpi, setEditingKpi] = useState<any | null>(null);
 
+  const [openOkr, setOpenOkr] = useState(false);
+  const [newOkr, setNewOkr] = useState({
+    title: "",
+    description: "",
+    project_id: "",
+  });
+
   const loadData = async () => {
     setLoading(true);
     const { data: kpiData } = await (supabase
       .from("kpis" as any))
-      .select("*, departments(name)");
+      .select("*, departments(name), projects(name)");
+      
+    const { data: okrData } = await (supabase
+      .from("okrs" as any))
+      .select("*, projects(name)");
     
     const { data: deptData } = await (supabase
       .from("departments" as any))
       .select("*");
+      
+    const { data: projData } = await (supabase
+      .from("projects" as any))
+      .select("*");
 
     if (kpiData) setKpis(kpiData);
+    if (okrData) setOkrs(okrData);
     if (deptData) setDepartments(deptData);
+    if (projData) setProjects(projData);
     setLoading(false);
   };
 
@@ -70,6 +91,8 @@ function OKRsPage() {
 
     const { error } = await (supabase.from("kpis" as any)).insert({
       ...newKpi,
+      department_id: newKpi.department_id || null,
+      project_id: newKpi.project_id || null,
       goal: Number(newKpi.goal),
       current_value: Number(newKpi.current_value),
       created_by: user?.id
@@ -80,7 +103,7 @@ function OKRsPage() {
     } else {
       toast.success("KPI criado com sucesso!");
       setOpenKpi(false);
-      setNewKpi({ name: "", goal: "", current_value: "", unit: "%", department_id: "", period_month: new Date().getMonth() + 1, period_year: new Date().getFullYear() });
+      setNewKpi({ name: "", goal: "", current_value: "", unit: "%", department_id: "", project_id: "", period_month: new Date().getMonth() + 1, period_year: new Date().getFullYear() });
       loadData();
     }
   };
@@ -92,7 +115,8 @@ function OKRsPage() {
       goal: Number(editingKpi.goal),
       current_value: Number(editingKpi.current_value),
       unit: editingKpi.unit,
-      department_id: editingKpi.department_id
+      department_id: editingKpi.department_id || null,
+      project_id: editingKpi.project_id || null
     } as any).eq("id", editingKpi.id);
 
     if (error) {
@@ -121,10 +145,40 @@ function OKRsPage() {
     return Math.min(Math.round(p), 100);
   };
 
+  const handleCreateOkr = async () => {
+    if (!newOkr.title) {
+      toast.error("Preencha o título do OKR");
+      return;
+    }
+
+    const { error } = await (supabase.from("okrs" as any)).insert({
+      title: newOkr.title,
+      description: newOkr.description,
+      project_id: newOkr.project_id || null,
+      owner_id: user?.id,
+      status: 'em_andamento',
+      progress: 0
+    } as any);
+
+    if (error) {
+      toast.error("Erro ao criar OKR");
+    } else {
+      toast.success("OKR criado com sucesso!");
+      setOpenOkr(false);
+      setNewOkr({ title: "", description: "", project_id: "" });
+      loadData();
+    }
+  };
+
   const handleDeleteOkr = async (id: string) => {
     if (!confirm("Excluir este OKR permanentemente? Todas as sub-metas serão perdidas.")) return;
-    toast.info("Função de exclusão de OKR acionada (mock)");
-    // Aqui seria supabase.from("okrs").delete().eq("id", id)
+    const { error } = await (supabase.from("okrs" as any)).delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir OKR");
+    } else {
+      toast.success("OKR excluído!");
+      loadData();
+    }
   };
 
   return (
@@ -136,9 +190,52 @@ function OKRsPage() {
           <p className="text-muted-foreground mt-2">Acompanhe o desempenho estratégico e indicadores de cada setor.</p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" className="gap-2">
-            <Plus className="h-4 w-4" /> Novo OKR
-          </Button>
+          <Dialog open={openOkr} onOpenChange={setOpenOkr}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Plus className="h-4 w-4" /> Novo OKR
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Novo OKR</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label>Título / Objetivo</Label>
+                  <Input 
+                    placeholder="Ex: Aumentar faturamento..." 
+                    value={newOkr.title}
+                    onChange={e => setNewOkr({...newOkr, title: e.target.value})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Descrição</Label>
+                  <Textarea 
+                    placeholder="Detalhes..." 
+                    value={newOkr.description}
+                    onChange={e => setNewOkr({...newOkr, description: e.target.value})}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label>Projeto (Opcional)</Label>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={newOkr.project_id}
+                    onChange={e => setNewOkr({...newOkr, project_id: e.target.value})}
+                  >
+                    <option value="">Selecione um projeto</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={handleCreateOkr} className="bg-gradient-primary">Criar OKR</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
           {isGestor && (
             <Dialog open={openKpi} onOpenChange={setOpenKpi}>
               <DialogTrigger asChild>
@@ -182,18 +279,33 @@ function OKRsPage() {
                       </select>
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label>Setor / Departamento</Label>
-                    <select 
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                      value={newKpi.department_id}
-                      onChange={e => setNewKpi({...newKpi, department_id: e.target.value})}
-                    >
-                      <option value="">Selecione um setor</option>
-                      {departments.map(d => (
-                        <option key={d.id} value={d.id}>{d.name}</option>
-                      ))}
-                    </select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label>Setor / Departamento</Label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={newKpi.department_id}
+                        onChange={e => setNewKpi({...newKpi, department_id: e.target.value})}
+                      >
+                        <option value="">Selecione um setor</option>
+                        {departments.map(d => (
+                          <option key={d.id} value={d.id}>{d.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label>Projeto</Label>
+                      <select 
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={newKpi.project_id}
+                        onChange={e => setNewKpi({...newKpi, project_id: e.target.value})}
+                      >
+                        <option value="">Selecione um projeto</option>
+                        {projects.map(p => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
@@ -282,29 +394,31 @@ function OKRsPage() {
         </div>
 
         <div className="grid gap-6">
-          {/* Using existing mock logic but with better styling */}
-          {[
-            { id: "1", objective: "Aumentar faturamento em 20%", progress: 65, status: "em_andamento", kr: "Atingir R$ 500k em vendas", dept: "Vendas" },
-            { id: "2", objective: "Lançar novo módulo de IA", progress: 90, status: "quase_la", kr: "Integrar Gemini e Groq", dept: "TI/Inovação" },
-          ].map((okr) => (
+          {loading ? (
+            Array(2).fill(0).map((_, i) => (
+              <Card key={i} className="p-6 h-40 animate-pulse bg-muted/50" />
+            ))
+          ) : okrs.length > 0 ? (
+            okrs.map((okr) => (
             <Card key={okr.id} className="p-6 shadow-card hover:border-accent/40 transition-all border-l-4 border-l-accent relative">
                <Badge variant="outline" className="absolute top-6 right-6 capitalize bg-accent/5 text-accent border-accent/20">
-                {okr.dept}
+                {okr.projects?.name || "Geral"}
               </Badge>
               <div className="flex items-start gap-4 mb-6">
                 <div className="h-14 w-14 rounded-2xl bg-accent/10 flex items-center justify-center shrink-0">
                   <Target className="h-7 w-7 text-accent" />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-display font-bold text-2xl tracking-tight">{okr.objective}</h3>
+                  <h3 className="font-display font-bold text-2xl tracking-tight">{okr.title}</h3>
                   <p className="text-muted-foreground flex items-center gap-2 mt-1">
                     <CheckCircle2 className="h-4 w-4 text-accent" />
-                    <span>Resultado Chave: <span className="text-foreground font-medium">{okr.kr}</span></span>
+                    <span>Progresso Atual: <span className="text-foreground font-medium">{okr.progress}%</span></span>
                   </p>
+                  {okr.description && <p className="text-sm mt-2 text-muted-foreground">{okr.description}</p>}
                 </div>
                 {isGestor && (
                   <div className="flex gap-1">
-                    <button onClick={() => toast.info("Editar OKR")} className="p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => toast.info("Editar OKR (Em breve)")} className="p-2 rounded-lg bg-muted/50 hover:bg-muted transition-colors"><Pencil className="h-4 w-4" /></button>
                     <button onClick={() => handleDeleteOkr(okr.id)} className="p-2 rounded-lg bg-muted/50 hover:bg-destructive hover:text-destructive-foreground transition-colors"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 )}
@@ -329,13 +443,18 @@ function OKRsPage() {
                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Tendência</p>
                     <div className="flex items-center gap-1 justify-end text-success font-bold text-sm">
                       <TrendingUp className="h-4 w-4" />
-                      <span>+5%</span>
+                      <span>-</span>
                     </div>
                   </div>
                 </div>
               </div>
             </Card>
-          ))}
+          ))) : (
+            <Card className="col-span-full p-10 flex flex-col items-center justify-center text-muted-foreground border-dashed">
+              <Target className="h-10 w-10 mb-2 opacity-20" />
+              <p>Nenhum OKR cadastrado.</p>
+            </Card>
+          )}
         </div>
       </section>
 
@@ -345,7 +464,7 @@ function OKRsPage() {
           <Activity className="h-5 w-5 text-destructive" />
           <h2 className="font-display font-bold text-xl text-destructive">Gargalos e Soluções (IA)</h2>
         </div>
-        <BottleneckAnalysis />
+        <BottleneckAnalysis data={{ kpis }} />
       </section>
 
       {/* Edit KPI Dialog */}
@@ -368,18 +487,33 @@ function OKRsPage() {
                   <Input type="number" value={editingKpi.current_value} onChange={e => setEditingKpi({...editingKpi, current_value: e.target.value})} />
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label>Setor</Label>
-                <select 
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={editingKpi.department_id}
-                  onChange={e => setEditingKpi({...editingKpi, department_id: e.target.value})}
-                >
-                  <option value="">Selecione um setor</option>
-                  {departments.map(d => (
-                    <option key={d.id} value={d.id}>{d.name}</option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label>Setor</Label>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={editingKpi.department_id || ""}
+                    onChange={e => setEditingKpi({...editingKpi, department_id: e.target.value})}
+                  >
+                    <option value="">Selecione um setor</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.id}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid gap-2">
+                  <Label>Projeto</Label>
+                  <select 
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={editingKpi.project_id || ""}
+                    onChange={e => setEditingKpi({...editingKpi, project_id: e.target.value})}
+                  >
+                    <option value="">Selecione um projeto</option>
+                    {projects.map(p => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
             </div>
           )}

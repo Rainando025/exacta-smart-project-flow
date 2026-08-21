@@ -11,9 +11,9 @@ export interface Database {
         Relationships: []
       }
       attachments: {
-        Row: { id: string; file_name: string; storage_path: string; mime_type: string | null; file_size: number; uploaded_by: string; created_at: string; task_id: string | null; project_id: string | null; folder: string }
-        Insert: { id?: string; file_name: string; storage_path: string; mime_type?: string | null; file_size?: number; uploaded_by: string; created_at?: string; task_id?: string | null; project_id?: string | null; folder?: string }
-        Update: { id?: string; file_name?: string; storage_path?: string; mime_type?: string | null; file_size?: number; uploaded_by?: string; created_at?: string; task_id?: string | null; project_id?: string | null; folder?: string }
+        Row: { id: string; file_name: string; storage_path: string; mime_type: string | null; file_size: number; uploaded_by: string; created_at: string; task_id: string | null; project_id: string | null; document_id: string | null; folder: string }
+        Insert: { id?: string; file_name: string; storage_path: string; mime_type?: string | null; file_size?: number; uploaded_by: string; created_at?: string; task_id?: string | null; project_id?: string | null; document_id?: string | null; folder?: string }
+        Update: { id?: string; file_name?: string; storage_path?: string; mime_type?: string | null; file_size?: number; uploaded_by?: string; created_at?: string; task_id?: string | null; project_id?: string | null; document_id?: string | null; folder?: string }
         Relationships: []
       }
       audit_logs: {
@@ -80,9 +80,9 @@ export interface Database {
         ]
       }
       neural_nodes: {
-        Row: { id: string; user_id: string; is_team: boolean; label: string; x: number; y: number; color: string; created_at: string; updated_at: string }
-        Insert: { id?: string; user_id: string; is_team?: boolean; label: string; x: number; y: number; color?: string; created_at?: string; updated_at?: string }
-        Update: { id?: string; user_id?: string; is_team?: boolean; label?: string; x?: number; y?: number; color?: string; created_at?: string; updated_at?: string }
+        Row: { id: string; user_id: string; is_team: boolean; label: string; x: number; y: number; color: string; note_id: string | null; created_at: string; updated_at: string }
+        Insert: { id?: string; user_id: string; is_team?: boolean; label: string; x: number; y: number; color?: string; note_id?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; user_id?: string; is_team?: boolean; label?: string; x?: number; y?: number; color?: string; note_id?: string | null; created_at?: string; updated_at?: string }
         Relationships: []
       }
       notes: {
@@ -104,9 +104,9 @@ export interface Database {
         Relationships: []
       }
       profiles: {
-        Row: { id: string; full_name: string; avatar_url: string | null; job_title: string | null; reminder_advance_minutes: number | null; reminder_snooze_minutes: number | null; skills: Json | null; created_at: string; updated_at: string }
-        Insert: { id: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; skills?: Json | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; skills?: Json | null; created_at?: string; updated_at?: string }
+        Row: { id: string; full_name: string; avatar_url: string | null; job_title: string | null; reminder_advance_minutes: number | null; reminder_snooze_minutes: number | null; skills: Json | null; department_id: string | null; created_at: string; updated_at: string }
+        Insert: { id: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; skills?: Json | null; department_id?: string | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; full_name?: string; avatar_url?: string | null; job_title?: string | null; reminder_advance_minutes?: number | null; reminder_snooze_minutes?: number | null; skills?: Json | null; department_id?: string | null; created_at?: string; updated_at?: string }
         Relationships: []
       }
       projects: {
@@ -146,9 +146,9 @@ export interface Database {
         Relationships: []
       }
       tasks: {
-        Row: { id: string; title: string; description: string | null; status: string; priority: string; due_date: string | null; start_date: string | null; creator_id: string; assignee_id: string | null; project_id: string | null; position: number; tags: string[] | null; completed_at: string | null; created_at: string; updated_at: string }
-        Insert: { id?: string; title: string; description?: string | null; status?: string; priority?: string; due_date?: string | null; start_date?: string | null; creator_id: string; assignee_id?: string | null; project_id?: string | null; position?: number; tags?: string[] | null; completed_at?: string | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; title?: string; description?: string | null; status?: string; priority?: string; due_date?: string | null; start_date?: string | null; creator_id?: string; assignee_id?: string | null; project_id?: string | null; position?: number; tags?: string[] | null; completed_at?: string | null; created_at?: string; updated_at?: string }
+        Row: { id: string; title: string; description: string | null; status: string; priority: string; due_date: string | null; start_date: string | null; creator_id: string; assignee_id: string | null; project_id: string | null; position: number; tags: string[] | null; completed_at: string | null; is_personal: boolean; created_at: string; updated_at: string }
+        Insert: { id?: string; title: string; description?: string | null; status?: string; priority?: string; due_date?: string | null; start_date?: string | null; creator_id: string; assignee_id?: string | null; project_id?: string | null; position?: number; tags?: string[] | null; completed_at?: string | null; is_personal?: boolean; created_at?: string; updated_at?: string }
+        Update: { id?: string; title?: string; description?: string | null; status?: string; priority?: string; due_date?: string | null; start_date?: string | null; creator_id?: string; assignee_id?: string | null; project_id?: string | null; position?: number; tags?: string[] | null; completed_at?: string | null; is_personal?: boolean; created_at?: string; updated_at?: string }
         Relationships: []
       }
       time_logs: {

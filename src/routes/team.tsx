@@ -90,7 +90,7 @@ function TeamPage() {
   const load = async () => {
     const [p, t, r, sk, sc] = await Promise.all([
       supabase.from("profiles").select("*"),
-      supabase.from("tasks").select("assignee_id,status"),
+      supabase.from("tasks").select("assignee_id,status").eq("is_personal", false),
       supabase.from("user_roles").select("user_id,role"),
       (supabase.from("team_skills" as any)).select("*").order("type").order("name"),
       (supabase.from("member_skill_scores" as any)).select("*"),

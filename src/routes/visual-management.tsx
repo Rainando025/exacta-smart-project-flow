@@ -21,8 +21,10 @@ import { toast } from "sonner";
 import { askGroq, askGemini } from "@/lib/ai";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { useEffect } from "react";
 
 export const Route = createFileRoute("/visual-management")({
   component: () => <AppShell><VisualManagementPage /></AppShell>,
@@ -566,6 +568,7 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
 
 // --- Main Page Component ---
 function VisualManagementPage() {
+  const { user } = useAuth();
   const [swot, setSwot] = useState({ strengths: ["Equipe qualificada"], weaknesses: ["Baixo orçamento"], opportunities: ["Novos mercados"], threats: ["Concorrência"] });
   const [eisenhower, setEisenhower] = useState([{ id: "1", text: "Finalizar código", quadrant: "do", priority: "high" }]);
   const [fiveW, setFiveW] = useState([{ what: "Projeto X", why: "Expansão", where: "Brasil", when: "Janeiro", who: "Time A", how: "Manual", howMuch: "R$ 0" }]);
@@ -575,8 +578,87 @@ function VisualManagementPage() {
   const [nodes, setNodes] = useState([{ id: "1", type: "start", x: 400, y: 50, label: "Início" }]);
   const [edges, setEdges] = useState<any[]>([]);
 
+  const [activeTab, setActiveTab] = useState("swot");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+
+  useEffect(() => {
+    const loadProjects = async () => {
+      const { data } = await supabase.from("projects").select("*").order("name");
+      if (data) setProjects(data);
+    };
+    loadProjects();
+  }, []);
+
   const printRef = useRef<HTMLDivElement>(null);
   const [exportingPDF, setExportingPDF] = useState(false);
+  
+  const handleSaveBoard = async () => {
+    if (!selectedProjectId) {
+      toast.error("Selecione um projeto para salvar.");
+      return;
+    }
+    if (!user) return;
+
+    let dataToSave;
+    let name = "";
+    switch (activeTab) {
+      case "swot": dataToSave = swot; name = "Matriz SWOT"; break;
+      case "eisenhower": dataToSave = eisenhower; name = "Matriz Eisenhower"; break;
+      case "5w2h": dataToSave = fiveW; name = "5W2H"; break;
+      case "pareto": dataToSave = pareto; name = "Diagrama de Pareto"; break;
+      case "smart": dataToSave = smart; name = "Metas SMART"; break;
+      case "gut": dataToSave = gut; name = "Matriz GUT"; break;
+      case "flowchart": dataToSave = { nodes, edges }; name = "Fluxograma"; break;
+    }
+
+    const { error } = await (supabase.from("visual_boards" as any)).insert({
+      name,
+      tool_type: activeTab,
+      project_id: selectedProjectId,
+      data: dataToSave,
+      owner_id: user.id
+    });
+
+    if (error) {
+      toast.error("Erro ao salvar o painel.");
+    } else {
+      toast.success(`${name} salvo com sucesso no projeto!`);
+    }
+  };
+
+  const handleLoadBoard = async () => {
+    if (!selectedProjectId) {
+      toast.error("Selecione um projeto primeiro.");
+      return;
+    }
+    const { data, error }: any = await (supabase.from("visual_boards" as any))
+      .select("*")
+      .eq("project_id", selectedProjectId)
+      .eq("tool_type", activeTab)
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    if (error || !data || data.length === 0) {
+      toast.error("Nenhum painel salvo encontrado para este projeto e ferramenta.");
+      return;
+    }
+
+    const savedData = data[0].data;
+    switch (activeTab) {
+      case "swot": setSwot(savedData); break;
+      case "eisenhower": setEisenhower(savedData); break;
+      case "5w2h": setFiveW(savedData); break;
+      case "pareto": setPareto(savedData); break;
+      case "smart": setSmart(savedData); break;
+      case "gut": setGut(savedData); break;
+      case "flowchart": 
+        setNodes(savedData.nodes || []); 
+        setEdges(savedData.edges || []); 
+        break;
+    }
+    toast.success("Painel carregado com sucesso!");
+  };
 
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [loadingAI, setLoadingAI] = useState(false);
@@ -632,7 +714,7 @@ function VisualManagementPage() {
       description: suggestedOKR.description,
       target_value: 100,
       current_value: 0,
-      user_id: user.id
+      owner_id: user.id
     });
 
     if (error) toast.error("Erro ao criar OKR: " + error.message);
@@ -693,28 +775,48 @@ function VisualManagementPage() {
           <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Gestão Visual</h1>
           <p className="text-muted-foreground mt-2">Ferramentas estratégicas para análise de alta performance.</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            onClick={handleAIAnalysis}
-            disabled={loadingAI}
-            variant="outline"
-            className="gap-2 border-accent/20 text-accent hover:bg-accent/10 shadow-glow-accent"
-          >
-            {loadingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-            Sugerir Análise com IA
-          </Button>
-          <Button
-            onClick={handleExportPDF}
-            disabled={exportingPDF}
-            className="bg-gradient-primary gap-2 shadow-glow"
-          >
-            {exportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} 
-            {exportingPDF ? "Exportando..." : "Exportar para PDF"}
-          </Button>
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2 w-full md:w-auto">
+            <select
+              className="flex h-10 w-full md:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={selectedProjectId}
+              onChange={(e) => setSelectedProjectId(e.target.value)}
+            >
+              <option value="">Nenhum Projeto (Rascunho)</option>
+              {projects.map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            <Button onClick={handleLoadBoard} variant="outline" className="gap-2" title="Carregar painel salvo deste projeto">
+              Carregar
+            </Button>
+            <Button onClick={handleSaveBoard} className="bg-primary gap-2 text-primary-foreground" title="Salvar painel neste projeto">
+              <Save className="h-4 w-4" /> Salvar
+            </Button>
+          </div>
+          <div className="flex gap-2 self-end">
+            <Button
+              onClick={handleAIAnalysis}
+              disabled={loadingAI}
+              variant="outline"
+              className="gap-2 border-accent/20 text-accent hover:bg-accent/10 shadow-glow-accent"
+            >
+              {loadingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
+              Sugerir Análise com IA
+            </Button>
+            <Button
+              onClick={handleExportPDF}
+              disabled={exportingPDF}
+              className="bg-gradient-primary gap-2 shadow-glow"
+            >
+              {exportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} 
+              {exportingPDF ? "Exportando..." : "Exportar para PDF"}
+            </Button>
+          </div>
         </div>
       </header>
 
-      <Tabs defaultValue="swot" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="overflow-x-auto pb-2">
           <TabsList className="bg-card/50 border border-white/5 p-1 rounded-xl w-fit">
             <TabsTrigger value="swot" className="rounded-lg gap-2">SWOT</TabsTrigger>

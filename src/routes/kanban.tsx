@@ -56,7 +56,7 @@ function KanbanPage() {
   }, [columns]);
 
   const load = async () => {
-    const { data } = await supabase.from("tasks").select("*").order("position");
+    const { data } = await supabase.from("tasks").select("*").eq("is_personal", false).order("position");
     if (data) setTasks(data);
   };
 

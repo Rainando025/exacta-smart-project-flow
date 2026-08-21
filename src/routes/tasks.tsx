@@ -49,17 +49,30 @@ function TasksPage() {
     let query = supabase.from("tasks").select("*");
 
     if (mode === "personal") {
-      // No modo pessoal, apenas as minhas tarefas
+      query = query.eq("is_personal", true);
       if (user?.id) {
         query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
       }
     } else {
-      // No modo equipe, gestores veem tudo. Colaboradores veem o que lhes pertence.
+      query = query.eq("is_personal", false);
+      // No modo equipe, gestores veem tudo. Colaboradores veem o que lhes pertence ou ao seu setor.
       const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user?.id || "").maybeSingle();
       const role = roleData?.role || "colaborador";
       
       if (role === "colaborador" && user?.id) {
-        query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+        // Obter setor do usuário para compartilhar tarefas da equipe no mesmo setor
+        const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
+        if (userProfile?.department_id) {
+          const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
+          const deptMemberIds = deptProfiles?.map((p) => p.id) || [];
+          if (deptMemberIds.length > 0) {
+            query = query.or(`assignee_id.in.(${deptMemberIds.map((id) => `"${id}"`).join(",")}),creator_id.eq.${user.id}`);
+          } else {
+            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+          }
+        } else {
+          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+        }
       }
       // Se for admin/gestor, não filtra (vê tudo)
     }
@@ -107,6 +120,7 @@ function TasksPage() {
   const create = async () => {
     if (!form.title.trim() || !user) return;
     setCreating(true);
+    const mode = localStorage.getItem("exacta-mode") || "team";
     const { error } = await supabase.from("tasks").insert({
       title: form.title,
       description: form.description || null,
@@ -116,6 +130,7 @@ function TasksPage() {
       project_id: form.project_id || null,
       creator_id: user.id,
       assignee_id: user.id,
+      is_personal: mode === "personal",
     });
     setCreating(false);
     if (error) return toast.error(error.message);

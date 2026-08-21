@@ -21,6 +21,7 @@ interface Attachment {
 interface Props {
   taskId?: string;
   projectId?: string;
+  documentId?: string;
 }
 
 const formatSize = (bytes: number) => {
@@ -37,9 +38,9 @@ export function AttachmentsPanel({ taskId, projectId }: Props) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const scopeColumn = taskId ? "task_id" : "project_id";
-  const scopeValue = taskId || projectId!;
-  const basePath = taskId ? `tasks/${taskId}` : `projects/${projectId}`;
+  const scopeColumn = taskId ? "task_id" : (projectId ? "project_id" : "document_id");
+  const scopeValue = taskId || projectId || documentId!;
+  const basePath = taskId ? `tasks/${taskId}` : (projectId ? `projects/${projectId}` : `documents/${documentId}`);
 
   const load = async () => {
     const { data } = await supabase
@@ -93,6 +94,7 @@ export function AttachmentsPanel({ taskId, projectId }: Props) {
         const { error: metaErr } = await supabase.from("attachments").insert({
           task_id: taskId || null,
           project_id: projectId || null,
+          document_id: documentId || null,
           uploaded_by: user.id,
           file_name: file.name,
           file_size: file.size,

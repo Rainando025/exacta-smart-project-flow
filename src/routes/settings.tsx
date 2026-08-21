@@ -2,24 +2,25 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User, RefreshCw } from "lucide-react";
+import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User, RefreshCw, Building2, Camera, Loader2, Plus, Trash2, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
-interface Profile { id: string; full_name: string; avatar_url: string | null; job_title: string | null; created_at: string; }
+interface Profile { id: string; full_name: string; avatar_url: string | null; job_title: string | null; created_at: string; department_id: string | null; }
 interface UserRole { id: string; user_id: string; role: string; }
 interface Invitation { id: string; email: string; role: string; token: string; status: string; expires_at: string; created_at: string; accepted_at: string | null; invited_by: string; }
 interface AuditLog { id: string; actor_id: string | null; entity_type: string; entity_id: string | null; action: string; changes: any; created_at: string; }
+interface Department { id: string; name: string; color: string | null; created_at: string; }
 
 function SettingsPage() { return <AppShell><SettingsContent /></AppShell>; }
 
@@ -29,7 +30,17 @@ function SettingsContent() {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [invites, setInvites] = useState<Invitation[]>([]);
   const [audits, setAudits] = useState<AuditLog[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isGestor, setIsGestor] = useState(false);
+
+  // Profile editing state
+  const [profileName, setProfileName] = useState("");
+  const [profileJobTitle, setProfileJobTitle] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const [openCreate, setOpenCreate] = useState(false);
   const [newEmail, setNewEmail] = useState(""); const [newPassword, setNewPassword] = useState("");
@@ -42,29 +53,49 @@ function SettingsContent() {
 
   const [resetEmail, setResetEmail] = useState(""); const [resetting, setResetting] = useState(false);
 
+  // Department state
+  const [deptDialog, setDeptDialog] = useState(false);
+  const [editingDept, setEditingDept] = useState<Department | null>(null);
+  const [deptName, setDeptName] = useState("");
+  const [deptColor, setDeptColor] = useState("#6366f1");
+  const [savingDept, setSavingDept] = useState(false);
+
   const load = useCallback(async () => {
     if (!user) return;
-    const [{ data: p }, { data: r }, { data: inv }] = await Promise.all([
+    const [{ data: p }, { data: r }, { data: inv }, { data: depts }] = await Promise.all([
       supabase.from("profiles").select("*").order("created_at", { ascending: false }),
       supabase.from("user_roles").select("*"),
       supabase.from("invitations").select("*").order("created_at", { ascending: false }),
+      supabase.from("departments").select("*").order("name"),
     ]);
     setProfiles((p || []) as Profile[]);
     setRoles((r || []) as UserRole[]);
     setInvites((inv || []) as Invitation[]);
+    setDepartments((depts || []) as Department[]);
     const myRole = (r || []).find((ro: any) => ro.user_id === user.id);
     const admin = myRole?.role === "admin";
+    const gestor = myRole?.role === "gestor" || admin;
     setIsAdmin(admin);
+    setIsGestor(gestor);
     if (admin) {
       const { data: a } = await supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100);
       setAudits((a || []) as AuditLog[]);
     }
   }, [user]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+    // Populate profile form
+    if (profile) {
+      setProfileName(profile.full_name || "");
+      setProfileJobTitle((profile as any).job_title || "");
+      setAvatarPreview((profile as any).avatar_url || null);
+    }
+  }, [load, profile]);
 
   const getRoleForUser = (uid: string) => roles.find((ro) => ro.user_id === uid)?.role || "colaborador";
   const roleLabel = (r: string) => r === "admin" ? "Administrador" : r === "gestor" ? "Gestor" : "Colaborador";
+  const getDeptName = (deptId: string | null) => deptId ? (departments.find((d) => d.id === deptId)?.name || "—") : "—";
 
   const handleCreateUser = async () => {
     if (!newEmail || !newPassword || !newName) return toast.error("Preencha todos os campos obrigatórios.");
@@ -72,9 +103,9 @@ function SettingsContent() {
     setCreating(true);
     const { data, error } = await supabase.auth.signUp({
       email: newEmail, password: newPassword,
-      options: { 
-        emailRedirectTo: `${window.location.origin}/dashboard`, 
-        data: { full_name: newName, job_title: newJobTitle } 
+      options: {
+        emailRedirectTo: `${window.location.origin}/dashboard`,
+        data: { full_name: newName, job_title: newJobTitle }
       },
     });
     if (error) { toast.error(error.message); setCreating(false); return; }
@@ -140,7 +171,84 @@ function SettingsContent() {
     load();
   };
 
-  const profileName = (id: string | null) => id ? (profiles.find((p) => p.id === id)?.full_name || id.slice(0, 8)) : "Sistema";
+  const handleChangeDepartment = async (userId: string, deptId: string) => {
+    const val = deptId === "none" ? null : deptId;
+    const { error } = await supabase.from("profiles").update({ department_id: val } as any).eq("id", userId);
+    if (error) toast.error(error.message);
+    else { toast.success("Setor atualizado!"); load(); }
+  };
+
+  // Profile save
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAvatarFile(file);
+    setAvatarPreview(URL.createObjectURL(file));
+  };
+
+  const saveProfile = async () => {
+    if (!user) return;
+    setSavingProfile(true);
+    let avatar_url = (profile as any)?.avatar_url || null;
+    if (avatarFile) {
+      const path = `avatars/${user.id}/${Date.now()}_${avatarFile.name}`;
+      const { error: upErr } = await supabase.storage.from("avatars").upload(path, avatarFile, { upsert: true });
+      if (!upErr) {
+        const { data: urlData } = supabase.storage.from("avatars").getPublicUrl(path);
+        avatar_url = urlData.publicUrl;
+      } else {
+        toast.error("Erro ao fazer upload da foto: " + upErr.message);
+      }
+    }
+    const { error } = await supabase.from("profiles").update({
+      full_name: profileName,
+      job_title: profileJobTitle,
+      avatar_url,
+    } as any).eq("id", user.id);
+    if (error) toast.error(error.message);
+    else { toast.success("Perfil atualizado!"); load(); }
+    setSavingProfile(false);
+  };
+
+  // Department CRUD
+  const openNewDept = () => {
+    setEditingDept(null);
+    setDeptName("");
+    setDeptColor("#6366f1");
+    setDeptDialog(true);
+  };
+
+  const openEditDept = (d: Department) => {
+    setEditingDept(d);
+    setDeptName(d.name);
+    setDeptColor(d.color || "#6366f1");
+    setDeptDialog(true);
+  };
+
+  const saveDept = async () => {
+    if (!deptName.trim()) return toast.error("Nome do setor é obrigatório.");
+    setSavingDept(true);
+    if (editingDept) {
+      const { error } = await supabase.from("departments").update({ name: deptName.trim(), color: deptColor }).eq("id", editingDept.id);
+      if (error) toast.error(error.message); else toast.success("Setor atualizado!");
+    } else {
+      const { error } = await supabase.from("departments").insert({ name: deptName.trim(), color: deptColor });
+      if (error) toast.error(error.message); else toast.success("Setor criado!");
+    }
+    setSavingDept(false);
+    setDeptDialog(false);
+    load();
+  };
+
+  const deleteDept = async (id: string) => {
+    if (!confirm("Excluir este setor? Os usuários serão desvinculados.")) return;
+    // Unlink users from this dept
+    await supabase.from("profiles").update({ department_id: null } as any).eq("department_id", id);
+    const { error } = await supabase.from("departments").delete().eq("id", id);
+    if (error) toast.error(error.message); else { toast.success("Setor excluído."); load(); }
+  };
+
+  const profileNameFn = (id: string | null) => id ? (profiles.find((p) => p.id === id)?.full_name || id.slice(0, 8)) : "Sistema";
   const inviteStatusBadge = (s: string) => {
     const c = s === "accepted" ? "bg-success/10 text-success" : s === "revoked" ? "bg-muted text-muted-foreground" : "bg-warning/10 text-warning";
     return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${c}`}>{s === "accepted" ? "Aceito" : s === "revoked" ? "Revogado" : "Pendente"}</span>;
@@ -151,44 +259,66 @@ function SettingsContent() {
       <header>
         <p className="text-sm text-accent font-medium uppercase tracking-wider">Sistema</p>
         <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Configurações</h1>
-        <p className="text-muted-foreground mt-1">Gerencie usuários, convites e auditoria.</p>
+        <p className="text-muted-foreground mt-1">Gerencie usuários, setores, convites e auditoria.</p>
       </header>
 
       <Tabs defaultValue="users" className="space-y-6">
-        <TabsList>
+        <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
           <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
           <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
+          {isGestor && <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>}
           {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
         </TabsList>
 
+        {/* ── MEU PERFIL TAB ── */}
         <TabsContent value="profile" className="space-y-6">
           <Card className="p-6 shadow-card max-w-2xl">
-            <h3 className="font-display font-bold text-xl mb-4">Informações Pessoais</h3>
-            <div className="space-y-4">
+            <h3 className="font-display font-bold text-xl mb-6">Informações Pessoais</h3>
+            <div className="space-y-5">
+              {/* Avatar */}
+              <div className="flex items-center gap-5">
+                <div className="relative">
+                  {avatarPreview ? (
+                    <img src={avatarPreview} alt="avatar" className="h-20 w-20 rounded-full object-cover ring-2 ring-accent/30" />
+                  ) : (
+                    <div className="h-20 w-20 rounded-full bg-gradient-to-br from-accent to-primary flex items-center justify-center text-white font-bold text-2xl">
+                      {(profileName || "U").slice(0, 2).toUpperCase()}
+                    </div>
+                  )}
+                  <button
+                    onClick={() => fileRef.current?.click()}
+                    className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-accent flex items-center justify-center text-accent-foreground shadow-md hover:bg-accent/90 transition"
+                  >
+                    <Camera className="h-3.5 w-3.5" />
+                  </button>
+                  <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                </div>
+                <div>
+                  <p className="font-medium">{profileName || "Sem nome"}</p>
+                  <p className="text-sm text-muted-foreground">{user?.email}</p>
+                  <button onClick={() => fileRef.current?.click()} className="text-xs text-accent hover:underline mt-1">Trocar foto</button>
+                </div>
+              </div>
+
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Nome Completo</Label>
-                  <Input 
-                    value={profile?.full_name || ""} 
-                    onChange={(e) => {/* In a real app, update state and DB */}} 
-                    placeholder="Seu nome"
-                  />
+                  <Input value={profileName} onChange={(e) => setProfileName(e.target.value)} placeholder="Seu nome" />
                 </div>
                 <div className="space-y-2">
                   <Label>Cargo / Título</Label>
-                  <Input 
-                    value={profile?.job_title || ""} 
-                    placeholder="Ex: Desenvolvedor Sênior"
-                  />
+                  <Input value={profileJobTitle} onChange={(e) => setProfileJobTitle(e.target.value)} placeholder="Ex: Desenvolvedor Sênior" />
                 </div>
               </div>
               <div className="space-y-2">
                 <Label>E-mail (Login)</Label>
                 <Input value={user?.email || ""} disabled className="bg-muted cursor-not-allowed" />
               </div>
-              <div className="pt-4 flex justify-end">
-                <Button className="bg-gradient-primary text-primary-foreground">Salvar Alterações</Button>
+              <div className="pt-2 flex justify-end">
+                <Button onClick={saveProfile} disabled={savingProfile} className="bg-gradient-primary text-primary-foreground gap-2">
+                  {savingProfile ? <><Loader2 className="h-4 w-4 animate-spin" />Salvando…</> : "Salvar Alterações"}
+                </Button>
               </div>
             </div>
           </Card>
@@ -200,6 +330,7 @@ function SettingsContent() {
           </Card>
         </TabsContent>
 
+        {/* ── USERS TAB ── */}
         <TabsContent value="users" className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-xl font-bold">Usuários do Sistema</h2>
@@ -276,22 +407,40 @@ function SettingsContent() {
                   <th className="text-left px-4 py-3 font-semibold">Nome</th>
                   <th className="text-left px-4 py-3 font-semibold">Cargo</th>
                   <th className="text-left px-4 py-3 font-semibold">Função</th>
+                  <th className="text-left px-4 py-3 font-semibold">Setor</th>
                   <th className="text-left px-4 py-3 font-semibold">Criado em</th>
                   {isAdmin && <th className="text-right px-4 py-3 font-semibold">Ações</th>}
                 </tr></thead>
                 <tbody className="divide-y">
-                  {profiles.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum usuário.</td></tr>}
+                  {profiles.length === 0 && <tr><td colSpan={6} className="text-center py-12 text-muted-foreground">Nenhum usuário.</td></tr>}
                   {profiles.map((p) => {
                     const role = getRoleForUser(p.id);
                     const isSelf = p.id === user?.id;
                     return (
                       <tr key={p.id} className="hover:bg-muted/30">
                         <td className="px-4 py-3"><div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent text-accent-foreground text-xs font-bold">{(p.full_name || "U").slice(0, 2).toUpperCase()}</div>
+                          {p.avatar_url ? (
+                            <img src={p.avatar_url} alt={p.full_name} className="h-9 w-9 rounded-full object-cover" />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent text-accent-foreground text-xs font-bold">{(p.full_name || "U").slice(0, 2).toUpperCase()}</div>
+                          )}
                           <div><p className="font-medium">{p.full_name || "Sem nome"}</p>{isSelf && <span className="text-[10px] text-accent">(você)</span>}</div>
                         </div></td>
                         <td className="px-4 py-3 text-muted-foreground">{p.job_title || "—"}</td>
                         <td className="px-4 py-3"><span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${role === "admin" ? "bg-destructive/10 text-destructive" : role === "gestor" ? "bg-warning/10 text-warning" : "bg-accent/10 text-accent"}`}><Shield className="h-3 w-3" />{roleLabel(role)}</span></td>
+                        <td className="px-4 py-3">
+                          {isAdmin ? (
+                            <Select value={p.department_id || "none"} onValueChange={(v) => handleChangeDepartment(p.id, v)}>
+                              <SelectTrigger className="h-8 w-[150px] text-xs"><SelectValue placeholder="Sem setor" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">Sem setor</SelectItem>
+                                {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">{getDeptName(p.department_id)}</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(p.created_at).toLocaleDateString("pt-BR")}</td>
                         {isAdmin && <td className="px-4 py-3 text-right">{!isSelf && (
                           <Select value={role} onValueChange={(v) => handleChangeRole(p.id, v)}>
@@ -312,7 +461,7 @@ function SettingsContent() {
           </Card>
         </TabsContent>
 
-        {/* INVITES TAB */}
+        {/* ── INVITES TAB ── */}
         <TabsContent value="invites" className="space-y-4">
           <h2 className="font-display text-xl font-bold">Convites</h2>
           <Card className="shadow-card overflow-hidden">
@@ -352,7 +501,72 @@ function SettingsContent() {
           </Card>
         </TabsContent>
 
-        {/* AUDIT & LOGS TAB */}
+        {/* ── SETORES TAB ── */}
+        {isGestor && (
+          <TabsContent value="sectors" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-display text-xl font-bold">Setores / Departamentos</h2>
+                <p className="text-sm text-muted-foreground mt-1">Organize os membros da equipe em setores.</p>
+              </div>
+              <Button onClick={openNewDept} className="bg-gradient-primary text-primary-foreground gap-2">
+                <Plus className="h-4 w-4" /> Novo Setor
+              </Button>
+            </div>
+
+            {departments.length === 0 ? (
+              <Card className="p-12 text-center border-dashed text-muted-foreground">
+                <Building2 className="h-10 w-10 mx-auto mb-3 opacity-20" />
+                <p>Nenhum setor cadastrado.</p>
+                <Button className="mt-4 bg-gradient-primary" onClick={openNewDept}><Plus className="h-4 w-4 mr-2" />Criar primeiro setor</Button>
+              </Card>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {departments.map((d) => {
+                  const membersInDept = profiles.filter((p) => p.department_id === d.id);
+                  return (
+                    <Card key={d.id} className="p-5 shadow-card hover:shadow-elegant transition group">
+                      <div className="flex items-start gap-3">
+                        <div className="h-10 w-10 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: (d.color || "#6366f1") + "22" }}>
+                          <Building2 className="h-5 w-5" style={{ color: d.color || "#6366f1" }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-display font-bold truncate">{d.name}</h3>
+                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition">
+                              <button onClick={() => openEditDept(d)} className="p-1 hover:text-accent text-muted-foreground transition"><Pencil className="h-3.5 w-3.5" /></button>
+                              <button onClick={() => deleteDept(d.id)} className="p-1 hover:text-destructive text-muted-foreground transition"><Trash2 className="h-3.5 w-3.5" /></button>
+                            </div>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1">{membersInDept.length} membro(s)</p>
+                        </div>
+                      </div>
+                      {membersInDept.length > 0 && (
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {membersInDept.slice(0, 5).map((m) => (
+                            <div key={m.id} className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-muted text-xs">
+                              {m.avatar_url ? (
+                                <img src={m.avatar_url} alt={m.full_name} className="h-4 w-4 rounded-full object-cover" />
+                              ) : (
+                                <div className="h-4 w-4 rounded-full bg-accent/20 text-accent text-[8px] font-bold flex items-center justify-center">
+                                  {(m.full_name || "U").slice(0, 1).toUpperCase()}
+                                </div>
+                              )}
+                              <span className="truncate max-w-[80px]">{m.full_name || "Sem nome"}</span>
+                            </div>
+                          ))}
+                          {membersInDept.length > 5 && <span className="text-xs text-muted-foreground px-2 py-1">+{membersInDept.length - 5}</span>}
+                        </div>
+                      )}
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </TabsContent>
+        )}
+
+        {/* ── AUDIT & LOGS TAB ── */}
         {isAdmin && (
           <TabsContent value="audit" className="space-y-6">
             <header className="flex items-center justify-between">
@@ -360,96 +574,104 @@ function SettingsContent() {
                 <h2 className="font-display text-2xl font-bold">Auditoria & Logs do Sistema</h2>
                 <p className="text-sm text-muted-foreground mt-1">Rastreamento completo de acessos e alterações críticas.</p>
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={load} className="gap-2">
-                   <RefreshCw className="h-4 w-4" /> Atualizar
-                </Button>
-              </div>
+              <Button variant="outline" size="sm" onClick={load} className="gap-2">
+                <RefreshCw className="h-4 w-4" /> Atualizar
+              </Button>
             </header>
 
-            <Tabs defaultValue="all-logs" className="w-full">
-              <TabsList className="bg-muted/50 p-1">
-                <TabsTrigger value="all-logs" className="text-xs">Todos os Registros</TabsTrigger>
-                <TabsTrigger value="access-logs" className="text-xs">Acessos (Login)</TabsTrigger>
-                <TabsTrigger value="data-changes" className="text-xs">Alterações de Dados</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="all-logs" className="mt-4">
-                <Card className="shadow-card overflow-hidden">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead><tr className="border-b bg-muted/30">
-                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Quando</th>
-                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Usuário</th>
-                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Entidade</th>
-                        <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Ação</th>
-                        <th className="text-right px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Detalhes</th>
-                      </tr></thead>
-                      <tbody className="divide-y">
-                        {audits.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum registro encontrado.</td></tr>}
-                        {audits.map((a) => (
-                          <tr key={a.id} className="hover:bg-muted/30 align-top transition-colors">
-                            <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">{new Date(a.created_at).toLocaleString("pt-BR")}</td>
-                            <td className="px-4 py-3">
-                                <div className="flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[10px] font-bold">
-                                        {profileName(a.actor_id).slice(0, 2).toUpperCase()}
-                                    </div>
-                                    <span className="font-medium">{profileName(a.actor_id)}</span>
+            <Card className="shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/30">
+                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Quando</th>
+                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Usuário</th>
+                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Entidade</th>
+                    <th className="text-left px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Ação</th>
+                    <th className="text-right px-4 py-3 font-bold uppercase tracking-wider text-[10px]">Detalhes</th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {audits.length === 0 && <tr><td colSpan={5} className="text-center py-12 text-muted-foreground">Nenhum registro encontrado.</td></tr>}
+                    {audits.map((a) => (
+                      <tr key={a.id} className="hover:bg-muted/30 align-top transition-colors">
+                        <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap font-mono">{new Date(a.created_at).toLocaleString("pt-BR")}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="h-6 w-6 rounded-full bg-accent/10 text-accent flex items-center justify-center text-[10px] font-bold">
+                              {profileNameFn(a.actor_id).slice(0, 2).toUpperCase()}
+                            </div>
+                            <span className="font-medium">{profileNameFn(a.actor_id)}</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3"><Badge variant="outline" className="capitalize text-[10px]">{a.entity_type}</Badge></td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
+                            a.action === "create" ? "bg-success/10 text-success" :
+                            a.action === "delete" ? "bg-destructive/10 text-destructive" :
+                            a.action === "login" ? "bg-blue-500/10 text-blue-500" :
+                            "bg-accent/10 text-accent"
+                          }`}>{a.action}</span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-accent">DETALHES</Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                              <DialogHeader><DialogTitle>Detalhes da Auditoria</DialogTitle></DialogHeader>
+                              <div className="mt-4 space-y-4">
+                                <div className="grid grid-cols-2 gap-4 text-sm">
+                                  <div><Label className="text-xs">Entidade</Label><p className="font-mono mt-1 capitalize">{a.entity_type}</p></div>
+                                  <div><Label className="text-xs">Ação</Label><p className="font-mono mt-1 uppercase">{a.action}</p></div>
                                 </div>
-                            </td>
-                            <td className="px-4 py-3"><Badge variant="outline" className="capitalize text-[10px]">{a.entity_type}</Badge></td>
-                            <td className="px-4 py-3">
-                              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter ${
-                                a.action === "create" ? "bg-success/10 text-success" : 
-                                a.action === "delete" ? "bg-destructive/10 text-destructive" : 
-                                a.action === "login" ? "bg-blue-500/10 text-blue-500" :
-                                "bg-accent/10 text-accent"
-                              }`}>{a.action}</span>
-                            </td>
-                            <td className="px-4 py-3 text-right">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="h-7 text-[10px] font-bold text-accent">DETALHES</Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader><DialogTitle>Detalhes da Auditoria</DialogTitle></DialogHeader>
-                                  <div className="mt-4 space-y-4">
-                                    <div className="grid grid-cols-2 gap-4 text-sm">
-                                      <div><Label className="text-xs">Entidade</Label><p className="font-mono mt-1 capitalize">{a.entity_type}</p></div>
-                                      <div><Label className="text-xs">Ação</Label><p className="font-mono mt-1 uppercase">{a.action}</p></div>
-                                    </div>
-                                    <div>
-                                      <Label className="text-xs">Alterações / Dados</Label>
-                                      <pre className="mt-2 p-4 bg-muted rounded-xl overflow-auto max-h-[300px] text-[11px] font-mono leading-relaxed">
-                                        {JSON.stringify(a.changes, null, 2)}
-                                      </pre>
-                                    </div>
-                                  </div>
-                                </DialogContent>
-                              </Dialog>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </Card>
-              </TabsContent>
-
-              <TabsContent value="access-logs" className="mt-4">
-                 <Card className="p-12 text-center text-muted-foreground bg-muted/20 border-dashed">
-                    <div className="flex flex-col items-center gap-3">
-                        <KeyRound className="h-10 w-10 opacity-20" />
-                        <p className="text-sm">Os logs de acesso direto do Supabase são filtrados aqui.</p>
-                        <p className="text-xs max-w-sm">Esta funcionalidade consome dados de autenticação em tempo real para mostrar quem entrou e saiu do sistema EXACTA.</p>
-                    </div>
-                 </Card>
-              </TabsContent>
-            </Tabs>
+                                <div>
+                                  <Label className="text-xs">Alterações / Dados</Label>
+                                  <pre className="mt-2 p-4 bg-muted rounded-xl overflow-auto max-h-[300px] text-[11px] font-mono leading-relaxed">
+                                    {JSON.stringify(a.changes, null, 2)}
+                                  </pre>
+                                </div>
+                              </div>
+                            </DialogContent>
+                          </Dialog>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           </TabsContent>
         )}
       </Tabs>
+
+      {/* Dept dialog */}
+      <Dialog open={deptDialog} onOpenChange={setDeptDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle className="flex items-center gap-2"><Building2 className="h-5 w-5 text-accent" />{editingDept ? "Editar Setor" : "Novo Setor"}</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Setor *</Label>
+              <Input value={deptName} onChange={(e) => setDeptName(e.target.value)} placeholder="Ex: Engenharia, Marketing…" onKeyDown={(e) => e.key === "Enter" && saveDept()} />
+            </div>
+            <div className="space-y-2">
+              <Label>Cor</Label>
+              <div className="flex items-center gap-3">
+                <input type="color" value={deptColor} onChange={(e) => setDeptColor(e.target.value)} className="h-10 w-16 rounded border border-input cursor-pointer" />
+                <div className="flex gap-2">
+                  {["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
+                    <button key={c} onClick={() => setDeptColor(c)} className={`h-6 w-6 rounded-full transition hover:scale-110 ${deptColor === c ? "ring-2 ring-offset-1 ring-foreground" : ""}`} style={{ backgroundColor: c }} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setDeptDialog(false)}>Cancelar</Button>
+            <Button onClick={saveDept} disabled={savingDept} className="bg-gradient-primary text-primary-foreground">
+              {savingDept ? <><Loader2 className="h-4 w-4 animate-spin mr-1" />Salvando…</> : (editingDept ? "Salvar" : "Criar Setor")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

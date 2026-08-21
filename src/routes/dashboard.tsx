@@ -74,8 +74,10 @@ function Dashboard() {
 
   useEffect(() => {
     (async () => {
+      const mode = localStorage.getItem("exacta-mode") || "team";
+      const isPersonal = mode === "personal";
       const [t, p, m, r] = await Promise.all([
-        supabase.from("tasks").select("*").order("due_date", { ascending: true, nullsFirst: false }).limit(500),
+        supabase.from("tasks").select("*").eq("is_personal", isPersonal).order("due_date", { ascending: true, nullsFirst: false }).limit(500),
         supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(50),
         supabase.from("profiles").select("*"),
         supabase.from("user_roles").select("user_id,role"),

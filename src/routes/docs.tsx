@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { 
   FileText, Plus, Search, Star, Clock, FileEdit, Share2, 
   Trash2, Printer, Eye, Save, X, Edit2, Copy, File, 
-  Bookmark, Check, ChevronRight, Loader2
+  Bookmark, Check, ChevronRight, Loader2, Paperclip
 } from "lucide-react";
+import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -473,7 +474,7 @@ function DocsPage() {
         </div>
         <div className="flex gap-2">
           <Button 
-            variant={filterStarred ? "accent" : "outline"} 
+            variant={filterStarred ? "secondary" : "outline"} 
             onClick={() => setFilterStarred(!filterStarred)}
             className="gap-2"
           >
@@ -606,7 +607,7 @@ function DocsPage() {
               {CATEGORIES.map((cat) => (
                 <Badge 
                   key={cat} 
-                  variant={selectedType === cat ? "accent" : "outline"} 
+                  variant={selectedType === cat ? "secondary" : "outline"} 
                   onClick={() => setSelectedType(cat)}
                   className="cursor-pointer hover:bg-accent/20 transition-all text-xs"
                 >
@@ -791,6 +792,12 @@ function DocsPage() {
                   >
                     <FileEdit className="h-4 w-4" /> Editar Conteúdo
                   </TabsTrigger>
+                  <TabsTrigger 
+                    value="attachments" 
+                    className="bg-transparent border-b-2 border-transparent data-[state=active]:border-accent data-[state=active]:bg-transparent rounded-none px-1 text-sm font-semibold h-full flex items-center gap-1.5"
+                  >
+                    <Paperclip className="h-4 w-4" /> Anexos
+                  </TabsTrigger>
                 </TabsList>
               </div>
 
@@ -840,6 +847,11 @@ function DocsPage() {
                       <span>ID: {selectedDoc.id.slice(0, 8)}...</span>
                     </div>
                   </div>
+                </TabsContent>
+
+                {/* ATTACHMENTS CONTAINER */}
+                <TabsContent value="attachments" className="mt-0 h-full max-w-2xl mx-auto bg-card border border-white/10 rounded-xl p-8 shadow-lg min-h-[400px]">
+                  <AttachmentsPanel documentId={selectedDoc.id} />
                 </TabsContent>
 
                 {/* EDITING CONTAINER */}
