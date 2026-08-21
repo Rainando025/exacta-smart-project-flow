@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+﻿import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -106,8 +106,8 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
       const rawItems: CalendarItem[] = (dbReminders || []).map((r) => {
         let cat = "lembrete";
         let coll = "";
-        if (r.description && r.description.includes("| Responsável:")) {
-          coll = r.description.split("| Responsável:")[1]?.trim() || "";
+        if (r.description && r.description.includes("| Respons├ível:")) {
+          coll = r.description.split("| Respons├ível:")[1]?.trim() || "";
         }
         if (r.description && r.description.includes("[Categoria:")) {
           const match = r.description.match(/\[Categoria:\s*([^\]]+)\]/);
@@ -181,7 +181,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
           .filter(p => p.due_date && p.status !== "completed")
           .map(p => ({
             id: `proj-${p.id}`,
-            title: `🚀 [Projeto] ${p.name}`,
+            title: `­ƒÜÇ [Projeto] ${p.name}`,
             description: `Marco de entrega do projeto (Status: ${p.status})`,
             remind_at: `${p.due_date}T23:59:00`,
             priority: p.priority || "alta",
@@ -227,7 +227,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
   // Open modal for editing existing event
   const handleOpenEditModal = (item: CalendarItem) => {
     if (item.source === "task" || item.source === "project") {
-      toast.info("Este prazo é sincronizado diretamente pelo módulo correspondente.");
+      toast.info("Este prazo ├® sincronizado diretamente pelo m├│dulo correspondente.");
       return;
     }
 
@@ -242,7 +242,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
     }
 
     setModalTitle(item.title);
-    setModalDescription(item.description ? item.description.replace(/\[Categoria:\s*[^\]]+\]/, "").replace(/\|\s*Responsável:\s*.*$/, "").trim() : "");
+    setModalDescription(item.description ? item.description.replace(/\[Categoria:\s*[^\]]+\]/, "").replace(/\|\s*Respons├ível:\s*.*$/, "").trim() : "");
     setModalPriority(item.priority || "media");
     setModalCategory(item.category || "pessoal");
     setModalCollaborator(item.assignee_name || "");
@@ -253,7 +253,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
   // Save Event (Create or Update)
   const handleSaveEvent = async () => {
     if (!modalTitle.trim()) {
-      toast.error("Por favor, informe o título do agendamento.");
+      toast.error("Por favor, informe o t├¡tulo do agendamento.");
       return;
     }
 
@@ -264,7 +264,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
 
     let fullDesc = modalDescription.trim();
     if (modalCategory) fullDesc += ` [Categoria: ${modalCategory}]`;
-    if (modalCollaborator) fullDesc += ` | Responsável: ${modalCollaborator}`;
+    if (modalCollaborator) fullDesc += ` | Respons├ível: ${modalCollaborator}`;
 
     try {
       if (editingItem) {
@@ -388,7 +388,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
         setViewItem(prev => prev ? { ...prev, completed: nextCompleted } : null);
       }
 
-      toast.success(nextCompleted ? "Marcado como concluído!" : "Reaberto!");
+      toast.success(nextCompleted ? "Marcado como conclu├¡do!" : "Reaberto!");
     } catch (e: any) {
       toast.error("Erro ao atualizar status.");
     }
@@ -577,7 +577,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
     return <div className="border-t border-l border-border/40 rounded-xl overflow-hidden bg-card/40">{rows}</div>;
   };
 
-  const daysOfWeek = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const daysOfWeek = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "S├íb"];
 
   return (
     <div className="flex flex-col h-full bg-background/50">
@@ -599,7 +599,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
               size="icon"
               className="h-9 w-9 rounded-full"
               onClick={prevMonth}
-              title="Mês anterior"
+              title="M├¬s anterior"
             >
               <ChevronLeft className="h-5 w-5" />
             </Button>
@@ -608,7 +608,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
               size="icon"
               className="h-9 w-9 rounded-full"
               onClick={nextMonth}
-              title="Próximo mês"
+              title="Pr├│ximo m├¬s"
             >
               <ChevronRight className="h-5 w-5" />
             </Button>
@@ -647,7 +647,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                 activeFilter === "equipe" ? "bg-accent text-accent-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
-              Equipe & Reuniões
+              Equipe & Reuni├Áes
             </button>
             <button
               onClick={() => setActiveFilter("prazos")}
@@ -710,7 +710,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
         {renderCalendarCells()}
       </div>
 
-      {/* ── CREATE / EDIT MODAL ── */}
+      {/* ÔöÇÔöÇ CREATE / EDIT MODAL ÔöÇÔöÇ */}
       <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
         <DialogContent className="sm:max-w-[480px] bg-card/98 backdrop-blur-2xl border-white/20 shadow-2xl">
           <DialogHeader>
@@ -721,7 +721,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
               {editingItem ? "Editar Agendamento" : "Novo Agendamento"}
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Preencha as informações do compromisso para salvar no calendário.
+              Preencha as informa├º├Áes do compromisso para salvar no calend├írio.
             </DialogDescription>
           </DialogHeader>
 
@@ -729,12 +729,12 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
             {/* Title */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Título do Compromisso *
+                T├¡tulo do Compromisso *
               </Label>
               <Input
                 value={modalTitle}
                 onChange={(e) => setModalTitle(e.target.value)}
-                placeholder="Ex: Reunião de Alinhamento Semanal"
+                placeholder="Ex: Reuni├úo de Alinhamento Semanal"
                 className="h-10 bg-muted/40 border-white/10"
               />
             </div>
@@ -755,7 +755,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
 
               <div className="space-y-1.5">
                 <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                  Horário de Início
+                  Hor├írio de In├¡cio
                 </Label>
                 <Input
                   type="time"
@@ -777,10 +777,10 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="baixa">🟢 Baixa</SelectItem>
-                    <SelectItem value="media">🟡 Média</SelectItem>
-                    <SelectItem value="alta">🟠 Alta</SelectItem>
-                    <SelectItem value="urgente">🔴 Urgente</SelectItem>
+                    <SelectItem value="baixa">­ƒƒó Baixa</SelectItem>
+                    <SelectItem value="media">­ƒƒí M├®dia</SelectItem>
+                    <SelectItem value="alta">­ƒƒá Alta</SelectItem>
+                    <SelectItem value="urgente">­ƒö┤ Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -794,19 +794,19 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pessoal">👤 Pessoal</SelectItem>
-                    <SelectItem value="equipe">👥 Equipe</SelectItem>
-                    <SelectItem value="reuniao">🎯 Reunião / Cliente</SelectItem>
-                    <SelectItem value="prazo">⏰ Prazo Crítico</SelectItem>
+                    <SelectItem value="pessoal">­ƒæñ Pessoal</SelectItem>
+                    <SelectItem value="equipe">­ƒæÑ Equipe</SelectItem>
+                    <SelectItem value="reuniao">­ƒÄ» Reuni├úo / Cliente</SelectItem>
+                    <SelectItem value="prazo">ÔÅ░ Prazo Cr├¡tico</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-            {/* Collaborator / Responsável */}
+            {/* Collaborator / Respons├ível */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                {isTeam ? "Responsável / Membro da Equipe" : "Participantes (Opcional)"}
+                {isTeam ? "Respons├ível / Membro da Equipe" : "Participantes (Opcional)"}
               </Label>
               {isTeam && members.length > 0 ? (
                 <Select value={modalCollaborator} onValueChange={setModalCollaborator}>
@@ -814,7 +814,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     <SelectValue placeholder="Selecione um colaborador..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Todos">👥 Toda a Equipe</SelectItem>
+                    <SelectItem value="Todos">­ƒæÑ Toda a Equipe</SelectItem>
                     {members.map((m) => (
                       <SelectItem key={m.id} value={m.full_name}>
                         {m.full_name}
@@ -826,7 +826,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                 <Input
                   value={modalCollaborator}
                   onChange={(e) => setModalCollaborator(e.target.value)}
-                  placeholder="Ex: João Silva, Diretoria, Cliente X..."
+                  placeholder="Ex: Jo├úo Silva, Diretoria, Cliente X..."
                   className="h-10 bg-muted/40 border-white/10"
                 />
               )}
@@ -835,12 +835,12 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
             {/* Notes / Description */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
-                Observações / Pauta
+                Observa├º├Áes / Pauta
               </Label>
               <Textarea
                 value={modalDescription}
                 onChange={(e) => setModalDescription(e.target.value)}
-                placeholder="Detalhes sobre a reunião, links de videoconferência ou notas..."
+                placeholder="Detalhes sobre a reuni├úo, links de videoconfer├¬ncia ou notas..."
                 rows={3}
                 className="bg-muted/40 border-white/10 resize-none"
               />
@@ -861,13 +861,13 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
               onClick={handleSaveEvent}
               className="bg-gradient-primary font-bold shadow-glow px-6"
             >
-              {isSaving ? "Salvando..." : (editingItem ? "Salvar Alterações" : "Criar Agendamento")}
+              {isSaving ? "Salvando..." : (editingItem ? "Salvar Altera├º├Áes" : "Criar Agendamento")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── VIEW EVENT DETAILS MODAL ── */}
+      {/* ÔöÇÔöÇ VIEW EVENT DETAILS MODAL ÔöÇÔöÇ */}
       <Dialog open={!!viewItem} onOpenChange={(open) => !open && setViewItem(null)}>
         {viewItem && (
           <DialogContent className="sm:max-w-[440px] bg-card/98 backdrop-blur-2xl border-white/20 shadow-2xl">
@@ -901,7 +901,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                 <span>
                   {(() => {
                     try {
-                      return format(parseISO(viewItem.remind_at), "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR });
+                      return format(parseISO(viewItem.remind_at), "dd 'de' MMMM 'de' yyyy '├ás' HH:mm", { locale: ptBR });
                     } catch {
                       return viewItem.remind_at;
                     }
@@ -912,7 +912,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
               {viewItem.assignee_name && (
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <Users className="h-4 w-4 text-accent" />
-                  <span>Responsável: <strong>{viewItem.assignee_name}</strong></span>
+                  <span>Respons├ível: <strong>{viewItem.assignee_name}</strong></span>
                 </div>
               )}
 
