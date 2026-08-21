@@ -19,6 +19,7 @@ import { SubtasksPanel } from "@/components/SubtasksPanel";
 import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 import { CommentsPanel } from "@/components/CommentsPanel";
 import { notify } from "@/lib/notify";
+import { generateStructuredTasks } from "@/lib/ai";
 
 interface SubtaskCount { task_id: string; total: number; done: number; }
 
@@ -195,16 +196,13 @@ function TasksPage() {
     if (!aiPrompt.trim() || !user) return;
     setAiLoading(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-tasks`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
-        body: JSON.stringify({ prompt: aiPrompt }),
-      });
-      if (res.status === 429) { toast.error("Muitas requisições, tente em instantes."); return; }
-      if (res.status === 402) { toast.error("Créditos de IA esgotados."); return; }
-      const data = await res.json();
-      if (!data.tasks?.length) { toast.error("IA não retornou tarefas"); return; }
-      const inserts = data.tasks.map((t: any) => ({
+      const generated = await generateStructuredTasks(aiPrompt.trim());
+      if (!generated?.length) {
+        toast.error("IA não retornou tarefas.");
+        return;
+      }
+
+      const inserts = generated.map((t) => ({
         title: t.title,
         description: t.description || null,
         priority: t.priority || "media",
@@ -213,15 +211,19 @@ function TasksPage() {
         creator_id: user.id,
         assignee_id: user.id,
       }));
+
       const { error } = await supabase.from("tasks").insert(inserts);
       if (error) throw error;
-      toast.success(`${inserts.length} tarefas criadas pela IA ✨`);
+
+      toast.success(`${inserts.length} tarefas geradas e criadas pela IA ✨`);
       setAiOpen(false);
       setAiPrompt("");
       load();
     } catch (e: any) {
       toast.error(e.message || "Erro na IA");
-    } finally { setAiLoading(false); }
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const filtered = tasks.filter((t) => {

@@ -437,8 +437,6 @@ function Dashboard() {
       <div className="mt-8">
         <BottleneckAnalysis data={{ tasks, overdue, projects, productivity }} />
       </div>
-
-      <AIChat contextData={{ tasks: tasks.length, overdue: overdue.length, active_projects: projects.length, productivity }} />
     </div>
   );
 }

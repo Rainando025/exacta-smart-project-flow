@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User, RefreshCw, Building2, Camera, Loader2, Plus, Trash2, Pencil } from "lucide-react";
+import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, User, RefreshCw, Building2, Camera, Loader2, Plus, Trash2, Pencil, Sparkles, Key, CheckCircle2, AlertCircle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { getAIConfig, saveAIConfig, testAIConnection, type AIConfig } from "@/lib/ai";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -60,6 +61,14 @@ function SettingsContent() {
   const [deptColor, setDeptColor] = useState("#6366f1");
   const [savingDept, setSavingDept] = useState(false);
 
+  // AI Settings state
+  const [aiConfig, setAiConfigState] = useState<AIConfig>(getAIConfig);
+  const [geminiKey, setGeminiKey] = useState("");
+  const [groqKey, setGroqKey] = useState("");
+  const [preferredProvider, setPreferredProvider] = useState<"gemini" | "groq" | "auto">("auto");
+  const [testingAI, setTestingAI] = useState<string | null>(null);
+  const [aiTestResult, setAiTestResult] = useState<{ provider: string; success: boolean; message: string } | null>(null);
+
   const load = useCallback(async () => {
     if (!user) return;
     const [{ data: p }, { data: r }, { data: inv }, { data: depts }] = await Promise.all([
@@ -91,7 +100,37 @@ function SettingsContent() {
       setProfileJobTitle((profile as any).job_title || "");
       setAvatarPreview((profile as any).avatar_url || null);
     }
+    // Populate AI config
+    const cfg = getAIConfig();
+    setAiConfigState(cfg);
+    setGeminiKey(cfg.geminiKey || "");
+    setGroqKey(cfg.groqKey || "");
+    setPreferredProvider(cfg.preferredProvider || "auto");
   }, [load, profile]);
+
+  const handleSaveAIConfig = () => {
+    const updated = saveAIConfig({
+      geminiKey: geminiKey.trim(),
+      groqKey: groqKey.trim(),
+      preferredProvider,
+    });
+    setAiConfigState(updated);
+    toast.success("Configurações de Inteligência Artificial salvas!");
+  };
+
+  const handleTestAI = async (provider: "gemini" | "groq") => {
+    setTestingAI(provider);
+    setAiTestResult(null);
+    const key = provider === "gemini" ? geminiKey : groqKey;
+    const res = await testAIConnection(provider, key);
+    setTestingAI(null);
+    setAiTestResult({ provider, success: res.success, message: res.message });
+    if (res.success) {
+      toast.success(`Chave ${provider.toUpperCase()} validada com sucesso!`);
+    } else {
+      toast.error(res.message);
+    }
+  };
 
   const getRoleForUser = (uid: string) => roles.find((ro) => ro.user_id === uid)?.role || "colaborador";
   const roleLabel = (r: string) => r === "admin" ? "Administrador" : r === "gestor" ? "Gestor" : "Colaborador";
@@ -266,6 +305,7 @@ function SettingsContent() {
         <TabsList className="flex-wrap h-auto gap-1">
           <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
           <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
+          <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Inteligência Artificial</TabsTrigger>
           <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
           {isGestor && <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>}
           {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
@@ -641,6 +681,155 @@ function SettingsContent() {
             </Card>
           </TabsContent>
         )}
+
+        {/* ── AI SETTINGS TAB ── */}
+        <TabsContent value="ai" className="space-y-6">
+          <div className="max-w-3xl space-y-6">
+            <Card className="p-6 shadow-card border-accent/20 bg-card/80 backdrop-blur-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-10 w-10 rounded-xl bg-accent/20 flex items-center justify-center text-accent shadow-inner">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="font-display font-bold text-xl">Configuração do Agente IA (Gemini & Groq)</h3>
+                  <p className="text-xs text-muted-foreground">Configure provedores de IA generativa para automação de tarefas, análise de gargalos e chat executivo.</p>
+                </div>
+              </div>
+
+              <div className="space-y-5 pt-2">
+                {/* Preferred Provider */}
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Provedor Preferencial</Label>
+                  <Select value={preferredProvider} onValueChange={(v: any) => setPreferredProvider(v)}>
+                    <SelectTrigger className="h-10 bg-muted/30 border-white/10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="auto">Automático (Groq se disponível, senão Gemini ou Heurístico)</SelectItem>
+                      <SelectItem value="gemini">Google Gemini (Recomendado para raciocínio complexo)</SelectItem>
+                      <SelectItem value="groq">Groq Llama 3.3 (Recomendado para velocidade instantânea)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Google Gemini Card */}
+                <div className="p-4 rounded-xl bg-muted/20 border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Key className="h-4 w-4 text-accent" />
+                      <Label className="font-bold text-sm">Google Gemini API Key</Label>
+                    </div>
+                    <a
+                      href="https://aistudio.google.com/app/apikey"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-accent hover:underline flex items-center gap-1 font-medium"
+                    >
+                      Obter chave gratuita no Google AI Studio <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder="AIzaSy..."
+                      value={geminiKey}
+                      onChange={(e) => setGeminiKey(e.target.value)}
+                      className="h-10 bg-muted/40 border-white/10"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={testingAI === "gemini" || !geminiKey.trim()}
+                      onClick={() => handleTestAI("gemini")}
+                      className="h-10 font-bold shrink-0"
+                    >
+                      {testingAI === "gemini" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Testar Conexão
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Groq Card */}
+                <div className="p-4 rounded-xl bg-muted/20 border border-white/10 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Key className="h-4 w-4 text-accent" />
+                      <Label className="font-bold text-sm">Groq API Key (Llama 3.3)</Label>
+                    </div>
+                    <a
+                      href="https://console.groq.com/keys"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-accent hover:underline flex items-center gap-1 font-medium"
+                    >
+                      Obter chave gratuita no Groq Console <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <div className="flex gap-2">
+                    <Input
+                      type="password"
+                      placeholder="gsk_..."
+                      value={groqKey}
+                      onChange={(e) => setGroqKey(e.target.value)}
+                      className="h-10 bg-muted/40 border-white/10"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      disabled={testingAI === "groq" || !groqKey.trim()}
+                      onClick={() => handleTestAI("groq")}
+                      className="h-10 font-bold shrink-0"
+                    >
+                      {testingAI === "groq" ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+                      Testar Conexão
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Test Feedback Box */}
+                {aiTestResult && (
+                  <div className={`p-3 rounded-xl text-xs flex items-start gap-2.5 border ${
+                    aiTestResult.success
+                      ? "bg-success/10 border-success/30 text-success"
+                      : "bg-destructive/10 border-destructive/30 text-destructive"
+                  }`}>
+                    {aiTestResult.success ? (
+                      <CheckCircle2 className="h-4 w-4 shrink-0 mt-0.5" />
+                    ) : (
+                      <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+                    )}
+                    <div>
+                      <p className="font-bold uppercase tracking-wider text-[10px]">
+                        {aiTestResult.provider}
+                      </p>
+                      <p className="mt-0.5">{aiTestResult.message}</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Save Button */}
+                <div className="pt-2 flex justify-end">
+                  <Button onClick={handleSaveAIConfig} className="bg-gradient-primary shadow-glow font-bold px-6">
+                    Salvar Chaves e Preferências
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            <Card className="p-5 bg-card/40 border-white/5 space-y-3">
+              <h4 className="font-bold text-sm flex items-center gap-2">
+                <Sparkles className="h-4 w-4 text-accent" />
+                Onde o Agente de IA atua no sistema:
+              </h4>
+              <ul className="text-xs text-muted-foreground space-y-1.5 list-disc pl-5">
+                <li><strong>Chat Global & Assistente Flutuante:</strong> Disponível em todas as telas com contexto de produtividade.</li>
+                <li><strong>Geração Automática de Tarefas:</strong> Criação de planos de ação divididos em etapas em <em>Tarefas</em>.</li>
+                <li><strong>Diagnóstico de Gargalos:</strong> Identificação de atrasos e recomendações no <em>Dashboard</em>.</li>
+                <li><strong>Análise Estratégica:</strong> Sugestões de matrizes SWOT, GUT e fluxogramas em <em>Gestão Visual</em>.</li>
+              </ul>
+            </Card>
+          </div>
+        </TabsContent>
       </Tabs>
 
       {/* Dept dialog */}

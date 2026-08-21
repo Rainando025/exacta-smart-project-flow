@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
+import { AIChat } from "@/components/AIChat";
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 import { cn } from "@/lib/utils";
 import {
@@ -552,6 +553,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+
+        {/* Global AI Assistant Floating Component */}
+        <AIChat />
       </div>
     </div>
   );
