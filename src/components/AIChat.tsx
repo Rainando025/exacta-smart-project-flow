@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,7 +35,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
       {
         id: "welcome-1",
         role: "assistant",
-        content: "­ƒæï Olá! Sou o **Agente IA da EXACTA**.\n\nEstou pronto para analisar seus projetos, calcular prazos, diagnosticar gargalos e sugerir planos de ação. Como posso te ajudar hoje?",
+        content: "👋 Olá! Sou o **Agente IA da EXACTA**.\n\nEstou pronto para analisar seus projetos, calcular prazos, diagnosticar gargalos e sugerir planos de ação. Como posso te ajudar hoje?",
         timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
       }
     ];
@@ -168,7 +168,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
         {
           id: "bot-err-" + Date.now(),
           role: "assistant",
-          content: "ÔÜá´©Å Tive uma instabilidade ao processar sua pergunta. Verifique suas chaves de API nas configurações ou tente novamente.",
+          content: "⚠️ Tive uma instabilidade ao processar sua pergunta. Verifique suas chaves de API nas configurações ou tente novamente.",
           timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
         }
       ]);
@@ -178,10 +178,10 @@ export function AIChat({ contextData }: { contextData?: any }) {
   };
 
   const suggestions = [
-    "­ƒöì Diagnosticar gargalos atuais",
-    "­ƒôà Estruturar cronograma de entrega",
-    "ÔÜí Dicas para acelerar tarefas atrasadas",
-    "­ƒÄ» Sugerir metas e OKRs trimestrais"
+    "🔍 Diagnosticar gargalos atuais",
+    "📅 Estruturar cronograma de entrega",
+    "⚡ Dicas para acelerar tarefas atrasadas",
+    "🎯 Sugerir metas e OKRs trimestrais"
   ];
 
   return (

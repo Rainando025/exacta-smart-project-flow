@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -173,7 +173,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
       // 2. Projects
       const { data: projects } = await supabase
         .from("projects")
-        .select("id, name, due_date, status, priority")
+        .select("id, name, due_date, status")
         .not("due_date", "is", null);
 
       if (projects) {
@@ -181,10 +181,10 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
           .filter(p => p.due_date && p.status !== "completed")
           .map(p => ({
             id: `proj-${p.id}`,
-            title: `­ƒÜÇ [Projeto] ${p.name}`,
+            title: `🚀 [Projeto] ${p.name}`,
             description: `Marco de entrega do projeto (Status: ${p.status})`,
             remind_at: `${p.due_date}T23:59:00`,
-            priority: p.priority || "alta",
+            priority: "alta",
             source: "project",
             category: "prazo"
           }));
@@ -464,7 +464,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
             onClick={() => setSelectedDate(cloneDay)}
             onDoubleClick={() => handleOpenCreateModal(cloneDay)}
             className={cn(
-              "min-h-[110px] sm:min-h-[135px] border-r border-b border-border/40 p-1.5 sm:p-2 transition-all group relative flex flex-col justify-between",
+              "min-h-[110px] sm:min-h-[135px] border-r-2 border-b-2 border-zinc-300 dark:border-zinc-700 p-1.5 sm:p-2 transition-all group relative flex flex-col justify-between",
               !isCurrentMonth && "bg-muted/30 opacity-40 hover:opacity-75",
               isCurrentDay && "bg-accent/10 border-accent/30",
               isSelected && "ring-1 ring-accent/60 bg-accent/5",
@@ -574,7 +574,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
       days = [];
     }
 
-    return <div className="border-t border-l border-border/40 rounded-xl overflow-hidden bg-card/40">{rows}</div>;
+    return <div className="border-t-2 border-l-2 border-zinc-300 dark:border-zinc-700 rounded-xl overflow-hidden bg-card/40">{rows}</div>;
   };
 
   const daysOfWeek = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -691,12 +691,12 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
       </div>
 
       {/* Weekday Headers */}
-      <div className="grid grid-cols-7 border-b border-border/40 bg-card/60">
+      <div className="grid grid-cols-7 border-b-2 border-zinc-300 dark:border-zinc-700 bg-card/60">
         {daysOfWeek.map((dayName, idx) => (
           <div
             key={dayName}
             className={cn(
-              "py-2.5 text-center text-[11px] font-black uppercase tracking-wider text-muted-foreground border-r border-border/40 last:border-r-0",
+              "py-2.5 text-center text-[11px] font-black uppercase tracking-wider text-muted-foreground border-r-2 border-zinc-300 dark:border-zinc-700 last:border-r-0",
               (idx === 0 || idx === 6) && "text-muted-foreground/60"
             )}
           >
@@ -777,10 +777,10 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="baixa">­ƒƒó Baixa</SelectItem>
-                    <SelectItem value="media">­ƒƒí Média</SelectItem>
-                    <SelectItem value="alta">­ƒƒá Alta</SelectItem>
-                    <SelectItem value="urgente">­ƒö┤ Urgente</SelectItem>
+                    <SelectItem value="baixa">⚪ Baixa</SelectItem>
+                    <SelectItem value="media">🟡 Média</SelectItem>
+                    <SelectItem value="alta">🟠 Alta</SelectItem>
+                    <SelectItem value="urgente">🔴 Urgente</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -794,10 +794,10 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="pessoal">­ƒæñ Pessoal</SelectItem>
-                    <SelectItem value="equipe">­ƒæÑ Equipe</SelectItem>
-                    <SelectItem value="reuniao">­ƒÄ» Reunião / Cliente</SelectItem>
-                    <SelectItem value="prazo">ÔÅ░ Prazo Crítico</SelectItem>
+                    <SelectItem value="pessoal">👤 Pessoal</SelectItem>
+                    <SelectItem value="equipe">👥 Equipe</SelectItem>
+                    <SelectItem value="reuniao">🎯 Reunião / Cliente</SelectItem>
+                    <SelectItem value="prazo">⏰ Prazo Crítico</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -814,7 +814,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     <SelectValue placeholder="Selecione um colaborador..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Todos">­ƒæÑ Toda a Equipe</SelectItem>
+                    <SelectItem value="Todos">👥 Toda a Equipe</SelectItem>
                     {members.map((m) => (
                       <SelectItem key={m.id} value={m.full_name}>
                         {m.full_name}
@@ -879,11 +879,11 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
                     ? "bg-destructive/20 text-destructive"
                     : "bg-accent/20 text-accent"
                 )}>
-                  Prioridade {viewItem.priority}
+                  Prioridade: {viewItem.priority === "urgente" ? "🔴 Urgente" : viewItem.priority === "alta" ? "🟠 Alta" : viewItem.priority === "media" ? "🟡 Média" : "⚪ Baixa"}
                 </span>
                 {viewItem.category && (
                   <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-muted text-muted-foreground">
-                    {viewItem.category}
+                    Categoria: {viewItem.category === "pessoal" ? "👤 Pessoal" : viewItem.category === "equipe" ? "👥 Equipe" : viewItem.category === "reuniao" ? "🎯 Reunião" : viewItem.category === "prazo" ? "⏰ Prazo Crítico" : viewItem.category}
                   </span>
                 )}
               </div>

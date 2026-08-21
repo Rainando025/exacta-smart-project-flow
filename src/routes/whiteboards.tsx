@@ -110,7 +110,7 @@ function WhiteboardsPage() {
   // ── Save board ───────────────────────────────────────────────────────────────
   const saveBoard = useCallback(async (els: WBElement[], boardId: string) => {
     await supabase.from("documents")
-      .update({ data: { elements: els }, updated_at: new Date().toISOString() })
+      .update({ data: { elements: els } as any, updated_at: new Date().toISOString() })
       .eq("id", boardId);
   }, []);
 

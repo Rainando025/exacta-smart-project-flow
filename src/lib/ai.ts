@@ -1,4 +1,4 @@
-﻿import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import Groq from "groq-sdk";
 
 export interface AIConfig {
@@ -214,16 +214,16 @@ function generateHeuristicResponse(prompt: string, context?: string): string {
   const lower = prompt.toLowerCase();
 
   if (lower.includes("olá") || lower.includes("oi") || lower.includes("bom dia") || lower.includes("boa tarde")) {
-    return `Olá! ­ƒæï Sou o **Assistente Inteligente da EXACTA**.\n\nEstou pronto para apoiar na coordenação de projetos, análise de gargalos, distribuição de tarefas e planejamento de prazos.\n\n­ƒÆí *Dica: Você pode configurar uma chave gratuita do Google Gemini ou Groq nas Configurações do Sistema para habilitar raciocínio generativo avançado.*`;
+    return `Olá! 👋 Sou o **Assistente Inteligente da EXACTA**.\n\nEstou pronto para apoiar na coordenação de projetos, análise de gargalos, distribuição de tarefas e planejamento de prazos.\n\n💡 *Dica: Você pode configurar uma chave gratuita do Google Gemini ou Groq nas Configurações do Sistema para habilitar raciocínio generativo avançado.*`;
   }
 
   if (lower.includes("tarefa") || lower.includes("projeto") || lower.includes("prioridade") || lower.includes("prazo")) {
-    return `### ­ƒôï Análise Executiva de Gestão & Priorização\n\n1. **Foco em Valor (Matriz Eisenhower):** Concentre esforços primeiro nas tarefas com status de urgência alta ou prazos inferiores a 48h.\n2. **Eliminação de Impedimentos:** Verifique dependências bloqueantes antes de iniciar sprints ou novas fases de projetos.\n3. **Ritmo de Entrega:** Mantenha tarefas subdivididas em ciclos de no máximo 3 a 5 dias para garantir previsibilidade e feedback contínuo.\n\nPrecisa de um desdobramento específico para alguma iniciativa em andamento?`;
+    return `### 📋 Análise Executiva de Gestão & Priorização\n\n1. **Foco em Valor (Matriz Eisenhower):** Concentre esforços primeiro nas tarefas com status de urgência alta ou prazos inferiores a 48h.\n2. **Eliminação de Impedimentos:** Verifique dependências bloqueantes antes de iniciar sprints ou novas fases de projetos.\n3. **Ritmo de Entrega:** Mantenha tarefas subdivididas em ciclos de no máximo 3 a 5 dias para garantir previsibilidade e feedback contínuo.\n\nPrecisa de um desdobramento específico para alguma iniciativa em andamento?`;
   }
 
   if (lower.includes("gargalo") || lower.includes("atraso") || lower.includes("produtividade") || lower.includes("bottleneck")) {
-    return `### ÔÜí Diagnóstico de Produtividade & Gargalos\n\n- **Identificação de Sobrecarga:** Observe a concentração de tarefas 'em andamento' por responsável. Limitar o WIP (Work In Progress) acelera a vazão geral.\n- **Pontos de Espera:** Tarefas em revisão ou aprovação externa costumam ser a principal fonte oculta de atrasos.\n- **Ação Recomendada:** Realinhe as datas de entrega nos cards do Kanban e redistribua itens bloqueados entre a equipe.`;
+    return `### 🛠️ Diagnóstico de Produtividade & Gargalos\n\n- **Identificação de Sobrecarga:** Observe a concentração de tarefas 'em andamento' por responsável. Limitar o WIP (Work In Progress) acelera a vazão geral.\n- **Pontos de Espera:** Tarefas em revisão ou aprovação externa costumam ser a principal fonte oculta de atrasos.\n- **Ação Recomendada:** Realinhe as datas de entrega nos cards do Kanban e redistribua itens bloqueados entre a equipe.`;
   }
 
-  return `### ­ƒÆí Análise Estratégica EXACTA\n\nCom base na sua solicitação sobre **"${prompt.slice(0, 60)}"**:\n\n1. **Alinhamento de Escopo:** Certifique-se de que os marcos e entregáveis estão claros para todos os envolvidos no projeto.\n2. **Acompanhamento de Metas:** Vincule as entregas operacionais aos OKRs correspondentes no painel de metas.\n3. **Próximo Passo Recomendado:** Acesse a área de *Tarefas* ou *Calendário* para registrar os compromissos e monitorar a execução em tempo real.\n\n*(Para respostas com modelos de linguagem de última geração, configure sua API Key no menu de Configurações).*`;
+  return `### 💡 Análise Estratégica EXACTA\n\nCom base na sua solicitação sobre **"${prompt.slice(0, 60)}"**:\n\n1. **Alinhamento de Escopo:** Certifique-se de que os marcos e entregáveis estão claros para todos os envolvidos no projeto.\n2. **Acompanhamento de Metas:** Vincule as entregas operacionais aos OKRs correspondentes no painel de metas.\n3. **Próximo Passo Recomendado:** Acesse a área de *Tarefas* ou *Calendário* para registrar os compromissos e monitorar a execução em tempo real.\n\n*(Para respostas com modelos de linguagem de última geração, configure sua API Key no menu de Configurações).*`;
 }

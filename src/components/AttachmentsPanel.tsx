@@ -30,7 +30,7 @@ const formatSize = (bytes: number) => {
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
 
-export function AttachmentsPanel({ taskId, projectId }: Props) {
+export function AttachmentsPanel({ taskId, projectId, documentId }: Props) {
   const { user } = useAuth();
   const [items, setItems] = useState<Attachment[]>([]);
   const [folders, setFolders] = useState<string[]>(["/"]);
