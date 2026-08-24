@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,7 +13,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { STATUSES, priorityColor, priorityLabel, formatDate } from "@/lib/exacta";
 import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent, type DragStartEvent } from "@dnd-kit/core";
 import { toast } from "sonner";
-import { Plus, MoreVertical, Pencil, Trash2, Filter, RotateCcw, Wifi } from "lucide-react";
+import { Plus, MoreVertical, Pencil, Trash2, Filter, RotateCcw, Wifi, FolderOpen, Calendar } from "lucide-react";
 
 export const Route = createFileRoute("/kanban")({
   component: () => <AppShell><KanbanPage /></AppShell>,
@@ -37,6 +38,8 @@ function loadColumns(): Column[] {
 function KanbanPage() {
   const { user } = useAuth();
   const [tasks, setTasks] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
   const [columns, setColumns] = useState<Column[]>(DEFAULT_COLUMNS);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
@@ -47,6 +50,13 @@ function KanbanPage() {
   const [colName, setColName] = useState("");
   const [editingTask, setEditingTask] = useState<any | null>(null);
   const [realtime, setRealtime] = useState(false);
+
+  // Load projects for selector
+  useEffect(() => {
+    supabase.from("projects").select("id, name, color").order("name").then(({ data }) => {
+      if (data) setProjects(data);
+    });
+  }, []);
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
@@ -72,11 +82,12 @@ function KanbanPage() {
   }, []);
 
   const filtered = useMemo(() => tasks.filter((t) => {
+    if (selectedProject !== "all" && t.project_id !== selectedProject) return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
     if (mineOnly && t.assignee_id !== user?.id) return false;
     if (search.trim() && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
-  }), [tasks, priorityFilter, mineOnly, search, user?.id]);
+  }), [tasks, selectedProject, priorityFilter, mineOnly, search, user?.id]);
 
   const onDragEnd = async (e: DragEndEvent) => {
     setActiveId(null);
@@ -178,6 +189,24 @@ function KanbanPage() {
       <div className="flex flex-wrap items-center gap-2">
         <Filter className="h-4 w-4 text-muted-foreground" />
         <Input placeholder="Buscar tarefa…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs h-9" />
+        {/* Project selector */}
+        <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <SelectTrigger className="w-[200px] h-9">
+            <FolderOpen className="h-3.5 w-3.5 mr-1.5 text-muted-foreground" />
+            <SelectValue placeholder="Todos os projetos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os projetos</SelectItem>
+            {projects.map(p => (
+              <SelectItem key={p.id} value={p.id}>
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: p.color || "#6366f1" }} />
+                  {p.name}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Select value={priorityFilter} onValueChange={setPriorityFilter}>
           <SelectTrigger className="w-[160px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
@@ -191,6 +220,12 @@ function KanbanPage() {
         <button onClick={() => setMineOnly((v) => !v)} className={`px-3 py-1.5 rounded-full text-xs font-medium transition ${mineOnly ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"}`}>
           Apenas minhas
         </button>
+        {selectedProject !== "all" && (
+          <Badge variant="secondary" className="gap-1">
+            {projects.find(p => p.id === selectedProject)?.name}
+            <button onClick={() => setSelectedProject("all")} className="ml-1 hover:text-destructive">×</button>
+          </Badge>
+        )}
       </div>
 
       <DndContext sensors={sensors} onDragStart={(e: DragStartEvent) => setActiveId(e.active.id as string)} onDragEnd={onDragEnd}>
@@ -299,18 +334,36 @@ function DraggableTask({ task, onEdit, onDelete }: { task: any; onEdit: () => vo
 }
 
 function TaskCard({ task, dragging }: { task: any; dragging?: boolean }) {
+  const pColor = priorityColor(task.priority);
   return (
-    <Card className={`p-3 cursor-grab active:cursor-grabbing shadow-card hover:shadow-elegant transition ${dragging ? "rotate-2 shadow-elegant" : ""}`}>
-      <div className="flex items-start gap-2">
-        <div className="h-2 w-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: priorityColor(task.priority) }} />
+    <div
+      className={`group relative rounded-xl border bg-card/80 backdrop-blur-sm p-3.5 cursor-grab active:cursor-grabbing transition-all duration-200
+        hover:bg-card hover:shadow-[0_4px_24px_rgba(0,0,0,0.18)] hover:-translate-y-0.5
+        ${dragging ? "rotate-2 shadow-[0_8px_32px_rgba(0,0,0,0.28)] scale-105" : "shadow-sm"}`}
+      style={{ borderLeftWidth: 3, borderLeftColor: pColor, borderColor: `color-mix(in srgb, ${pColor} 12%, transparent)` }}
+    >
+      <div className="flex items-start gap-2.5">
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium leading-snug pr-12">{task.title}</p>
-          <div className="flex items-center justify-between mt-2 text-[10px] text-muted-foreground">
-            <span className="font-medium">{priorityLabel(task.priority)}</span>
-            <span>{formatDate(task.due_date)}</span>
+          <p className="text-sm font-semibold leading-snug">{task.title}</p>
+          {task.description && (
+            <p className="text-[11px] text-muted-foreground mt-1 line-clamp-2">{task.description}</p>
+          )}
+          <div className="flex items-center justify-between mt-2.5 gap-2">
+            <span
+              className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md"
+              style={{ backgroundColor: `color-mix(in srgb, ${pColor} 15%, transparent)`, color: pColor }}
+            >
+              {priorityLabel(task.priority)}
+            </span>
+            {task.due_date && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Calendar className="h-2.5 w-2.5" />
+                {formatDate(task.due_date)}
+              </span>
+            )}
           </div>
         </div>
       </div>
-    </Card>
+    </div>
   );
 }

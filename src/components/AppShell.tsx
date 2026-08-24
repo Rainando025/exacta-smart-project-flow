@@ -1,11 +1,12 @@
-﻿import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, CheckSquare, FolderKanban, Kanban, CalendarRange,
   Megaphone, Users, LogOut, Bell, MessageSquareHeart, Wallet,
   StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
   Moon, Sun, Command, Search, Target, Brain, FileText, Presentation, Cpu, Timer,
-  Plus, ArrowLeft, Sparkles, MessageSquare, PanelLeftClose, PanelLeftOpen, CalendarPlus
+  Plus, ArrowLeft, Sparkles, MessageSquare, PanelLeftClose, PanelLeftOpen, CalendarPlus,
+  Network
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -80,6 +81,7 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/kanban", label: "Kanban", icon: Kanban },
       { to: "/gantt", label: "Cronograma", icon: CalendarRange },
       { to: "/visual-management", label: "Gestão Visual", icon: Presentation },
+      { to: "/neural-map", label: "Mapa Neural", icon: Network },
     ]
   },
   {
@@ -182,6 +184,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     automations: "Automação", "time-tracking": "Rastreamento", team: "Equipe",
     feedback: "Feedback 360°", chat: "Chat da Equipe", painel: "Painel",
     calendar: "Calendário", "visual-management": "Gestão Visual",
+    "neural-map": "Mapa Neural",
   };
   const currentPageLabel = pageLabels[pageName] ?? pageName;
 

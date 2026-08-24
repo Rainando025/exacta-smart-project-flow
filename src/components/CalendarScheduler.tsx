@@ -396,7 +396,15 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
 
   // Combine and filter all events
   const allDisplayEvents = useMemo(() => {
-    let combined = [...events, ...taskDeadlines, ...projectDeadlines];
+    let combined: CalendarItem[] = [];
+    if (isTeam) {
+      // Team mode: show team events, task deadlines, project deadlines
+      const teamEvents = events.filter(e => e.category === "equipe" || e.category === "reuniao" || !!e.assignee_name);
+      combined = [...teamEvents, ...taskDeadlines, ...projectDeadlines];
+    } else {
+      // Personal mode: show only personal events (exclude team events, tasks, projects)
+      combined = events.filter(e => e.category !== "equipe" && e.category !== "reuniao" && !e.assignee_name);
+    }
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -416,7 +424,7 @@ export function CalendarScheduler({ isTeam = false }: { isTeam?: boolean }) {
     }
 
     return combined;
-  }, [events, taskDeadlines, projectDeadlines, searchQuery, activeFilter]);
+  }, [events, taskDeadlines, projectDeadlines, searchQuery, activeFilter, isTeam]);
 
   // Navigation handlers
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));

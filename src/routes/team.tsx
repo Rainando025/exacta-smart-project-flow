@@ -13,7 +13,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Network, Calendar as CalendarIcon, BrainCircuit, Plus, Trash2, Save, Camera, User, Pencil, Star } from "lucide-react";
-import { NeuralMap } from "@/components/NeuralMap";
 import { CalendarScheduler } from "@/components/CalendarScheduler";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -195,7 +194,6 @@ function TeamPage() {
         <TabsList className="mb-6 bg-card/50 border border-white/5 p-1 rounded-xl">
           <TabsTrigger value="members" className="rounded-lg gap-2"><User className="h-4 w-4" /> Membros</TabsTrigger>
           <TabsTrigger value="skills" className="rounded-lg gap-2"><BrainCircuit className="h-4 w-4" /> Competências</TabsTrigger>
-          <TabsTrigger value="ideas" className="rounded-lg gap-2"><Network className="h-4 w-4" /> Mapa Neural</TabsTrigger>
         </TabsList>
 
         {/* ── MEMBERS TAB ── */}
@@ -334,8 +332,6 @@ function TeamPage() {
             <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-400 inline-block" /> 1–4: Em desenvolvimento</span>
           </div>
         </TabsContent>
-
-        <TabsContent value="ideas" className="animate-in fade-in duration-300"><NeuralMap /></TabsContent>
       </Tabs>
 
       {/* ── SKILL MANAGEMENT DIALOG ── */}

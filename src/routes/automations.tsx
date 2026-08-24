@@ -1,49 +1,153 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Cpu, Plus, Zap, Mail, UserPlus, ArrowRight, Play, Settings2, Trash2 } from "lucide-react";
+import {
+  Cpu, Plus, Zap, Mail, UserPlus, ArrowRight, Settings2, Trash2,
+  Loader2, RefreshCw, CheckCircle2, AlertCircle, Play, Clock, ArrowDownRight
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+} from "@/components/ui/select";
 import { AppShell } from "@/components/AppShell";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useEffect, useState, useCallback } from "react";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/automations")({
   component: () => <AppShell><AutomationsPage /></AppShell>,
 });
 
+interface Automation {
+  id: string;
+  name: string;
+  trigger_type: string;
+  trigger_config: Record<string, any> | null;
+  action_type: string;
+  action_config: Record<string, any> | null;
+  is_active: boolean | null;
+  created_by: string;
+  created_at: string;
+}
+
+const TRIGGER_OPTIONS = [
+  { value: "task_created", label: "Tarefa criada" },
+  { value: "task_status_changed", label: "Status da tarefa alterado" },
+  { value: "task_deadline_soon", label: "Prazo vencendo em < 24h" },
+  { value: "task_assigned", label: "Tarefa atribuída a membro" },
+  { value: "project_status_changed", label: "Status do projeto alterado" },
+];
+
+const ACTION_OPTIONS = [
+  { value: "send_notification", label: "Enviar notificação" },
+  { value: "change_priority", label: "Alterar prioridade da tarefa" },
+  { value: "assign_member", label: "Atribuir membro à tarefa" },
+  { value: "send_email", label: "Enviar e-mail" },
+  { value: "move_to_status", label: "Mover tarefa de status" },
+];
+
+const TRIGGER_ICONS: Record<string, any> = {
+  task_created: Plus,
+  task_status_changed: ArrowRight,
+  task_deadline_soon: AlertCircle,
+  task_assigned: UserPlus,
+  project_status_changed: ArrowDownRight,
+};
+
+const ACTION_ICONS: Record<string, any> = {
+  send_notification: Zap,
+  change_priority: AlertCircle,
+  assign_member: UserPlus,
+  send_email: Mail,
+  move_to_status: ArrowRight,
+};
+
+function getLabel(options: { value: string; label: string }[], value: string): string {
+  return options.find(o => o.value === value)?.label || value;
+}
+
 function AutomationsPage() {
-  const automations = [
-    {
-      id: 1,
-      name: "Auto-atribuir Designer",
-      trigger: "Tarefa criada em 'Marketing'",
-      action: "Atribuir a @MarianaDesign",
-      icon: UserPlus,
-      active: true,
-      executions: 124,
-    },
-    {
-      id: 2,
-      name: "Notificar Finalização",
-      trigger: "Status muda para 'Concluído'",
-      action: "Enviar e-mail para Gestor",
-      icon: Mail,
-      active: true,
-      executions: 89,
-    },
-    {
-      id: 3,
-      name: "Urgência Automática",
-      trigger: "Prazo vence em < 24h",
-      action: "Mudar prioridade para 'Crítica'",
-      icon: Zap,
-      active: false,
-      executions: 45,
-    },
-  ];
+  const { user } = useAuth();
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showCreate, setShowCreate] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
+  // Form state
+  const [name, setName] = useState("");
+  const [triggerType, setTriggerType] = useState("");
+  const [actionType, setActionType] = useState("");
+  const [triggerDetail, setTriggerDetail] = useState("");
+  const [actionDetail, setActionDetail] = useState("");
+
+  const loadAutomations = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data } = await supabase
+      .from("automations")
+      .select("*")
+      .order("created_at", { ascending: false });
+    setAutomations((data || []) as Automation[]);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    loadAutomations();
+  }, [loadAutomations]);
+
+  const handleCreate = async () => {
+    if (!user || !name.trim() || !triggerType || !actionType) return;
+    setSaving(true);
+    const { error } = await supabase.from("automations").insert({
+      name: name.trim(),
+      trigger_type: triggerType,
+      trigger_config: triggerDetail ? { detail: triggerDetail } : null,
+      action_type: actionType,
+      action_config: actionDetail ? { detail: actionDetail } : null,
+      is_active: true,
+      created_by: user.id,
+    });
+
+    if (error) {
+      toast.error(`Erro ao criar automação: ${error.message}`);
+    } else {
+      toast.success("Automação criada com sucesso!");
+      setShowCreate(false);
+      setName(""); setTriggerType(""); setActionType(""); setTriggerDetail(""); setActionDetail("");
+      await loadAutomations();
+    }
+    setSaving(false);
+  };
+
+  const handleToggle = async (id: string, current: boolean) => {
+    await supabase.from("automations").update({ is_active: !current }).eq("id", id);
+    setAutomations(prev => prev.map(a => a.id === id ? { ...a, is_active: !current } : a));
+  };
+
+  const handleDelete = async (id: string) => {
+    const { error } = await supabase.from("automations").delete().eq("id", id);
+    if (!error) {
+      setAutomations(prev => prev.filter(a => a.id !== id));
+      setDeleteId(null);
+      toast.success("Automação excluída.");
+    }
+  };
+
+  const activeCount = automations.filter(a => a.is_active).length;
 
   return (
     <div className="p-6 lg:p-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <div className="flex items-center gap-2 mb-1">
@@ -54,100 +158,234 @@ function AutomationsPage() {
           </div>
           <p className="text-muted-foreground">Automatize fluxos de trabalho, mudanças de status e notificações.</p>
         </div>
-        <Button className="bg-gradient-primary text-primary-foreground shadow-elegant hover:opacity-90">
-          <Plus className="mr-2 h-4 w-4" /> Criar Automação
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" size="sm" onClick={loadAutomations}>
+            <RefreshCw className="h-4 w-4 mr-1" />
+          </Button>
+          <Button
+            className="bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg hover:opacity-90"
+            onClick={() => setShowCreate(true)}
+          >
+            <Plus className="mr-2 h-4 w-4" /> Criar Automação
+          </Button>
+        </div>
       </div>
 
+      {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <Card className="bg-card/40 backdrop-blur-sm border-white/5 relative overflow-hidden group">
           <div className="absolute top-0 right-0 p-6 opacity-10 group-hover:opacity-20 transition-opacity">
-             <Zap className="h-12 w-12 text-amber-500" />
+            <Zap className="h-12 w-12 text-amber-500" />
           </div>
           <CardHeader>
-            <CardTitle className="text-3xl font-bold">258</CardTitle>
-            <CardDescription>Execuções este mês</CardDescription>
+            <CardTitle className="text-3xl font-bold">{automations.length}</CardTitle>
+            <CardDescription>Total de automações</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-green-500 font-medium">↑ 12% em relação ao mês anterior</p>
+            <p className="text-xs text-emerald-500 font-medium">{activeCount} ativas</p>
           </CardContent>
         </Card>
-        
         <Card className="bg-card/40 backdrop-blur-sm border-white/5">
           <CardHeader>
-            <CardTitle className="text-3xl font-bold">12h</CardTitle>
-            <CardDescription>Tempo economizado</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">Estimativa baseada em tarefas manuais</p>
-          </CardContent>
-        </Card>
-
-        <Card className="bg-card/40 backdrop-blur-sm border-white/5">
-          <CardHeader>
-            <CardTitle className="text-3xl font-bold">08</CardTitle>
+            <CardTitle className="text-3xl font-bold">{activeCount}</CardTitle>
             <CardDescription>Automações ativas</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">De um total de 12 configuradas</p>
+            <p className="text-xs text-muted-foreground">De {automations.length} configuradas</p>
+          </CardContent>
+        </Card>
+        <Card className="bg-card/40 backdrop-blur-sm border-white/5">
+          <CardHeader>
+            <CardTitle className="text-3xl font-bold">{automations.length - activeCount}</CardTitle>
+            <CardDescription>Automações inativas</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-xs text-muted-foreground">Pausadas ou desativadas</p>
           </CardContent>
         </Card>
       </div>
 
+      {/* List */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-semibold">Minhas Automações</h2>
-          <Button variant="ghost" size="sm">Ver histórico de execuções</Button>
         </div>
 
-        <div className="grid gap-4">
-          {automations.map((a) => (
-            <Card key={a.id} className="border-white/5 bg-card/30 hover:bg-card/50 transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                  <div className="flex items-center gap-4 flex-1">
-                    <div className="h-12 w-12 rounded-2xl bg-sidebar flex items-center justify-center text-accent shadow-elegant border border-white/5">
-                      <a.icon className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg">{a.name}</h3>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
-                        <Badge variant="outline" className="bg-white/5 text-[10px]">SE: {a.trigger}</Badge>
-                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
-                        <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/20 text-[10px]">ENTÃO: {a.action}</Badge>
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : automations.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-white/10 p-12 text-center bg-accent/5">
+            <Cpu className="h-10 w-10 mx-auto mb-3 text-amber-500/40" />
+            <h3 className="font-semibold mb-1">Nenhuma automação criada</h3>
+            <p className="text-sm text-muted-foreground mb-4">Crie sua primeira automação para começar a poupar tempo.</p>
+            <Button onClick={() => setShowCreate(true)} className="bg-amber-500 hover:bg-amber-600 text-white">
+              <Plus className="mr-2 h-4 w-4" /> Criar Primeira Automação
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-4">
+            {automations.map(a => {
+              const TriggerIcon = TRIGGER_ICONS[a.trigger_type] || Zap;
+              const ActionIcon = ACTION_ICONS[a.action_type] || Zap;
+              return (
+                <Card
+                  key={a.id}
+                  className={`border-white/5 bg-card/30 hover:bg-card/50 transition-all duration-300 ${!a.is_active ? "opacity-60" : ""}`}
+                >
+                  <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="h-12 w-12 rounded-2xl bg-sidebar flex items-center justify-center text-amber-500 shadow-lg border border-white/5 flex-shrink-0">
+                          <TriggerIcon className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <h3 className="font-bold text-lg">{a.name}</h3>
+                          <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <Badge variant="outline" className="bg-white/5 text-[10px]">
+                              SE: {getLabel(TRIGGER_OPTIONS, a.trigger_type)}
+                              {a.trigger_config?.detail ? ` — ${a.trigger_config.detail}` : ""}
+                            </Badge>
+                            <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                            <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/20 text-[10px]">
+                              ENTÃO: {getLabel(ACTION_OPTIONS, a.action_type)}
+                              {a.action_config?.detail ? ` — ${a.action_config.detail}` : ""}
+                            </Badge>
+                          </div>
+                          <p className="text-[10px] text-muted-foreground mt-1.5">
+                            Criada em {format(parseISO(a.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-6">
+                        <div className="flex items-center gap-3 border-l border-white/5 pl-6">
+                          <div className="flex flex-col items-end gap-1">
+                            <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Status</span>
+                            <Switch
+                              checked={a.is_active ?? false}
+                              onCheckedChange={() => handleToggle(a.id, a.is_active ?? false)}
+                            />
+                          </div>
+                          <div className="flex gap-1 ml-2">
+                            <Button
+                              variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:bg-destructive/10"
+                              onClick={() => setDeleteId(a.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-6">
-                    <div className="text-right hidden md:block">
-                      <p className="text-xs text-muted-foreground mb-1">Execuções</p>
-                      <p className="font-mono font-bold">{a.executions}</p>
-                    </div>
-                    <div className="flex items-center gap-3 border-l border-white/5 pl-6">
-                      <div className="flex flex-col items-end gap-1">
-                        <span className="text-[10px] uppercase font-bold tracking-wider text-muted-foreground">Status</span>
-                        <Switch checked={a.active} />
-                      </div>
-                      <div className="flex gap-1 ml-2">
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg"><Settings2 className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-lg text-destructive hover:bg-destructive/10"><Trash2 className="h-4 w-4" /></Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
+      {/* External integrations CTA */}
       <div className="rounded-2xl border border-dashed border-white/10 p-8 text-center bg-accent/5">
         <Play className="h-8 w-8 mx-auto mb-3 text-accent/40" />
         <h3 className="font-semibold">Precisa de algo mais complexo?</h3>
         <p className="text-sm text-muted-foreground mb-4">Conecte com Zapier, Make ou use nossa API nativa para automações avançadas.</p>
         <Button variant="outline" size="sm">Explorar Integrações</Button>
       </div>
+
+      {/* Create Dialog */}
+      <Dialog open={showCreate} onOpenChange={setShowCreate}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Cpu className="h-5 w-5 text-amber-500" />
+              Nova Automação
+            </DialogTitle>
+            <DialogDescription>Configure o gatilho (SE) e a ação (ENTÃO) para criar uma regra automática.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nome da automação</Label>
+              <Input
+                placeholder="Ex: Auto-atribuir Designer"
+                value={name}
+                onChange={e => setName(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>SE (Gatilho)</Label>
+                <Select value={triggerType} onValueChange={setTriggerType}>
+                  <SelectTrigger><SelectValue placeholder="Escolha o gatilho" /></SelectTrigger>
+                  <SelectContent>
+                    {TRIGGER_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>ENTÃO (Ação)</Label>
+                <Select value={actionType} onValueChange={setActionType}>
+                  <SelectTrigger><SelectValue placeholder="Escolha a ação" /></SelectTrigger>
+                  <SelectContent>
+                    {ACTION_OPTIONS.map(o => (
+                      <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Detalhe do gatilho (opcional)</Label>
+                <Input
+                  placeholder="Ex: projeto Marketing"
+                  value={triggerDetail}
+                  onChange={e => setTriggerDetail(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Detalhe da ação (opcional)</Label>
+                <Input
+                  placeholder="Ex: @MarianaDesign"
+                  value={actionDetail}
+                  onChange={e => setActionDetail(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowCreate(false)}>Cancelar</Button>
+            <Button
+              onClick={handleCreate}
+              disabled={!name.trim() || !triggerType || !actionType || saving}
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+              Criar Automação
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Excluir automação?</DialogTitle>
+            <DialogDescription>Esta ação não pode ser desfeita.</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteId(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={() => deleteId && handleDelete(deleteId)}>
+              <Trash2 className="h-4 w-4 mr-2" />Excluir
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

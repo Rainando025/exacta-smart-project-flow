@@ -12,9 +12,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   Plus, Target, TrendingUp, CheckCircle2, BarChart3, 
-  ArrowUpRight, ArrowDownRight, Activity, Percent, DollarSign, Users, Pencil, Trash2 
+  ArrowUpRight, ArrowDownRight, Activity, Percent, DollarSign, Users, Pencil, Trash2, FolderOpen 
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ function OKRsPage() {
   const [departments, setDepartments] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedProject, setSelectedProject] = useState<string>("all");
   
   // Modal state
   const [openKpi, setOpenKpi] = useState(false);
@@ -317,6 +319,36 @@ function OKRsPage() {
         </div>
       </header>
 
+      {/* Project Filter */}
+      <div className="flex items-center gap-3">
+        <FolderOpen className="h-4 w-4 text-muted-foreground" />
+        <Select value={selectedProject} onValueChange={setSelectedProject}>
+          <SelectTrigger className="w-[240px] h-9">
+            <SelectValue placeholder="Todos os projetos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os projetos</SelectItem>
+            {projects.map(p => (
+              <SelectItem key={p.id} value={p.id}>
+                <span className="inline-flex items-center gap-2">
+                  <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: p.color || "#6366f1" }} />
+                  {p.name}
+                </span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {selectedProject !== "all" && (
+          <Badge variant="secondary" className="gap-1">
+            {projects.find(p => p.id === selectedProject)?.name}
+            <button onClick={() => setSelectedProject("all")} className="ml-1 hover:text-destructive">×</button>
+          </Badge>
+        )}
+        <span className="text-xs text-muted-foreground">
+          {selectedProject !== "all" ? "Filtrando por projeto selecionado" : "Exibindo todos os projetos"}
+        </span>
+      </div>
+
       {/* KPI Section */}
       <section className="space-y-4">
         <div className="flex items-center gap-2 mb-2">
@@ -329,8 +361,8 @@ function OKRsPage() {
             Array(4).fill(0).map((_, i) => (
               <Card key={i} className="p-6 h-32 animate-pulse bg-muted/50" />
             ))
-          ) : kpis.length > 0 ? (
-            kpis.map((kpi) => {
+        ) : kpis.filter(k => selectedProject === "all" || k.project_id === selectedProject).length > 0 ? (
+            kpis.filter(k => selectedProject === "all" || k.project_id === selectedProject).map((kpi) => {
               const progress = getProgress(kpi.current_value, kpi.goal);
               const isMeetingGoal = progress >= 100;
 
@@ -398,8 +430,8 @@ function OKRsPage() {
             Array(2).fill(0).map((_, i) => (
               <Card key={i} className="p-6 h-40 animate-pulse bg-muted/50" />
             ))
-          ) : okrs.length > 0 ? (
-            okrs.map((okr) => (
+          ) : okrs.filter(o => selectedProject === "all" || o.project_id === selectedProject).length > 0 ? (
+            okrs.filter(o => selectedProject === "all" || o.project_id === selectedProject).map((okr) => (
             <Card key={okr.id} className="p-6 shadow-card hover:border-accent/40 transition-all border-l-4 border-l-accent relative">
                <Badge variant="outline" className="absolute top-6 right-6 capitalize bg-accent/5 text-accent border-accent/20">
                 {okr.projects?.name || "Geral"}

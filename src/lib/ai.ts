@@ -10,6 +10,24 @@ export interface AIConfig {
 
 const STORAGE_KEY = "exacta_ai_config";
 
+// Fallback chains — tried in order until one succeeds
+const GEMINI_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+  "gemini-1.5-pro",
+  "gemini-pro",
+];
+
+const GROQ_MODELS = [
+  "llama-3.1-8b-instant",
+  "llama3-8b-8192",
+  "llama3-70b-8192",
+  "mixtral-8x7b-32768",
+  "gemma2-9b-it",
+];
+
 export function getAIConfig(): AIConfig {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -24,7 +42,7 @@ export function getAIConfig(): AIConfig {
     geminiKey: import.meta.env.VITE_GEMINI_API_KEY || "",
     groqKey: import.meta.env.VITE_GROQ_API_KEY || "",
     preferredProvider: "auto",
-    modelName: "gemini-1.5-flash",
+    modelName: "",
   };
 }
 
@@ -39,67 +57,110 @@ export function saveAIConfig(config: Partial<AIConfig>): AIConfig {
   return updated;
 }
 
-export async function testAIConnection(provider: "gemini" | "groq", key: string): Promise<{ success: boolean; message: string }> {
+/** Try Gemini with fallback model chain */
+async function tryGeminiWithFallback(key: string, prompt: string): Promise<string> {
+  let lastError: any;
+  for (const modelName of GEMINI_MODELS) {
+    try {
+      const genAI = new GoogleGenerativeAI(key);
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const result = await model.generateContent(prompt);
+      return result.response.text();
+    } catch (e: any) {
+      lastError = e;
+      const msg: string = e?.message || "";
+      // Only continue fallback on 404 / model-not-found errors
+      if (msg.includes("404") || msg.includes("not found") || msg.includes("not exist")) {
+        console.warn(`Gemini model ${modelName} not available, trying next...`);
+        continue;
+      }
+      throw e; // For other errors (auth, rate limit), fail immediately
+    }
+  }
+  throw lastError;
+}
+
+/** Try Groq with fallback model chain */
+async function tryGroqWithFallback(key: string, prompt: string): Promise<string> {
+  const client = new Groq({ apiKey: key, dangerouslyAllowBrowser: true });
+  let lastError: any;
+  for (const modelName of GROQ_MODELS) {
+    try {
+      const res = await client.chat.completions.create({
+        messages: [{ role: "user", content: prompt }],
+        model: modelName,
+        max_tokens: 2048,
+      });
+      return res.choices[0]?.message?.content || "";
+    } catch (e: any) {
+      lastError = e;
+      const msg: string = e?.message || "";
+      if (
+        msg.includes("404") ||
+        msg.includes("not found") ||
+        msg.includes("not exist") ||
+        msg.includes("model_not_found")
+      ) {
+        console.warn(`Groq model ${modelName} not available, trying next...`);
+        continue;
+      }
+      throw e;
+    }
+  }
+  throw lastError;
+}
+
+export async function testAIConnection(
+  provider: "gemini" | "groq",
+  key: string
+): Promise<{ success: boolean; message: string }> {
   if (!key.trim()) {
     return { success: false, message: "Chave de API não informada." };
   }
 
   try {
     if (provider === "gemini") {
-      const client = new GoogleGenerativeAI(key.trim());
-      const model = client.getGenerativeModel({ model: "gemini-1.5-flash" });
-      const result = await model.generateContent("Responda apenas: OK");
-      const text = result.response.text();
-      return { success: true, message: `Conexão bem sucedida com Google Gemini! Resposta: ${text.slice(0, 20)}` };
+      const text = await tryGeminiWithFallback(key.trim(), "Responda apenas: OK");
+      return {
+        success: true,
+        message: `Conexão bem sucedida com Google Gemini! Resposta: ${text.slice(0, 20)}`,
+      };
     } else {
-      const client = new Groq({ apiKey: key.trim(), dangerouslyAllowBrowser: true });
-      const res = await client.chat.completions.create({
-        messages: [{ role: "user", content: "Responda apenas: OK" }],
-        model: "llama-3.3-70b-versatile",
-      });
-      const text = res.choices[0]?.message?.content || "";
-      return { success: true, message: `Conexão bem sucedida com Groq! Resposta: ${text.slice(0, 20)}` };
+      const text = await tryGroqWithFallback(key.trim(), "Responda apenas: OK");
+      return {
+        success: true,
+        message: `Conexão bem sucedida com Groq! Resposta: ${text.slice(0, 20)}`,
+      };
     }
   } catch (err: any) {
     return { success: false, message: err?.message || "Falha na conexão com o provedor." };
   }
 }
 
-export async function askGemini(prompt: string, customKey?: string) {
+export async function askGemini(prompt: string, customKey?: string): Promise<string> {
   const cfg = getAIConfig();
   const key = customKey || cfg.geminiKey || import.meta.env.VITE_GEMINI_API_KEY;
   if (!key) throw new Error("Chave de API do Google Gemini não configurada.");
-
-  const genAI = new GoogleGenerativeAI(key);
-  const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-  const result = await model.generateContent(prompt);
-  return result.response.text();
+  return tryGeminiWithFallback(key, prompt);
 }
 
-export async function askGroq(prompt: string, customKey?: string) {
+export async function askGroq(prompt: string, customKey?: string): Promise<string> {
   const cfg = getAIConfig();
   const key = customKey || cfg.groqKey || import.meta.env.VITE_GROQ_API_KEY;
   if (!key) throw new Error("Chave de API da Groq não configurada.");
-
-  const client = new Groq({ apiKey: key, dangerouslyAllowBrowser: true });
-  const chatCompletion = await client.chat.completions.create({
-    messages: [{ role: "user", content: prompt }],
-    model: "llama-3.3-70b-versatile",
-  });
-  return chatCompletion.choices[0]?.message?.content || "";
+  return tryGroqWithFallback(key, prompt);
 }
 
 /**
  * Smart unified AI query:
  * - Checks configured provider (Groq / Gemini)
- * - Tries provider API
+ * - Tries provider API with model fallback chain
  * - If keys are missing or API fails, uses smart built-in heuristic reasoning fallback
  */
 export async function askAI(prompt: string, contextDescription?: string): Promise<string> {
   const cfg = getAIConfig();
   const preferred = cfg.preferredProvider || "auto";
 
-  // Try preferred or available providers first
   if (preferred === "groq" || (preferred === "auto" && cfg.groqKey)) {
     try {
       return await askGroq(prompt);
@@ -116,11 +177,20 @@ export async function askAI(prompt: string, contextDescription?: string): Promis
     }
   }
 
-  if (preferred === "auto" && cfg.groqKey) {
+  // Try the other provider as last resort
+  if (preferred !== "groq" && cfg.groqKey) {
     try {
       return await askGroq(prompt);
     } catch (e) {
       console.warn("Auto Groq fallback failed", e);
+    }
+  }
+
+  if (preferred !== "gemini" && cfg.geminiKey) {
+    try {
+      return await askGemini(prompt);
+    } catch (e) {
+      console.warn("Auto Gemini fallback failed", e);
     }
   }
 

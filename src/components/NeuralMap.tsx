@@ -37,7 +37,7 @@ const HEX_COLORS: Record<string, string> = {
   "bg-accent": "#0ea5e9",
 };
 
-export function NeuralMap() {
+export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
   const { user } = useAuth();
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
@@ -85,10 +85,23 @@ export function NeuralMap() {
     if (!user) return;
     setLoading(true);
     try {
+      let nodesQuery = supabase.from("neural_nodes").select("*");
+      let edgesQuery = supabase.from("neural_edges").select("*");
+
+      if (isTeam) {
+        nodesQuery = nodesQuery.eq("is_team", true);
+        edgesQuery = edgesQuery.eq("is_team", true);
+      } else {
+        nodesQuery = nodesQuery.eq("is_team", false).eq("user_id", user.id);
+        edgesQuery = edgesQuery.eq("is_team", false).eq("user_id", user.id);
+      }
+
       const [nodesRes, edgesRes, notesRes] = await Promise.all([
-        supabase.from("neural_nodes").select("*").eq("user_id", user.id),
-        supabase.from("neural_edges").select("*").eq("user_id", user.id),
-        supabase.from("notes").select("*").eq("user_id", user.id),
+        nodesQuery,
+        edgesQuery,
+        isTeam
+          ? Promise.resolve({ data: [], error: null })
+          : supabase.from("notes").select("*").eq("user_id", user.id),
       ]);
 
       if (nodesRes.error) throw nodesRes.error;
@@ -234,6 +247,7 @@ export function NeuralMap() {
                 y: node.y,
                 color: node.color,
                 note_id: node.note_id,
+                is_team: isTeam,
               })
               .select("id")
               .single();
@@ -296,6 +310,7 @@ export function NeuralMap() {
             user_id: user.id,
             source: sourceId,
             target: targetId,
+            is_team: isTeam,
           })
           .select("id")
           .single();
@@ -380,6 +395,7 @@ export function NeuralMap() {
             x: 400 - pan.x, // spawn centered in current view
             y: 250 - pan.y,
             color: nodeColor,
+            is_team: isTeam,
           })
           .select()
           .single();

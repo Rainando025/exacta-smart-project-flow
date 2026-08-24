@@ -617,7 +617,7 @@ function VisualManagementPage() {
       tool_type: activeTab,
       project_id: selectedProjectId,
       data: dataToSave,
-      owner_id: user.id
+      user_id: user.id
     });
 
     if (error) {
