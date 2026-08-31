@@ -72,7 +72,15 @@ function ChatPage() {
   const [editingMsg, setEditingMsg] = useState<Message | null>(null);
   const [editText, setEditText] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [newChanOpen, setNewChanOpen] = useState(false);
+  const [newChan, setNewChan] = useState({ name: "", description: "", type: "general" as Channel["type"] });
+  const [auditOpen, setAuditOpen] = useState(false);
+  const [auditForm, setAuditForm] = useState({ os: "", report: "" });
   const [showSidebarMobile, setShowSidebarMobile] = useState(false);
+
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const loadChannels = useCallback(async () => {
     const { data } = await (supabase.from("chat_channels" as any)).select("*").eq("is_archived", false);
