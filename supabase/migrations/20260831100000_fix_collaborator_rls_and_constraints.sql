@@ -1,6 +1,7 @@
 -- ==============================================================================
 -- CORREÇÃO DE POLÍTICAS RLS E CONSTRAINTS PARA COLABORADORES
 -- Data: 2026-08-31
+-- corregido
 -- ==============================================================================
 
 -- 0. GARANTIR ENUM DE PAPÉIS E FUNÇÃO HELPER DE SEGURANÇA
