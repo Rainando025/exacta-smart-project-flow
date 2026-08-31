@@ -1,4 +1,5 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createClient } from "@supabase/supabase-js";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,22 +141,31 @@ function SettingsContent() {
     if (!newEmail || !newPassword || !newName) return toast.error("Preencha todos os campos obrigatórios.");
     if (newPassword.length < 6) return toast.error("Senha mínima de 6 caracteres.");
     setCreating(true);
-    const { data, error } = await supabase.auth.signUp({
-      email: newEmail, password: newPassword,
-      options: {
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-        data: { full_name: newName, job_title: newJobTitle }
-      },
-    });
-    if (error) { toast.error(error.message); setCreating(false); return; }
-    if (data.user && newRole !== "colaborador") {
-      await supabase.from("user_roles").upsert({ user_id: data.user.id, role: newRole as any }, { onConflict: "user_id" });
+    try {
+      const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || "";
+      const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || "";
+      const tempClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+
+      const { data, error } = await tempClient.auth.signUp({
+        email: newEmail, password: newPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+          data: { full_name: newName, job_title: newJobTitle }
+        },
+      });
+      if (error) { toast.error(error.message); setCreating(false); return; }
+      if (data.user && newRole !== "colaborador") {
+        await supabase.from("user_roles").upsert({ user_id: data.user.id, role: newRole as any }, { onConflict: "user_id" });
+      }
+      toast.success(`Usuário ${newName} criado com sucesso!`);
+      setNewEmail(""); setNewPassword(""); setNewName(""); setNewRole("colaborador"); setNewJobTitle("");
+      setOpenCreate(false);
+      setTimeout(load, 1500);
+    } catch (err: any) {
+      toast.error("Erro ao criar usuário: " + err.message);
+    } finally {
+      setCreating(false);
     }
-    toast.success(`Usuário ${newName} criado!`);
-    setNewEmail(""); setNewPassword(""); setNewName(""); setNewRole("colaborador"); setNewJobTitle("");
-    setOpenCreate(false);
-    setTimeout(load, 1500);
-    setCreating(false);
   };
 
   const handleInvite = async () => {
