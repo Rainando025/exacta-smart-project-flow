@@ -71,6 +71,49 @@ const ACTION_ICONS: Record<string, any> = {
   move_to_status: ArrowRight,
 };
 
+const PREBUILT_TEMPLATES = [
+  {
+    id: "tpl_1",
+    name: "Alerta de Prazo Próximo (24h)",
+    description: "Notifica a equipe automaticamente quando o prazo de uma tarefa expirar em menos de 24h.",
+    trigger_type: "task_deadline_soon",
+    trigger_detail: "24 horas",
+    action_type: "send_notification",
+    action_detail: "Prazo da tarefa próximo",
+    category: "Populares",
+  },
+  {
+    id: "tpl_2",
+    name: "Prioridade Urgente em Novas Tarefas",
+    description: "Define automaticamente a prioridade como 'Alta' quando uma nova tarefa for criada.",
+    trigger_type: "task_created",
+    trigger_detail: "Todas as tarefas",
+    action_type: "change_priority",
+    action_detail: "Alta",
+    category: "Produtividade",
+  },
+  {
+    id: "tpl_3",
+    name: "Notificar Colaborador ao Atribuir",
+    description: "Envia notificação instantânea quando uma tarefa for atribuída a um membro.",
+    trigger_type: "task_assigned",
+    trigger_detail: "Membro da equipe",
+    action_type: "send_notification",
+    action_detail: "Você recebeu uma nova tarefa",
+    category: "Comunicação",
+  },
+  {
+    id: "tpl_4",
+    name: "Alerta de Mudança de Status do Projeto",
+    description: "Envia um e-mail para a gestão quando o status de um projeto for alterado.",
+    trigger_type: "project_status_changed",
+    trigger_detail: "Status do Projeto",
+    action_type: "send_email",
+    action_detail: "gestao@empresa.com",
+    category: "Gestão",
+  },
+];
+
 function getLabel(options: { value: string; label: string }[], value: string): string {
   return options.find(o => o.value === value)?.label || value;
 }
@@ -104,6 +147,36 @@ function AutomationsPage() {
   useEffect(() => {
     loadAutomations();
   }, [loadAutomations]);
+
+  const handleActivateTemplate = async (tpl: typeof PREBUILT_TEMPLATES[0]) => {
+    if (!user) return;
+    setSaving(true);
+    const { error } = await supabase.from("automations").insert({
+      name: tpl.name,
+      trigger_type: tpl.trigger_type,
+      trigger_config: { detail: tpl.trigger_detail },
+      action_type: tpl.action_type,
+      action_config: { detail: tpl.action_detail },
+      is_active: true,
+      created_by: user.id,
+    });
+    setSaving(false);
+    if (error) {
+      toast.error(`Erro ao ativar modelo: ${error.message}`);
+    } else {
+      toast.success(`Automação "${tpl.name}" ativada!`);
+      await loadAutomations();
+    }
+  };
+
+  const handleCustomizeTemplate = (tpl: typeof PREBUILT_TEMPLATES[0]) => {
+    setName(tpl.name);
+    setTriggerType(tpl.trigger_type);
+    setTriggerDetail(tpl.trigger_detail);
+    setActionType(tpl.action_type);
+    setActionDetail(tpl.action_detail);
+    setShowCreate(true);
+  };
 
   const handleCreate = async () => {
     if (!user || !name.trim() || !triggerType || !actionType) return;
@@ -203,6 +276,66 @@ function AutomationsPage() {
             <p className="text-xs text-muted-foreground">Pausadas ou desativadas</p>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Pre-built Templates */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight">Modelos Prontos de Automação</h2>
+            <p className="text-xs text-muted-foreground">Escolha uma regra pré-configurada para ativar com 1 clique.</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {PREBUILT_TEMPLATES.map(tpl => {
+            const TriggerIcon = TRIGGER_ICONS[tpl.trigger_type] || Zap;
+            const ActionIcon = ACTION_ICONS[tpl.action_type] || Zap;
+            return (
+              <Card key={tpl.id} className="border-amber-500/20 bg-amber-500/5 hover:bg-amber-500/10 transition-all duration-300 relative group overflow-hidden">
+                <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
+                  <div>
+                    <div className="flex items-center justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="p-2 rounded-lg bg-amber-500/20 text-amber-500">
+                          <TriggerIcon className="h-4 w-4" />
+                        </div>
+                        <h3 className="font-bold text-sm text-foreground">{tpl.name}</h3>
+                      </div>
+                      <Badge variant="outline" className="text-[10px] uppercase font-bold border-amber-500/30 text-amber-500">
+                        {tpl.category}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed mb-3">{tpl.description}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                      <Badge variant="secondary" className="bg-background/60">SE: {getLabel(TRIGGER_OPTIONS, tpl.trigger_type)}</Badge>
+                      <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                      <Badge variant="secondary" className="bg-amber-500/10 text-amber-500">ENTÃO: {getLabel(ACTION_OPTIONS, tpl.action_type)}</Badge>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+                    <Button
+                      size="sm"
+                      onClick={() => handleActivateTemplate(tpl)}
+                      disabled={saving}
+                      className="flex-1 bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold h-8"
+                    >
+                      <Zap className="h-3.5 w-3.5 mr-1" /> Ativar Modelo
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleCustomizeTemplate(tpl)}
+                      className="text-xs h-8"
+                    >
+                      Personalizar
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
       </div>
 
       {/* List */}
