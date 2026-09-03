@@ -6,7 +6,7 @@ import {
   StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
   Moon, Sun, Command, Search, Target, Brain, FileText, Presentation, Cpu, Timer,
   Plus, ArrowLeft, Sparkles, MessageSquare, PanelLeftClose, PanelLeftOpen, CalendarPlus,
-  Network
+  Network, BarChart3
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,6 +82,7 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/gantt", label: "Cronograma", icon: CalendarRange },
       { to: "/visual-management", label: "Gestão Visual", icon: Presentation },
       { to: "/neural-map", label: "Mapa Neural", icon: Network },
+      { to: "/analyze", label: "Análise de Dados BI", icon: BarChart3 },
     ]
   },
   {
