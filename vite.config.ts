@@ -14,6 +14,13 @@ export default defineConfig({
         preset: "vercel",
       }),
     ],
+    build: {
+      target: "es2022",
+      chunkSizeWarningLimit: 2000,
+    },
+    esbuild: {
+      target: "es2022",
+    },
   },
   cloudflare:
     process.env.VERCEL === "1" ||

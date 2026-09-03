@@ -1,4 +1,6 @@
-﻿import { supabase } from "@/integrations/supabase/client";
+import { supabase as rawSupabase } from "@/integrations/supabase/client";
+const supabase = rawSupabase as any;
+const db = supabase;
 import type { Page } from "./types";
 
 export type Role = "owner" | "editor" | "viewer";
@@ -34,7 +36,7 @@ export async function fetchCloudPages(userId: string): Promise<Page[]> {
     .select("id, owner_id, owner_email, name, icon, content, updated_at")
     .order("updated_at", { ascending: false });
   if (error) throw error;
-  return (data ?? []).map((r) => {
+  return (data ?? []).map((r: any) => {
     const content = (r.content ?? {}) as Partial<Page>;
     return {
       ...(content as Page),
@@ -49,7 +51,7 @@ export async function fetchCloudPages(userId: string): Promise<Page[]> {
   });
 }
 
-/** Ajusta o papel real (editor/viewer) das pÃ¡ginas compartilhadas comigo. */
+/** Ajusta o papel real (editor/viewer) das pÃƒÂ¡ginas compartilhadas comigo. */
 export async function resolveRoles(pages: Page[], email: string): Promise<Record<string, Role>> {
   const roles: Record<string, Role> = {};
   const shared = pages.filter((p) => p.cloud?.role !== "owner");
@@ -71,7 +73,7 @@ export async function resolveRoles(pages: Page[], email: string): Promise<Record
 
 
 export async function publishPage(page: Page, userId: string, email: string | null) {
-  const { error } = await (supabase as any).from("bi_pages").upsert({
+  const { error } = await db.from("bi_pages").upsert({
     id: page.id,
     owner_id: userId,
     owner_email: email,
@@ -91,7 +93,7 @@ export async function savePageContent(page: Page) {
 }
 
 export async function deleteCloudPage(pageId: string) {
-  const { error } = await (supabase as any).from("bi_pages").delete().eq("id", pageId);
+  const { error } = await db.from("bi_pages").delete().eq("id", pageId);
   if (error) throw error;
 }
 
@@ -103,7 +105,7 @@ export type PageAccess = {
   members: Member[];
 };
 
-/** Todas as pÃ¡ginas na nuvem que eu vejo, com seus convidados e meu papel em cada uma. */
+/** Todas as pÃƒÂ¡ginas na nuvem que eu vejo, com seus convidados e meu papel em cada uma. */
 export async function listAccessOverview(userId: string, email: string): Promise<PageAccess[]> {
   const { data: pages, error } = await supabase
     .from("bi_pages")
@@ -117,10 +119,10 @@ export async function listAccessOverview(userId: string, email: string): Promise
     .select("id, page_id, email, role, created_at")
     .in(
       "page_id",
-      pages.map((p) => p.id),
+      pages.map((p: any) => p.id),
     );
 
-  return pages.map((p) => {
+  return pages.map((p: any) => {
     const mine = ((members ?? []) as Member[]).filter((m) => m.page_id === p.id);
     const role: Role =
       p.owner_id === userId
@@ -149,12 +151,12 @@ export async function addMember(pageId: string, email: string, role: "viewer" | 
 }
 
 export async function updateMemberRole(id: string, role: "viewer" | "editor") {
-  const { error } = await (supabase as any).from("bi_page_members").update({ role }).eq("id", id);
+  const { error } = await db.from("bi_page_members").update({ role }).eq("id", id);
   if (error) throw error;
 }
 
 export async function removeMember(id: string) {
-  const { error } = await (supabase as any).from("bi_page_members").delete().eq("id", id);
+  const { error } = await db.from("bi_page_members").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -181,7 +183,7 @@ export async function logActivity(
     .insert({ page_id: pageId, user_id: userId, user_email: email, action, detail: detail ?? null });
 }
 
-/* ---------------- links de convite por seleÃ§Ã£o de pÃ¡ginas ---------------- */
+/* ---------------- links de convite por seleÃƒÂ§ÃƒÂ£o de pÃƒÂ¡ginas ---------------- */
 
 export type ShareLink = {
   id: string;
@@ -232,7 +234,7 @@ export async function listShareLinks(ownerId: string): Promise<ShareLink[]> {
 }
 
 export async function deleteShareLink(id: string) {
-  const { error } = await (supabase as any).from("bi_share_links").delete().eq("id", id);
+  const { error } = await supabase.from("bi_share_links").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -241,12 +243,12 @@ export function shareLinkUrl(token: string) {
 }
 
 export async function redeemShareLink(token: string) {
-  const { data, error } = await (supabase as any).rpc("bi_redeem_share_link", { _token: token });
+  const { data, error } = await supabase.rpc("bi_redeem_share_link", { _token: token });
   if (error) throw error;
   return (data ?? []) as { page_id: string; page_name: string; role: string }[];
 }
 
-/* ---------------- preferÃªncias de notificaÃ§Ã£o de alertas ---------------- */
+/* ---------------- preferÃƒÂªncias de notificaÃƒÂ§ÃƒÂ£o de alertas ---------------- */
 
 export type NotifyPrefs = {
   enabled: boolean;
@@ -284,4 +286,5 @@ export async function saveNotifyPrefs(userId: string, prefs: NotifyPrefs) {
     .upsert({ user_id: userId, ...prefs }, { onConflict: "user_id" });
   if (error) throw error;
 }
+
 
