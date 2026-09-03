@@ -1,8 +1,5 @@
 import { askAI } from "@/lib/ai";
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
-
 type Content =
   | { type: "text"; text: string }
   | { type: "file"; file: { filename: string; file_data: string } };
@@ -42,25 +39,26 @@ export function parseJson<T>(text: string, fallback: T): T {
   }
 }
 
-export const DASHBOARD_SYSTEM = `Você é um analista de BI. Recebe o esquema e uma amostra de um conjunto de dados e devolve a especificação de um dashboard executivo em JSON.
+export const DASHBOARD_SYSTEM = `Você é um analista sênior de Business Intelligence & Data Science. Recebe o esquema e uma amostra representativa de um conjunto de dados e deve devolver a especificação completa de um dashboard executivo altamente elaborado em JSON.
 
 Responda SOMENTE com JSON no formato:
 {
   "title": string,
   "subtitle": string,
-  "kpis": [{ "label": string, "field": string|null, "agg": "sum"|"count"|"avg"|"min"|"max"|"distinct", "filterField": string|null, "filterValue": string|null }],
+  "kpis": [{ "label": string, "field": string|null, "agg": "sum"|"count"|"avg"|"min"|"max"|"distinct", "filterField": string|null, "filterValue": string|null, "format": "compact"|"currency"|"percent"|"decimal"|"none" }],
   "charts": [{ "title": string, "type": "bar"|"barH"|"stackedBar"|"line"|"area"|"stackedArea"|"pie"|"donut"|"radar"|"radialBar"|"scatter"|"composed"|"treemap"|"funnel", "dimension": string, "measure": string|null, "agg": "sum"|"count"|"avg"|"min"|"max"|"distinct", "series": string|null, "limit": number, "span": 1|2|3 }],
   "insights": [string]
 }
 
-Regras:
-- Use APENAS nomes de colunas existentes no esquema informado.
-- 4 a 5 KPIs e 6 a 9 gráficos, com "span" 2 ou 3 (nunca 1), variando os tipos (pizza/rosca para composição, barras para ranking, linha/área para tempo, radar/treemap/funil quando fizer sentido).
-- "measure" null com agg "count" conta registros.
-- Use "filterField"/"filterValue" para KPIs de um único status/categoria (ex.: label "Finalizadas" -> filterField "status", filterValue "Finalizada"); use exatamente um valor presente na amostra. Deixe ambos null quando o KPI for total.
-- "series" só quando existir uma coluna categórica adicional relevante (para empilhado/combinado).
-- Títulos, insights e labels em português do Brasil, curtos e diretos.
-- 3 a 5 insights objetivos com números reais da amostra.`;
+Regras Obrigatórias:
+- Use APENAS nomes de colunas exatos que existam no esquema informado.
+- Gere exatamente 5 KPIs estratégicos e entre 8 a 10 gráficos variados e aprofundados.
+- VARIE AO MÁXIMO OS TIPOS DE GRÁFICOS: use pelo menos 1 gráfico de área/linha para evolução ou série, 1 gráfico de rosca/pizza para composição percentual, 1 gráfico de barras horizontais (barH) para top rankings, 1 gráfico empilhado (stackedBar) ou combinado (composed) para cruzamento de categorias, 1 gráfico de radar ou funil, e 1 treemap ou radialBar.
+- Definir "span": 3 para todos os gráficos para ocuparem de forma proporcional a grade executiva.
+- "measure" null com agg "count" conta quantidade de registros.
+- Use "format": "currency" para colunas financeiras (preço, valor, custo, receita), "percent" para taxas, "compact" ou "decimal" para quantidades e totais.
+- Títulos dos gráficos e labels em português do Brasil, extremamente claros, executivos e profissionais.
+- Inclua de 4 a 6 insights analíticos ricos detalhando padrões, outliers e oportunidades observadas na amostra.`;
 
 export const PDF_SYSTEM = `Você extrai dados tabulares de documentos. Leia o arquivo e devolva SOMENTE JSON:
 { "rows": [ { "coluna": valor } ] }

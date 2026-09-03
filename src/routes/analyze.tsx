@@ -1297,7 +1297,7 @@ function Index() {
                           setEditingKpi(k);
                           setKpiEditorOpen(true);
                         }}
-                        className="absolute right-2 top-2 no-print rounded p-1 text-muted-foreground opacity-0 hover:bg-accent hover:text-foreground group-hover:opacity-100 transition"
+                        className="absolute right-2 top-2 no-print rounded p-1 text-muted-foreground opacity-70 hover:bg-accent hover:text-primary group-hover:opacity-100 transition"
                         title="Editar card"
                       >
                         <Pencil className="size-3.5" />
@@ -1372,10 +1372,12 @@ function Index() {
                         </button>
                         <button
                           onClick={() => setEditing(c)}
-                          className="no-print rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
+                          className="no-print flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground opacity-70 transition hover:bg-accent hover:text-primary hover:opacity-100"
+                          title="Editar gráfico"
                           aria-label="Editar gráfico"
                         >
-                          <Pencil className="size-3.5" />
+                          <Pencil className="size-3" />
+                          <span className="text-[10px] font-medium hidden sm:inline">Editar</span>
                         </button>
                       </div>
                     </div>

@@ -173,6 +173,7 @@ export function buildHeuristicDashboard(
       field: null,
       agg: "count",
       accent: 0,
+      format: "compact",
     },
   ];
 
@@ -180,12 +181,14 @@ export function buildHeuristicDashboard(
   for (const numF of numericFields) {
     if (kpiIdx >= 4) break;
     if (/^id$/i.test(numF.name) || /_id$/i.test(numF.name)) continue;
+    const isCurrency = /valor|preco|preço|custo|receita|total|faturamento/i.test(numF.name);
     kpis.push({
       id: `kpi-${kpiIdx}`,
       label: `Total de ${numF.name}`,
       field: numF.name,
       agg: "sum",
       accent: kpiIdx % 6,
+      format: isCurrency ? "currency" : "compact",
     });
     kpiIdx++;
   }
@@ -199,6 +202,7 @@ export function buildHeuristicDashboard(
       field: catF.name,
       agg: "distinct",
       accent: kpiIdx % 6,
+      format: "compact",
     });
     kpiIdx++;
   }
@@ -208,13 +212,18 @@ export function buildHeuristicDashboard(
 
   const mainDate = dateFields[0];
   const mainNum = numericFields.find((f) => !/^id$/i.test(f.name)) ?? numericFields[0];
+  const secondNum = numericFields.find((f) => f.name !== mainNum?.name && !/^id$/i.test(f.name));
   const mainCat = categoricalFields.find((f) => !/^id$/i.test(f.name)) ?? categoricalFields[0];
   const secondCat = categoricalFields.find((f) => f.name !== mainCat?.name && !/^id$/i.test(f.name));
+  const thirdCat = categoricalFields.find(
+    (f) => f.name !== mainCat?.name && f.name !== secondCat?.name && !/^id$/i.test(f.name)
+  );
 
+  // 1. Chart: Area Chart for Time Evolution
   if (mainDate) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Evolução por ${mainDate.name}`,
+      title: `Evolução Temporal por ${mainDate.name}`,
       type: "area",
       dimension: mainDate.name,
       measure: mainNum?.name ?? null,
@@ -224,6 +233,7 @@ export function buildHeuristicDashboard(
     });
   }
 
+  // 2. Chart: Bar Chart for Primary Ranking
   if (mainCat) {
     charts.push({
       id: `chart-${chartIdx++}`,
@@ -238,11 +248,12 @@ export function buildHeuristicDashboard(
     });
   }
 
+  // 3. Chart: Donut Chart for Percentage Share
   if (secondCat || mainCat) {
     const targetCat = secondCat ?? mainCat;
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Participação por ${targetCat.name}`,
+      title: `Participação Relativa por ${targetCat.name}`,
       type: "donut",
       dimension: targetCat.name,
       measure: mainNum?.name ?? null,
@@ -253,9 +264,10 @@ export function buildHeuristicDashboard(
     });
   }
 
+  // 4. Chart: Horizontal Bar Chart (barH) for Top Items
   const descCat = categoricalFields.find(
     (f) => /descri/i.test(f.name) || /nome/i.test(f.name) || /produto/i.test(f.name) || /assunto/i.test(f.name)
-  ) ?? categoricalFields[1];
+  ) ?? thirdCat ?? categoricalFields[1];
 
   if (descCat) {
     charts.push({
@@ -271,10 +283,11 @@ export function buildHeuristicDashboard(
     });
   }
 
+  // 5. Chart: Stacked Bar Chart (Cross Analysis)
   if (mainCat && secondCat) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `${mainCat.name} vs ${secondCat.name}`,
+      title: `Análise Cruzada: ${mainCat.name} x ${secondCat.name}`,
       type: "stackedBar",
       dimension: mainCat.name,
       series: secondCat.name,
@@ -286,7 +299,7 @@ export function buildHeuristicDashboard(
     });
   }
 
-  const secondNum = numericFields.find((f) => f.name !== mainNum?.name && !/^id$/i.test(f.name));
+  // 6. Chart: Line Chart for Secondary Metric Trends
   if (secondNum && mainCat) {
     charts.push({
       id: `chart-${chartIdx++}`,
@@ -301,15 +314,78 @@ export function buildHeuristicDashboard(
     });
   }
 
+  // 7. Chart: Radar Chart for Multi-Dimensional Profile
+  if (mainCat) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Matriz de Desempenho por ${mainCat.name}`,
+      type: "radar",
+      dimension: mainCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 6,
+      span: 3,
+      palette: 6,
+    });
+  }
+
+  // 8. Chart: Funnel Chart for Volume Pipeline Stage
+  if (secondCat || descCat) {
+    const funnelCat = secondCat ?? descCat!;
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Funil Proporcional por ${funnelCat.name}`,
+      type: "funnel",
+      dimension: funnelCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 6,
+      span: 3,
+      palette: 7,
+    });
+  }
+
+  // 9. Chart: Treemap for Block Proportions
+  if (descCat || mainCat) {
+    const treeCat = descCat ?? mainCat;
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Mapa Proporcional (Treemap) por ${treeCat.name}`,
+      type: "treemap",
+      dimension: treeCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 12,
+      span: 3,
+      palette: 8,
+    });
+  }
+
+  // 10. Chart: Composed Chart for Combined Bars + Line
+  if (mainCat && secondNum) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Volume x Média de ${secondNum.name}`,
+      type: "composed",
+      dimension: mainCat.name,
+      measure: mainNum?.name ?? null,
+      agg: "sum",
+      limit: 8,
+      span: 3,
+      palette: 9,
+    });
+  }
+
   return {
     title: name,
     subtitle: `${rowCount.toLocaleString("pt-BR")} registros analisados`,
     kpis,
     charts,
     insights: [
-      `Análise automática concluída para a base "${name}" com ${rowCount.toLocaleString("pt-BR")} registros.`,
-      mainCat ? `A categoria "${mainCat.name}" concentra a maior representatividade nos dados.` : "",
-      mainNum ? `A coluna "${mainNum.name}" foi identificada como métrica principal de valor.` : "",
+      `Análise executiva concluída para a base "${name}" com ${rowCount.toLocaleString("pt-BR")} registros e ${fields.length} colunas mapeadas.`,
+      mainCat ? `A categoria "${mainCat.name}" representa o principal eixo de segmentação dos dados.` : "",
+      mainNum ? `A métrica "${mainNum.name}" foi selecionada como indicador primário de volume e valor.` : "",
+      mainDate ? `Identificada variação temporal relevante ao longo do campo "${mainDate.name}".` : "",
     ].filter(Boolean),
   };
 }

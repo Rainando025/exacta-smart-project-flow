@@ -17,12 +17,14 @@ import { DATE_GRAINS, DATE_GRAIN_LABELS, type DateGrain } from "@/lib/analyze/da
 const NONE = "__none__";
 
 const NEON_COLORS = [
-  { name: "Azul Neon", hex: "#0096ff" },
-  { name: "Vermelho Neon", hex: "#ff3232" },
-  { name: "Verde Neon", hex: "#32ff32" },
-  { name: "Roxo Neon", hex: "#b432ff" },
-  { name: "Laranja Neon", hex: "#ff8200" },
-  { name: "Ciano Neon", hex: "#00ffff" },
+  { name: "Azul Real", hex: "#2563eb" },
+  { name: "Verde Esmeralda", hex: "#10b981" },
+  { name: "Ciano Elétrico", hex: "#06b6d4" },
+  { name: "Roxo Violeta", hex: "#8b5cf6" },
+  { name: "Amarelo Âmbar", hex: "#f59e0b" },
+  { name: "Rosa Executivo", hex: "#ec4899" },
+  { name: "Laranja", hex: "#f97316" },
+  { name: "Vermelho Coral", hex: "#ef4444" },
 ];
 
 export function ChartEditor({

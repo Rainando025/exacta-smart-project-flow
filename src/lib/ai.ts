@@ -12,18 +12,16 @@ const STORAGE_KEY = "exacta_ai_config";
 
 // Fallback chains — tried in order until one succeeds
 const GEMINI_MODELS = [
+  "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite",
   "gemini-1.5-flash",
-  "gemini-1.5-flash-latest",
   "gemini-1.5-pro",
-  "gemini-pro",
 ];
 
 const GROQ_MODELS = [
+  "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
-  "llama3-8b-8192",
-  "llama3-70b-8192",
   "mixtral-8x7b-32768",
   "gemma2-9b-it",
 ];
@@ -71,13 +69,21 @@ async function tryGeminiWithFallback(key: string, prompt: string): Promise<strin
       return result.response.text();
     } catch (e: any) {
       lastError = e;
-      const msg: string = e?.message || "";
-      // Only continue fallback on 404 / model-not-found errors
-      if (msg.includes("404") || msg.includes("not found") || msg.includes("not exist")) {
-        console.warn(`Gemini model ${modelName} not available, trying next...`);
+      const msg: string = (e?.message || "").toLowerCase();
+      // Continue fallback if model is missing, deprecated, 404 or 400
+      if (
+        msg.includes("404") ||
+        msg.includes("400") ||
+        msg.includes("not found") ||
+        msg.includes("not exist") ||
+        msg.includes("decommissioned") ||
+        msg.includes("deprecated") ||
+        msg.includes("invalid")
+      ) {
+        console.warn(`Gemini model ${modelName} not available (${msg}), trying next...`);
         continue;
       }
-      throw e; // For other errors (auth, rate limit), fail immediately
+      throw e; // For auth key invalid, fail immediately
     }
   }
   throw lastError;
@@ -97,14 +103,18 @@ async function tryGroqWithFallback(key: string, prompt: string): Promise<string>
       return res.choices[0]?.message?.content || "";
     } catch (e: any) {
       lastError = e;
-      const msg: string = e?.message || "";
+      const msg: string = (e?.message || "").toLowerCase();
       if (
         msg.includes("404") ||
+        msg.includes("400") ||
         msg.includes("not found") ||
         msg.includes("not exist") ||
-        msg.includes("model_not_found")
+        msg.includes("model_not_found") ||
+        msg.includes("decommissioned") ||
+        msg.includes("deprecated") ||
+        msg.includes("invalid")
       ) {
-        console.warn(`Groq model ${modelName} not available, trying next...`);
+        console.warn(`Groq model ${modelName} not available (${msg}), trying next...`);
         continue;
       }
       throw e;

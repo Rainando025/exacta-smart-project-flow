@@ -32,20 +32,26 @@ import { buildChartData, formatNumber } from "@/lib/analyze/aggregate";
 import type { ChartSpec, Row } from "@/lib/analyze/types";
 
 const PALETTE = [
-  "var(--neon-blue)",
-  "var(--neon-red)",
-  "var(--neon-cyan)",
-  "var(--neon-purple)",
-  "var(--neon-orange)",
-  "var(--neon-green)",
+  "#2563eb", // Royal Blue
+  "#10b981", // Emerald Green
+  "#06b6d4", // Cyan
+  "#8b5cf6", // Violet Purple
+  "#f59e0b", // Amber Gold
+  "#ec4899", // Pink
+  "#f97316", // Bright Orange
+  "#6366f1", // Indigo
+  "#14b8a6", // Teal
+  "#ef4444", // Coral Red
 ];
 
 function parseColor(color: string) {
+  if (!color) return { r: 37, g: 99, b: 235 };
   if (color.startsWith("#")) {
     const hex = color.replace("#", "");
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
+    const fullHex = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+    const r = parseInt(fullHex.substring(0, 2), 16) || 37;
+    const g = parseInt(fullHex.substring(2, 4), 16) || 99;
+    const b = parseInt(fullHex.substring(4, 6), 16) || 235;
     return { r, g, b };
   }
   if (color.startsWith("rgb")) {
@@ -54,13 +60,13 @@ function parseColor(color: string) {
       return { r: Number(matches[0]), g: Number(matches[1]), b: Number(matches[2]) };
     }
   }
-  if (color.includes("neon-blue")) return { r: 0, g: 150, b: 255 };
-  if (color.includes("neon-red")) return { r: 255, g: 50, b: 50 };
-  if (color.includes("neon-cyan")) return { r: 0, g: 255, b: 255 };
-  if (color.includes("neon-purple")) return { r: 180, g: 50, b: 255 };
-  if (color.includes("neon-orange")) return { r: 255, g: 130, b: 0 };
-  if (color.includes("neon-green")) return { r: 50, g: 255, b: 50 };
-  return { r: 128, g: 128, b: 128 };
+  if (color.includes("blue")) return { r: 37, g: 99, b: 235 };
+  if (color.includes("red")) return { r: 239, g: 68, b: 68 };
+  if (color.includes("cyan")) return { r: 6, g: 182, b: 212 };
+  if (color.includes("purple")) return { r: 139, g: 92, b: 246 };
+  if (color.includes("orange")) return { r: 249, g: 115, b: 22 };
+  if (color.includes("green")) return { r: 16, g: 185, b: 129 };
+  return { r: 37, g: 99, b: 235 };
 }
 
 function interpolateColor(color1: string, color2: string, factor: number) {
