@@ -1,11 +1,13 @@
 import { askAI } from "@/lib/ai";
 
+const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const MODEL = "google/gemini-2.5-flash";
+
 type Content =
   | { type: "text"; text: string }
   | { type: "file"; file: { filename: string; file_data: string } };
 
 export async function callGateway(system: string, content: Content[]): Promise<string> {
-  // Extract text and file references from content
   const textParts = content.map((c) => {
     if (c.type === "text") return c.text;
     if (c.type === "file") return `[Arquivo anexado: ${c.file.filename}]`;
@@ -40,7 +42,7 @@ export function parseJson<T>(text: string, fallback: T): T {
   }
 }
 
-export const DASHBOARD_SYSTEM = `Você é um analista de BI especialista. Recebe o esquema e uma amostra de um conjunto de dados e devolve a especificação de um dashboard executivo em JSON.
+export const DASHBOARD_SYSTEM = `Você é um analista de BI. Recebe o esquema e uma amostra de um conjunto de dados e devolve a especificação de um dashboard executivo em JSON.
 
 Responda SOMENTE com JSON no formato:
 {

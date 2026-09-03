@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { Layers, Plus, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -188,7 +188,7 @@ export function MergeDatasetsDialog({
             <div className="flex flex-col gap-1.5">
               <Label>Tabela para Combinar</Label>
               {availablePages.length === 0 ? (
-                <p className="text-xs text-amber-500 py-2">Importe mais arquivos para habilitar a combinaÃ§Ã£o.</p>
+                <p className="text-xs text-amber-500 py-2">Importe mais arquivos para habilitar a combinação.</p>
               ) : (
                 <select
                   value={targetPageId}
@@ -240,7 +240,7 @@ export function MergeDatasetsDialog({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label>Tipo de CombinaÃ§Ã£o (Join)</Label>
+                <Label>Tipo de Combinação (Join)</Label>
                 <div className="flex gap-4 mt-1">
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input
@@ -252,7 +252,7 @@ export function MergeDatasetsDialog({
                     />
                     <div>
                       <p className="font-semibold text-xs">Preservar Esquerda (Left Join)</p>
-                      <p className="text-[11px] text-muted-foreground">MantÃ©m todas as linhas da base atual e adiciona dados correspondentes.</p>
+                      <p className="text-[11px] text-muted-foreground">Mantém todas as linhas da base atual e adiciona dados correspondentes.</p>
                     </div>
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
@@ -297,15 +297,15 @@ export function MergeDatasetsDialog({
               </div>
 
               <div className="flex flex-col gap-1.5">
-                <Label>Nome da Nova PÃ¡gina</Label>
+                <Label>Nome da Nova Página</Label>
                 <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Ex: Vendas e Clientes" />
               </div>
 
               <div className="flex gap-2 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-muted-foreground leading-relaxed">
                 <Info className="size-4 shrink-0 text-primary mt-0.5" />
                 <p>
-                  A combinaÃ§Ã£o criarÃ¡ uma <strong>nova pÃ¡gina</strong> com a base consolidada. O motor de IA gerarÃ¡ 
-                  automaticamente grÃ¡ficos, KPIs e insights cruzados sobre as colunas combinadas!
+                  A combinação criará uma <strong>nova página</strong> com a base consolidada. O motor de IA gerará 
+                  automaticamente gráficos, KPIs e insights cruzados sobre as colunas combinadas!
                 </p>
               </div>
             </>
@@ -327,5 +327,3 @@ export function MergeDatasetsDialog({
     </Dialog>
   );
 }
-
-

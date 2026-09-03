@@ -95,16 +95,16 @@ import type {
 export const Route = createFileRoute("/analyze")({
   head: () => ({
     meta: [
-      { title: "NEXUS BI Â· Dashboards automÃ¡ticos com IA" },
+      { title: "NEXUS BI · Dashboards automáticos com IA" },
       {
         name: "description",
         content:
-          "Importe CSV, XLSX ou PDF e receba dashboards analÃ­ticos gerados por IA, com pÃ¡ginas, filtros cruzados, grÃ¡ficos arrastÃ¡veis e modo claro.",
+          "Importe CSV, XLSX ou PDF e receba dashboards analíticos gerados por IA, com páginas, filtros cruzados, gráficos arrastáveis e modo claro.",
       },
-      { property: "og:title", content: "NEXUS BI Â· Dashboards automÃ¡ticos com IA" },
+      { property: "og:title", content: "NEXUS BI · Dashboards automáticos com IA" },
       {
         property: "og:description",
-        content: "AnÃ¡lise de dados instantÃ¢nea: importe seus arquivos e visualize KPIs e grÃ¡ficos em tempo real.",
+        content: "Análise de dados instantânea: importe seus arquivos e visualize KPIs e gráficos em tempo real.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -168,7 +168,7 @@ function Index() {
     localStorage.setItem(THEME_KEY, theme);
   }, [theme]);
 
-  /* ---------------- persistÃªncia ---------------- */
+  /* ---------------- persistência ---------------- */
   useEffect(() => {
     const shared = readStateFromUrl();
     try {
@@ -185,7 +185,7 @@ function Index() {
     } finally {
       if (shared) {
         pendingView.current = shared;
-        toast.success("VisÃ£o compartilhada aplicada");
+        toast.success("Visão compartilhada aplicada");
       }
     }
   }, []);
@@ -251,12 +251,12 @@ function Index() {
         
         const targetPage = pages.find((p) => p.id === due.pageId);
         
-        toast.info(`ðŸ”” Lembrete: ${due.title}`, {
-          description: targetPage ? `Agendado para a pÃ¡gina "${targetPage.name}"` : "",
+        toast.info(`🔔 Lembrete: ${due.title}`, {
+          description: targetPage ? `Agendado para a página "${targetPage.name}"` : "",
           duration: 10000,
           action: targetPage
             ? {
-                label: "Ir para a pÃ¡gina",
+                label: "Ir para a página",
                 onClick: () => {
                   setActiveId(due.pageId);
                   if (due.chartId) {
@@ -279,7 +279,7 @@ function Index() {
   }, [reminders, pages]);
 
 
-  /* ---------------- sessÃ£o e nuvem ---------------- */
+  /* ---------------- sessão e nuvem ---------------- */
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) =>
       setUser(session?.user ? { id: session.user.id, email: session.user.email ?? null } : null),
@@ -311,7 +311,7 @@ function Index() {
           return [...map.values()];
         });
       } catch (e) {
-        toast.error("Falha ao carregar pÃ¡ginas compartilhadas", { description: (e as Error).message });
+        toast.error("Falha ao carregar páginas compartilhadas", { description: (e as Error).message });
       }
     })();
     return () => {
@@ -357,8 +357,8 @@ function Index() {
     try {
       await publishPage(page, user.id, user.email);
       patchPage(page.id, { cloud: { role: "owner", ownerEmail: user.email } });
-      await logActivity(page.id, user.id, user.email, "publicou a pÃ¡gina", page.name);
-      toast.success("PÃ¡gina publicada na nuvem");
+      await logActivity(page.id, user.id, user.email, "publicou a página", page.name);
+      toast.success("Página publicada na nuvem");
     } catch (e) {
       toast.error("Falha ao publicar", { description: (e as Error).message });
     }
@@ -377,7 +377,7 @@ function Index() {
         spec.charts = spec.charts.filter((c) => valid.has(c.dimension));
         spec.kpis = spec.kpis.filter((k) => !k.field || valid.has(k.field));
         patchPage(pageId, { dashboard: spec });
-        toast.success("Dashboard gerado", { description: `${spec.charts.length} grÃ¡ficos criados` });
+        toast.success("Dashboard gerado", { description: `${spec.charts.length} gráficos criados` });
       } catch (e) {
         toast.error("Falha ao analisar", { description: (e as Error).message });
       } finally {
@@ -387,7 +387,7 @@ function Index() {
     [patchPage],
   );
 
-  /* ---------------- importaÃ§Ã£o ---------------- */
+  /* ---------------- importação ---------------- */
   const handleFiles = useCallback(
     async (files: FileList | null) => {
       const file = files?.[0];
@@ -408,7 +408,7 @@ function Index() {
           });
           rows = res.rows;
         } else {
-          toast.error("Formato nÃ£o suportado", { description: "Use CSV, XLSX ou PDF." });
+          toast.error("Formato não suportado", { description: "Use CSV, XLSX ou PDF." });
           setLoading(null);
           return;
         }
@@ -433,8 +433,8 @@ function Index() {
           setLoading(null);
           toast.success("Base atualizada", {
             description: `${added.toLocaleString("pt-BR")} novos registros${
-              duplicates ? ` Â· ${duplicates.toLocaleString("pt-BR")} duplicados ignorados` : ""
-            } Â· total ${merged.rows.length.toLocaleString("pt-BR")}`,
+              duplicates ? ` · ${duplicates.toLocaleString("pt-BR")} duplicados ignorados` : ""
+            } · total ${merged.rows.length.toLocaleString("pt-BR")}`,
           });
           return;
         }
@@ -471,8 +471,8 @@ function Index() {
     [analyze, page, patchPage],
   );
 
-  /* ---------------- grÃ¡ficos ---------------- */
-  const denyRead = () => toast.error("Acesso somente leitura", { description: "PeÃ§a ediÃ§Ã£o ao dono da pÃ¡gina." });
+  /* ---------------- gráficos ---------------- */
+  const denyRead = () => toast.error("Acesso somente leitura", { description: "Peça edição ao dono da página." });
 
   const upsertChart = (spec: ChartSpec) => {
     if (!page?.dashboard) return;
@@ -486,7 +486,7 @@ function Index() {
       ? page.dashboard.charts.map((c) => (c.id === spec.id ? spec : c))
       : [...page.dashboard.charts, spec];
     patchPage(page.id, { dashboard: { ...page.dashboard, charts } });
-    track(exists ? "editou um grÃ¡fico" : "adicionou um grÃ¡fico", spec.title);
+    track(exists ? "editou um gráfico" : "adicionou um gráfico", spec.title);
   };
 
   const removeChart = (id: string) => {
@@ -498,7 +498,7 @@ function Index() {
 
     patchPage(page.id, { dashboard: { ...page.dashboard, charts: page.dashboard.charts.filter((c) => c.id !== id) } });
     setEditing(null);
-    track("removeu um grÃ¡fico");
+    track("removeu um gráfico");
   };
 
   const reorderCharts = (from: number, to: number) => {
@@ -508,7 +508,7 @@ function Index() {
     if (!moved) return;
     charts.splice(to, 0, moved);
     patchPage(page.id, { dashboard: { ...page.dashboard, charts } });
-    track("reordenou os grÃ¡ficos");
+    track("reordenou os gráficos");
   };
 
 
@@ -518,7 +518,7 @@ function Index() {
     if (!dim) return;
     setEditing({
       id: `chart-${Date.now()}`,
-      title: "Novo grÃ¡fico",
+      title: "Novo gráfico",
       type: "bar",
       dimension: dim.name,
       measure: null,
@@ -574,7 +574,7 @@ function Index() {
   const handleDeleteReminder = (id: string) => {
     const next = reminders.filter((r) => r.id !== id);
     saveRemindersToStorage(next);
-    toast.success("Lembrete excluÃ­do");
+    toast.success("Lembrete excluído");
   };
 
   const handleMergeDatasets = async (newPage: Page) => {
@@ -583,7 +583,7 @@ function Index() {
     await analyze(newPage.id, newPage.dataset);
   };
 
-  /* ---------------- visÃµes salvas e link compartilhÃ¡vel ---------------- */
+  /* ---------------- visões salvas e link compartilhável ---------------- */
   const currentState = useCallback(
     (): ViewState => ({
       ...(page ? { pageName: page.name } : {}),
@@ -602,7 +602,7 @@ function Index() {
         await navigator.clipboard.writeText(url);
         toast.success("Link copiado", { description: "Abra o link para ver o dashboard neste estado." });
       } catch {
-        window.prompt("Copie o link da visÃ£o:", url);
+        window.prompt("Copie o link da visão:", url);
       }
     },
     [],
@@ -613,7 +613,7 @@ function Index() {
     setFilters(view.state.filters);
     setCross(view.state.cross);
     setOrientation(view.state.orientation);
-    toast.success(`VisÃ£o "${view.name}" aplicada`);
+    toast.success(`Visão "${view.name}" aplicada`);
   };
 
   const saveView = () => {
@@ -622,7 +622,7 @@ function Index() {
       denyRead();
       return;
     }
-    const name = window.prompt("Nome da visÃ£o", `VisÃ£o ${(page.views?.length ?? 0) + 1}`);
+    const name = window.prompt("Nome da visão", `Visão ${(page.views?.length ?? 0) + 1}`);
     if (!name?.trim()) return;
     const view: SavedView = {
       id: `view-${Date.now()}`,
@@ -631,11 +631,11 @@ function Index() {
       state: currentState(),
     };
     patchPage(page.id, { views: [...(page.views ?? []), view] });
-    track("salvou uma visÃ£o", view.name);
-    toast.success("VisÃ£o salva");
+    track("salvou uma visão", view.name);
+    toast.success("Visão salva");
   };
 
-  /* ---------------- anotaÃ§Ãµes ---------------- */
+  /* ---------------- anotações ---------------- */
   const annotations = page?.annotations ?? [];
   const notesOf = (chartId: string) => annotations.filter((a) => a.chartId === chartId);
 
@@ -653,7 +653,7 @@ function Index() {
       createdAt: new Date().toISOString(),
     };
     patchPage(page.id, { annotations: [...annotations, note] });
-    track("adicionou uma anotaÃ§Ã£o");
+    track("adicionou uma anotação");
   };
 
   const deleteNote = (id: string) => {
@@ -663,24 +663,24 @@ function Index() {
       return;
     }
     patchPage(page.id, { annotations: annotations.filter((a) => a.id !== id) });
-    track("removeu uma anotaÃ§Ã£o");
+    track("removeu uma anotação");
   };
 
 
-  /* ---------------- histÃ³rico ---------------- */
+  /* ---------------- histórico ---------------- */
   const restoreImport = (entry: ImportEntry) => {
     if (!page || !entry.previous) return;
     const rollback: ImportEntry = {
       id: `imp-${Date.now()}`,
       at: new Date().toISOString(),
       mode: "replace",
-      filename: `ReversÃ£o para ${new Date(entry.at).toLocaleString("pt-BR")}`,
+      filename: `Reversão para ${new Date(entry.at).toLocaleString("pt-BR")}`,
       rowCount: entry.previous.rows.length,
       previous: page.dataset,
     };
     patchPage(page.id, { dataset: entry.previous, history: [...(page.history ?? []), rollback] });
     setHistoryOpen(false);
-    toast.success("VersÃ£o anterior restaurada", {
+    toast.success("Versão anterior restaurada", {
       description: `${entry.previous.rows.length.toLocaleString("pt-BR")} registros`,
     });
   };
@@ -721,7 +721,7 @@ function Index() {
         setPanelOpen((v) => !v);
       } else if (k === "n") {
         e.preventDefault();
-        setNotesFor({ id: "page", title: page?.name ?? "PÃ¡gina" });
+        setNotesFor({ id: "page", title: page?.name ?? "Página" });
       } else if (e.key === "?") {
         setShortcutsOpen((v) => !v);
       }
@@ -764,8 +764,8 @@ function Index() {
     const first = alertHits[0];
     if (!first) return;
     playWarning();
-    toast.warning(`${alertHits.length} nÃ£o conformidade(s) detectada(s)`, {
-      description: `${first.rule.name} Â· ${first.count.toLocaleString("pt-BR")} registros`,
+    toast.warning(`${alertHits.length} não conformidade(s) detectada(s)`, {
+      description: `${first.rule.name} · ${first.count.toLocaleString("pt-BR")} registros`,
       action: { label: "Ver", onClick: () => setAlertsOpen(true) },
     });
 
@@ -863,7 +863,7 @@ function Index() {
             <div className="leading-tight">
               <p className="label-eyebrow">Business Intelligence</p>
               <h1 className="font-display text-base font-semibold tracking-wide">
-                {dashboard?.title ?? page?.name ?? "NEXUS BI Â· AnÃ¡lise Inteligente"}
+                {dashboard?.title ?? page?.name ?? "NEXUS BI · Análise Inteligente"}
               </h1>
             </div>
           </div>
@@ -877,11 +877,11 @@ function Index() {
                     : "border-primary/40 bg-primary/10 text-primary"
                 }`}
               >
-                {role === "owner" ? "Dono" : role === "editor" ? "EdiÃ§Ã£o" : "Somente leitura"}
+                {role === "owner" ? "Dono" : role === "editor" ? "Edição" : "Somente leitura"}
               </span>
             )}
 
-            {/* Menu Dropdown de UtilitÃ¡rios & Ajustes RÃ¡pidos */}
+            {/* Menu Dropdown de Utilitários & Ajustes Rápidos */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-8 gap-1.5 px-2.5 text-xs font-medium border-border/60 bg-background/50 hover:bg-accent">
@@ -916,13 +916,13 @@ function Index() {
                 >
                   <div className="flex items-center gap-2">
                     {theme === "dark" ? <Sun className="size-4 text-amber-400" /> : <Moon className="size-4 text-indigo-400" />}
-                    <span>Modo de ExibiÃ§Ã£o</span>
+                    <span>Modo de Exibição</span>
                   </div>
                   <span className="text-[10px] capitalize text-muted-foreground">{theme === "dark" ? "Escuro" : "Claro"}</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Ferramentas RÃ¡pidas</DropdownMenuLabel>
+                <DropdownMenuLabel className="text-xs text-muted-foreground font-normal">Ferramentas Rápidas</DropdownMenuLabel>
 
                 <DropdownMenuItem onClick={() => setRemindersOpen(true)} className="cursor-pointer flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -938,7 +938,7 @@ function Index() {
 
                 <DropdownMenuItem onClick={() => setHistoryOpen(true)} className="cursor-pointer gap-2">
                   <History className="size-4 text-muted-foreground" />
-                  <span>HistÃ³rico de Dados</span>
+                  <span>Histórico de Dados</span>
                 </DropdownMenuItem>
 
                 <DropdownMenuItem onClick={() => setShortcutsOpen(true)} className="cursor-pointer flex items-center justify-between">
@@ -951,12 +951,27 @@ function Index() {
               </DropdownMenuContent>
             </DropdownMenu>
 
-            {user && (
+            {user ? (
               <div className="flex items-center gap-2">
                 <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
                   <ShieldCheck className="size-4" /> Acessos
                 </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  title={user.email ?? "Conta"}
+                  onClick={async () => {
+                    await supabase.auth.signOut();
+                    toast.success("Sessão encerrada");
+                  }}
+                >
+                  <LogOut className="size-4" /> Sair
+                </Button>
               </div>
+            ) : (
+              <Button variant="secondary" size="sm" onClick={() => { window.location.href = "/auth"; }}>
+                <LogIn className="size-4" /> Entrar
+              </Button>
             )}
           </div>
         </div>
@@ -967,10 +982,10 @@ function Index() {
             <div className={`mx-auto flex flex-wrap items-center justify-between px-5 ${shell}`}>
               <TabsList className="bg-transparent border-none p-0 h-10 gap-1">
                 <TabsTrigger value="inicio" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  PÃ¡gina Inicial
+                  Página Inicial
                 </TabsTrigger>
                 <TabsTrigger value="visualizacoes" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  VisualizaÃ§Ãµes e Cards
+                  Visualizações e Cards
                 </TabsTrigger>
                 <TabsTrigger value="alertas" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
                   Filtros e Alertas
@@ -1007,7 +1022,7 @@ function Index() {
                     modeRef.current = "replace";
                     inputRef.current?.click();
                   }}>
-                    <Upload className="size-3.5" /> Nova pÃ¡gina
+                    <Upload className="size-3.5" /> Nova página
                   </Button>
                   
                   {dataset && (
@@ -1041,7 +1056,7 @@ function Index() {
                 <TabsContent value="visualizacoes" className="mt-0 flex flex-wrap items-center gap-1.5">
                   {canEdit && (
                     <Button variant="secondary" size="sm" onClick={addChart}>
-                      <Plus className="size-3.5" /> Novo GrÃ¡fico
+                      <Plus className="size-3.5" /> Novo Gráfico
                     </Button>
                   )}
                   <Button
@@ -1052,7 +1067,7 @@ function Index() {
                         setEditingKpi(dashboard.kpis[0]!);
                         setKpiEditorOpen(true);
                       } else {
-                        toast.info("Nenhum KPI para editar. Crie um indicador usando o botÃ£o '+' na seÃ§Ã£o de KPI.");
+                        toast.info("Nenhum KPI para editar. Crie um indicador usando o botão '+' na seção de KPI.");
                       }
                     }}
                   >
@@ -1104,15 +1119,15 @@ function Index() {
                 <TabsContent value="colaboracao" className="mt-0 flex flex-wrap items-center gap-1.5">
                   {page && (
                     <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
-                      <Share2 className="size-3.5" /> Compartilhar pÃ¡gina
+                      <Share2 className="size-3.5" /> Compartilhar página
                     </Button>
                   )}
                   <Button
                     variant="secondary"
                     size="sm"
-                    onClick={() => setNotesFor({ id: "page", title: page?.name ?? "PÃ¡gina" })}
+                    onClick={() => setNotesFor({ id: "page", title: page?.name ?? "Página" })}
                   >
-                    <MessageSquare className="size-3.5" /> AnotaÃ§Ãµes (N)
+                    <MessageSquare className="size-3.5" /> Anotações (N)
                     {annotations.length > 0 && (
                       <span className="ml-1.5 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px]">{annotations.length}</span>
                     )}
@@ -1160,7 +1175,7 @@ function Index() {
       {presenting && (
         <div className="no-print sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-border/70 bg-background/90 px-5 py-2 text-xs backdrop-blur-xl">
           <div className="flex items-center gap-2 overflow-x-auto">
-            <span className="label-eyebrow">ApresentaÃ§Ã£o</span>
+            <span className="label-eyebrow">Apresentação</span>
             {pages.map((p, i) => (
               <button
                 key={p.id}
@@ -1174,7 +1189,7 @@ function Index() {
             ))}
           </div>
           <div className="flex items-center gap-2 text-muted-foreground">
-            <span className="hidden md:inline">â† â†’ pÃ¡ginas Â· 1-9 ir Â· F limpar filtros Â· Esc sair</span>
+            <span className="hidden md:inline">← → páginas · 1-9 ir · F limpar filtros · Esc sair</span>
             <Button size="sm" variant="secondary" onClick={() => setPresenting(false)}>
               <X className="size-3.5" /> Sair
             </Button>
@@ -1226,7 +1241,7 @@ function Index() {
                   }
                   onCreate={(spec) => {
                     upsertChart(spec);
-                    toast.success("AnÃ¡lise criada");
+                    toast.success("Análise criada");
                   }}
                   onClose={() => setPanelOpen(false)}
                 />
@@ -1331,7 +1346,7 @@ function Index() {
                           className={`no-print flex items-center gap-1 rounded-md p-1 text-muted-foreground transition hover:bg-accent hover:text-foreground ${
                             notesOf(c.id).length ? "opacity-100 text-primary" : "opacity-0 group-hover:opacity-100"
                           }`}
-                          aria-label="AnotaÃ§Ãµes do grÃ¡fico"
+                          aria-label="Anotações do gráfico"
                         >
                           <MessageSquare className="size-3.5" />
                           {notesOf(c.id).length > 0 && (
@@ -1341,7 +1356,7 @@ function Index() {
                         <button
                           onClick={() => setEditing(c)}
                           className="no-print rounded-md p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100"
-                          aria-label="Editar grÃ¡fico"
+                          aria-label="Editar gráfico"
                         >
                           <Pencil className="size-3.5" />
                         </button>
@@ -1361,7 +1376,7 @@ function Index() {
                           .slice(-2)
                           .map((n) => (
                             <li key={n.id} className="line-clamp-2">
-                              â€¢ {n.text}
+                              • {n.text}
                             </li>
                           ))}
                       </ul>
@@ -1390,8 +1405,8 @@ function Index() {
 
               <footer className="mt-4 flex items-center gap-2 text-xs text-muted-foreground">
                 <FileSpreadsheet className="size-3.5" />
-                {dataset?.name} Â· {rows.length.toLocaleString("pt-BR")} registros Â· {dataset?.fields.length} colunas
-                {dataset?.sources && dataset.sources.length > 1 && ` Â· fontes: ${dataset.sources.join(", ")}`}
+                {dataset?.name} · {rows.length.toLocaleString("pt-BR")} registros · {dataset?.fields.length} colunas
+                {dataset?.sources && dataset.sources.length > 1 && ` · fontes: ${dataset.sources.join(", ")}`}
               </footer>
             </div>
           </div>
@@ -1485,7 +1500,7 @@ function Index() {
         <ShareDialog
           open={shareOpen}
           pageId={page?.id ?? null}
-          pageName={page?.name ?? "PÃ¡gina"}
+          pageName={page?.name ?? "Página"}
           role={role}
           published={!!page?.cloud}
           userId={user.id}
@@ -1504,13 +1519,13 @@ function Index() {
           </DialogHeader>
           <ul className="space-y-1.5 text-sm">
             {[
-              ["P", "Entrar/sair do modo apresentaÃ§Ã£o"],
-              ["â† / â†’", "PÃ¡gina anterior / prÃ³xima"],
-              ["1 â€“ 9", "Ir direto para a pÃ¡gina"],
+              ["P", "Entrar/sair do modo apresentação"],
+              ["← / →", "Página anterior / próxima"],
+              ["1 – 9", "Ir direto para a página"],
               ["F", "Limpar todos os filtros"],
               ["C", "Mostrar/ocultar painel de campos"],
-              ["N", "Nova anotaÃ§Ã£o da pÃ¡gina"],
-              ["Esc", "Sair da apresentaÃ§Ã£o / limpar filtro cruzado"],
+              ["N", "Nova anotação da página"],
+              ["Esc", "Sair da apresentação / limpar filtro cruzado"],
               ["?", "Abrir esta lista"],
             ].map(([k, d]) => (
               <li key={k} className="flex items-center justify-between gap-3">
@@ -1550,7 +1565,7 @@ function EmptyState({ onPick, onDrop }: { onPick: () => void; onDrop: (files: Fi
       <div>
         <h2 className="font-display text-2xl font-semibold tracking-wide">Importe seus dados</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Arraste um arquivo CSV, XLSX ou PDF aqui. Cada base vira uma pÃ¡gina com menu e Ã­cone automÃ¡ticos, e a IA monta
+          Arraste um arquivo CSV, XLSX ou PDF aqui. Cada base vira uma página com menu e ícone automáticos, e a IA monta
           o dashboard sozinha.
         </p>
       </div>
@@ -1567,6 +1582,3 @@ function EmptyState({ onPick, onDrop }: { onPick: () => void; onDrop: (files: Fi
     </div>
   );
 }
-
-
-

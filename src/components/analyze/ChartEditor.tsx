@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -58,18 +58,18 @@ export function ChartEditor({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
         <DialogHeader>
-          <DialogTitle className="font-display tracking-wide">Editar grÃ¡fico</DialogTitle>
+          <DialogTitle className="font-display tracking-wide">Editar gráfico</DialogTitle>
         </DialogHeader>
 
         <div className="grid gap-4">
           <div className="grid gap-2">
-            <Label>TÃ­tulo</Label>
+            <Label>Título</Label>
             <Input value={draft.title} onChange={(e) => set({ title: e.target.value })} />
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-2">
-              <Label>Tipo de grÃ¡fico</Label>
+              <Label>Tipo de gráfico</Label>
               <Select value={draft.type} onValueChange={(v) => set({ type: v as ChartSpec["type"] })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -120,7 +120,7 @@ export function ChartEditor({
             </div>
 
             <div className="grid gap-2">
-              <Label>MÃ©trica</Label>
+              <Label>Métrica</Label>
               <Select
                 value={draft.measure ?? NONE}
                 onValueChange={(v) => set({ measure: v === NONE ? null : v })}
@@ -140,7 +140,7 @@ export function ChartEditor({
             </div>
 
             <div className="grid gap-2">
-              <Label>CÃ¡lculo</Label>
+              <Label>Cálculo</Label>
               <Select value={draft.agg} onValueChange={(v) => set({ agg: v as Agg })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -156,7 +156,7 @@ export function ChartEditor({
             </div>
 
             <div className="grid gap-2">
-              <Label>SÃ©rie (opcional)</Label>
+              <Label>Série (opcional)</Label>
               <Select
                 value={draft.series ?? NONE}
                 onValueChange={(v) => set({ series: v === NONE ? null : v })}
@@ -183,14 +183,14 @@ export function ChartEditor({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="1">Pequeno</SelectItem>
-                  <SelectItem value="2">MÃ©dio</SelectItem>
+                  <SelectItem value="2">Médio</SelectItem>
                   <SelectItem value="3">Largo</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="grid gap-2">
-              <Label>MÃ¡x. categorias</Label>
+              <Label>Máx. categorias</Label>
               <Input
                 type="number"
                 min={2}
@@ -201,7 +201,7 @@ export function ChartEditor({
             </div>
 
             <div className="grid gap-2">
-              <Label>OrdenaÃ§Ã£o</Label>
+              <Label>Ordenação</Label>
               <Select value={draft.sort ?? "desc"} onValueChange={(v) => set({ sort: v as "asc" | "desc" | "none" })}>
                 <SelectTrigger>
                   <SelectValue />
@@ -209,7 +209,7 @@ export function ChartEditor({
                 <SelectContent>
                   <SelectItem value="desc">Maior para menor</SelectItem>
                   <SelectItem value="asc">Menor para maior</SelectItem>
-                  <SelectItem value="none">AlfabÃ©tica</SelectItem>
+                  <SelectItem value="none">Alfabética</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -259,7 +259,7 @@ export function ChartEditor({
         {/* Conditional Formatting Section */}
         <div className="mx-6 border-t border-border/60 pt-3 pb-2 space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold">FormataÃ§Ã£o Condicional</Label>
+            <Label className="text-sm font-semibold">Formatação Condicional</Label>
             <select
               value={draft.gradientEnabled ? "gradient" : (draft.colorRules?.length ? "rules" : "none")}
               onChange={(e) => {
@@ -284,8 +284,8 @@ export function ChartEditor({
               }}
               className="h-8 rounded-md border border-input bg-background px-2 py-1 text-xs shadow-sm focus:outline-none"
             >
-              <option value="none">Paleta PadrÃ£o</option>
-              <option value="gradient">Gradiente DinÃ¢mico</option>
+              <option value="none">Paleta Padrão</option>
+              <option value="gradient">Gradiente Dinâmico</option>
               <option value="rules">Regras de Limite (Treshold)</option>
             </select>
           </div>
@@ -294,7 +294,7 @@ export function ChartEditor({
           {draft.gradientEnabled && (
             <div className="grid grid-cols-2 gap-3 bg-secondary/20 p-3 rounded-lg text-xs">
               <div className="grid gap-1">
-                <Label className="text-[10px]">Cor MÃ­nima (Valores Baixos)</Label>
+                <Label className="text-[10px]">Cor Mínima (Valores Baixos)</Label>
                 <select
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none"
                   value={draft.gradientColors?.[0] || "#ff3232"}
@@ -304,7 +304,7 @@ export function ChartEditor({
                 </select>
               </div>
               <div className="grid gap-1">
-                <Label className="text-[10px]">Cor MÃ¡xima (Valores Altos)</Label>
+                <Label className="text-[10px]">Cor Máxima (Valores Altos)</Label>
                 <select
                   className="h-8 rounded-md border border-input bg-background px-2 text-xs focus:outline-none"
                   value={draft.gradientColors?.[1] || "#32ff32"}
@@ -345,7 +345,7 @@ export function ChartEditor({
               {/* Add rule form */}
               <div className="grid grid-cols-12 gap-1.5 items-end pt-2 border-t border-border/40">
                 <div className="col-span-4">
-                  <Label className="text-[9px]">CondiÃ§Ã£o</Label>
+                  <Label className="text-[9px]">Condição</Label>
                   <select
                     className="w-full h-8 rounded-md border border-input bg-background px-1.5 text-xs focus:outline-none"
                     value={newOp}
@@ -431,12 +431,10 @@ export function ChartEditor({
               onOpenChange(false);
             }}
           >
-            Salvar alteraÃ§Ãµes
+            Salvar alterações
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
-
-

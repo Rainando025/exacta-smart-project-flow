@@ -1,4 +1,4 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -40,10 +40,10 @@ export function KpiEditorDialog({
 
   const formatLabels: Record<NonNullable<KpiSpec["format"]>, string> = {
     compact: "Compacto (ex: 1.2M, 15k)",
-    currency: "MonetÃ¡rio (R$)",
+    currency: "Monetário (R$)",
     percent: "Percentual (%)",
     decimal: "Decimal (1.200,00)",
-    none: "Sem formataÃ§Ã£o (1200000)",
+    none: "Sem formatação (1200000)",
   };
 
   return (
@@ -55,7 +55,7 @@ export function KpiEditorDialog({
 
         <div className="grid gap-4 py-2 text-sm">
           <div className="grid gap-2">
-            <Label>TÃ­tulo / RÃ³tulo</Label>
+            <Label>Título / Rótulo</Label>
             <Input
               value={draft.label}
               onChange={(e) => set({ label: e.target.value })}
@@ -85,7 +85,7 @@ export function KpiEditorDialog({
             </div>
 
             <div className="grid gap-2">
-              <Label>CÃ¡lculo / OperaÃ§Ã£o</Label>
+              <Label>Cálculo / Operação</Label>
               <Select
                 value={draft.agg}
                 onValueChange={(v) => set({ agg: v as Agg })}
@@ -105,7 +105,7 @@ export function KpiEditorDialog({
           </div>
 
           <div className="grid gap-2">
-            <Label>Formato de ExibiÃ§Ã£o</Label>
+            <Label>Formato de Exibição</Label>
             <Select
               value={draft.format ?? "compact"}
               onValueChange={(v) => set({ format: v as "compact" | "currency" | "percent" | "decimal" | "none" })}
@@ -194,5 +194,3 @@ export function KpiEditorDialog({
     </Dialog>
   );
 }
-
-

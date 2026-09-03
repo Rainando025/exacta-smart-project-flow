@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { CloudUpload, Eye, Loader2, Pencil, Share2, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -18,7 +18,7 @@ import {
 
 const ROLE_LABEL: Record<string, string> = {
   owner: "Dono",
-  editor: "EdiÃ§Ã£o",
+  editor: "Edição",
   viewer: "Somente leitura",
 };
 
@@ -54,7 +54,7 @@ export function ShareDialog({
       setMembers(m);
       setActivity(a);
     } catch (e) {
-      toast.error("NÃ£o foi possÃ­vel carregar o compartilhamento", { description: (e as Error).message });
+      toast.error("Não foi possível carregar o compartilhamento", { description: (e as Error).message });
     }
   }, [pageId, published]);
 
@@ -70,7 +70,7 @@ export function ShareDialog({
       setEmail("");
       await refresh();
       toast.success("Acesso concedido", {
-        description: `${email.trim().toLowerCase()} Â· ${ROLE_LABEL[newRole]}`,
+        description: `${email.trim().toLowerCase()} · ${ROLE_LABEL[newRole]}`,
       });
     } catch (e) {
       toast.error("Falha ao conceder acesso", { description: (e as Error).message });
@@ -86,15 +86,15 @@ export function ShareDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Share2 className="size-4" /> Compartilhar â€œ{pageName}â€
+            <Share2 className="size-4" /> Compartilhar “{pageName}”
           </DialogTitle>
         </DialogHeader>
 
         {!published ? (
           <div className="space-y-3 py-2 text-sm">
             <p className="text-muted-foreground">
-              Publique esta pÃ¡gina na nuvem para compartilhÃ¡-la com outras pessoas e registrar quem altera visÃµes e
-              pÃ¡ginas.
+              Publique esta página na nuvem para compartilhá-la com outras pessoas e registrar quem altera visões e
+              páginas.
             </p>
             <Button
               disabled={busy}
@@ -149,14 +149,14 @@ export function ShareDialog({
                 </div>
               ) : (
                 <p className="text-xs text-muted-foreground">
-                  Seu acesso nesta pÃ¡gina: <strong>{ROLE_LABEL[role ?? "viewer"]}</strong>. Apenas o dono pode alterar
-                  permissÃµes.
+                  Seu acesso nesta página: <strong>{ROLE_LABEL[role ?? "viewer"]}</strong>. Apenas o dono pode alterar
+                  permissões.
                 </p>
               )}
 
               <div className="max-h-72 space-y-2 overflow-auto">
                 {!members.length && (
-                  <p className="text-sm text-muted-foreground">NinguÃ©m convidado ainda â€” sÃ³ vocÃª tem acesso.</p>
+                  <p className="text-sm text-muted-foreground">Ninguém convidado ainda — só você tem acesso.</p>
                 )}
                 {members.map((m) => (
                   <div
@@ -166,7 +166,7 @@ export function ShareDialog({
                     <div className="min-w-0 text-sm">
                       <p className="truncate font-medium">{m.email}</p>
                       <p className="text-xs text-muted-foreground">
-                        {ROLE_LABEL[m.role]} Â· desde {new Date(m.created_at).toLocaleDateString("pt-BR")}
+                        {ROLE_LABEL[m.role]} · desde {new Date(m.created_at).toLocaleDateString("pt-BR")}
                       </p>
                     </div>
                     {isOwner && (
@@ -180,7 +180,7 @@ export function ShareDialog({
                           }}
                         >
                           {m.role === "viewer" ? <Pencil className="size-3.5" /> : <Eye className="size-3.5" />}
-                          {m.role === "viewer" ? "Dar ediÃ§Ã£o" : "Somente leitura"}
+                          {m.role === "viewer" ? "Dar edição" : "Somente leitura"}
                         </Button>
                         <Button
                           size="sm"
@@ -202,15 +202,15 @@ export function ShareDialog({
 
             <TabsContent value="activity">
               <div className="max-h-80 space-y-2 overflow-auto">
-                {!activity.length && <p className="text-sm text-muted-foreground">Nenhuma alteraÃ§Ã£o registrada.</p>}
+                {!activity.length && <p className="text-sm text-muted-foreground">Nenhuma alteração registrada.</p>}
                 {activity.map((a) => (
                   <div key={a.id} className="rounded-lg border border-border bg-secondary/40 p-3 text-sm">
                     <p className="font-medium">
-                      {a.user_email ?? "UsuÃ¡rio"} Â· <span className="font-normal">{a.action}</span>
+                      {a.user_email ?? "Usuário"} · <span className="font-normal">{a.action}</span>
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(a.created_at).toLocaleString("pt-BR")}
-                      {a.detail ? ` Â· ${a.detail}` : ""}
+                      {a.detail ? ` · ${a.detail}` : ""}
                     </p>
                   </div>
                 ))}
@@ -222,5 +222,3 @@ export function ShareDialog({
     </Dialog>
   );
 }
-
-

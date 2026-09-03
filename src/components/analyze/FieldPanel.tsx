@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Filter, Hash, Calendar, Type, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -58,7 +58,7 @@ export function FieldPanel({
   return (
     <aside className="no-print panel flex h-[calc(100vh-6rem)] w-[300px] shrink-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-        <p className="label-eyebrow !text-foreground">Campos e anÃ¡lises</p>
+        <p className="label-eyebrow !text-foreground">Campos e análises</p>
         <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
           <X className="size-3.5" />
         </button>
@@ -66,7 +66,7 @@ export function FieldPanel({
 
       <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
         <section>
-          <p className="label-eyebrow mb-2">Colunas visÃ­veis</p>
+          <p className="label-eyebrow mb-2">Colunas visíveis</p>
           <div className="space-y-1">
             {fields.map((f) => (
               <label
@@ -116,7 +116,7 @@ export function FieldPanel({
         </section>
 
         <section>
-          <p className="label-eyebrow mb-2">Nova anÃ¡lise</p>
+          <p className="label-eyebrow mb-2">Nova análise</p>
           <div className="grid gap-2">
             <Select value={dimension} onValueChange={setDimension}>
               <SelectTrigger className="h-8 text-xs">
@@ -189,7 +189,7 @@ export function FieldPanel({
                 })
               }
             >
-              <Plus className="size-4" /> Criar anÃ¡lise
+              <Plus className="size-4" /> Criar análise
             </Button>
           </div>
         </section>
@@ -197,5 +197,3 @@ export function FieldPanel({
     </aside>
   );
 }
-
-

@@ -1,4 +1,4 @@
-﻿import {
+import {
   Activity,
   BadgeDollarSign,
   BarChart3,
@@ -38,22 +38,22 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 const RULES: Array<[RegExp, string]> = [
-  [/venda|receita|faturament|financ|custo|preÃ§o|preco|fatur/i, "money"],
-  [/cliente|usuario|usuÃ¡rio|pessoa|colaborador|funcion|equipe/i, "users"],
+  [/venda|receita|faturament|financ|custo|preço|preco|fatur/i, "money"],
+  [/cliente|usuario|usuário|pessoa|colaborador|funcion|equipe/i, "users"],
   [/estoque|produto|item|invent/i, "package"],
   [/pedido|compra|carrinho|order/i, "cart"],
-  [/entrega|frete|log[iÃ­]stic|transport/i, "truck"],
-  [/o\.?s\.?|servi[Ã§c]o|manuten|chamado|ticket/i, "wrench"],
-  [/produ[Ã§c][Ã£a]o|f[Ã¡a]brica|industr|maquin/i, "factory"],
-  [/data|mes|mÃªs|ano|per[iÃ­]odo|agenda/i, "calendar"],
+  [/entrega|frete|log[ií]stic|transport/i, "truck"],
+  [/o\.?s\.?|servi[çc]o|manuten|chamado|ticket/i, "wrench"],
+  [/produ[çc][ãa]o|f[áa]brica|industr|maquin/i, "factory"],
+  [/data|mes|mês|ano|per[ií]odo|agenda/i, "calendar"],
   [/indicador|kpi|meta|performance|desempenho/i, "gauge"],
-  [/relat[Ã³o]rio|lista|cadastro|registro/i, "clipboard"],
-  [/tend[Ãªe]ncia|hist[Ã³o]ric|evolu/i, "line"],
+  [/relat[óo]rio|lista|cadastro|registro/i, "clipboard"],
+  [/tend[êe]ncia|hist[óo]ric|evolu/i, "line"],
   [/distribui|percent|share/i, "pie"],
   [/opera|monitor|status/i, "activity"],
 ];
 
-/** Escolhe automaticamente um Ã­cone com base no nome da base/pÃ¡gina. */
+/** Escolhe automaticamente um ícone com base no nome da base/página. */
 export function pickIcon(name: string): string {
   for (const [re, icon] of RULES) if (re.test(name)) return icon;
   return "bar";
@@ -97,17 +97,17 @@ export function PageTabs({
               <span className="max-w-[160px] truncate">{p.name}</span>
             </button>
             <button
-              aria-label="Renomear pÃ¡gina"
+              aria-label="Renomear página"
               className="opacity-0 transition group-hover:opacity-60 hover:!opacity-100"
               onClick={() => {
-                const next = window.prompt("Nome da pÃ¡gina", p.name);
+                const next = window.prompt("Nome da página", p.name);
                 if (next && next.trim()) onRename(p.id, next.trim());
               }}
             >
-              <span className="text-[10px]">âœŽ</span>
+              <span className="text-[10px]">✎</span>
             </button>
             <button
-              aria-label="Remover pÃ¡gina"
+              aria-label="Remover página"
               className="opacity-0 transition group-hover:opacity-60 hover:!opacity-100"
               onClick={() => onRemove(p.id)}
             >
@@ -120,10 +120,8 @@ export function PageTabs({
         onClick={onAdd}
         className="flex items-center gap-1 rounded-lg border border-dashed border-border px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground"
       >
-        <Plus className="size-3.5" /> Nova pÃ¡gina
+        <Plus className="size-3.5" /> Nova página
       </button>
     </nav>
   );
 }
-
-

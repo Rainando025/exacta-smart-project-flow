@@ -1,4 +1,4 @@
-﻿import { History, Undo2 } from "lucide-react";
+import { History, Undo2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { ImportEntry } from "@/lib/analyze/types";
@@ -6,7 +6,7 @@ import type { ImportEntry } from "@/lib/analyze/types";
 const MODE_LABEL: Record<ImportEntry["mode"], string> = {
   create: "Base criada",
   append: "Acrescentado",
-  replace: "SubstituÃ­do",
+  replace: "Substituído",
 };
 
 export function HistoryDialog({
@@ -25,11 +25,11 @@ export function HistoryDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <History className="size-4" /> HistÃ³rico de importaÃ§Ãµes
+            <History className="size-4" /> Histórico de importações
           </DialogTitle>
         </DialogHeader>
         <div className="max-h-80 space-y-2 overflow-auto">
-          {!entries.length && <p className="text-sm text-muted-foreground">Nenhuma importaÃ§Ã£o registrada.</p>}
+          {!entries.length && <p className="text-sm text-muted-foreground">Nenhuma importação registrada.</p>}
           {[...entries].reverse().map((e) => (
             <div
               key={e.id}
@@ -38,10 +38,10 @@ export function HistoryDialog({
               <div className="min-w-0 text-sm">
                 <p className="truncate font-medium">{e.filename}</p>
                 <p className="text-xs text-muted-foreground">
-                  {MODE_LABEL[e.mode]} Â· {new Date(e.at).toLocaleString("pt-BR")} Â·{" "}
+                  {MODE_LABEL[e.mode]} · {new Date(e.at).toLocaleString("pt-BR")} ·{" "}
                   {e.rowCount.toLocaleString("pt-BR")} registros
-                  {e.added !== undefined ? ` Â· +${e.added.toLocaleString("pt-BR")}` : ""}
-                  {e.duplicates ? ` Â· ${e.duplicates.toLocaleString("pt-BR")} duplicados` : ""}
+                  {e.added !== undefined ? ` · +${e.added.toLocaleString("pt-BR")}` : ""}
+                  {e.duplicates ? ` · ${e.duplicates.toLocaleString("pt-BR")} duplicados` : ""}
                 </p>
               </div>
               <Button
@@ -49,7 +49,7 @@ export function HistoryDialog({
                 variant="secondary"
                 disabled={!e.previous}
                 onClick={() => onRestore(e)}
-                title={e.previous ? "Voltar ao estado anterior a esta importaÃ§Ã£o" : "Sem versÃ£o anterior"}
+                title={e.previous ? "Voltar ao estado anterior a esta importação" : "Sem versão anterior"}
               >
                 <Undo2 className="size-3.5" /> Reverter
               </Button>
@@ -60,5 +60,3 @@ export function HistoryDialog({
     </Dialog>
   );
 }
-
-

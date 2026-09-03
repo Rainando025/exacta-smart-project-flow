@@ -51,7 +51,7 @@ export async function fetchCloudPages(userId: string): Promise<Page[]> {
   });
 }
 
-/** Ajusta o papel real (editor/viewer) das pÃƒÂ¡ginas compartilhadas comigo. */
+/** Ajusta o papel real (editor/viewer) das páginas compartilhadas comigo. */
 export async function resolveRoles(pages: Page[], email: string): Promise<Record<string, Role>> {
   const roles: Record<string, Role> = {};
   const shared = pages.filter((p) => p.cloud?.role !== "owner");
@@ -62,7 +62,7 @@ export async function resolveRoles(pages: Page[], email: string): Promise<Record
     .select("page_id, email, role")
     .in(
       "page_id",
-      shared.map((p) => p.id),
+      shared.map((p: any) => p.id),
     );
   for (const m of data ?? []) {
     if (roles[m.page_id] === "owner") continue;
@@ -73,7 +73,7 @@ export async function resolveRoles(pages: Page[], email: string): Promise<Record
 
 
 export async function publishPage(page: Page, userId: string, email: string | null) {
-  const { error } = await db.from("bi_pages").upsert({
+  const { error } = await supabase.from("bi_pages").upsert({
     id: page.id,
     owner_id: userId,
     owner_email: email,
@@ -93,7 +93,7 @@ export async function savePageContent(page: Page) {
 }
 
 export async function deleteCloudPage(pageId: string) {
-  const { error } = await db.from("bi_pages").delete().eq("id", pageId);
+  const { error } = await supabase.from("bi_pages").delete().eq("id", pageId);
   if (error) throw error;
 }
 
@@ -105,7 +105,7 @@ export type PageAccess = {
   members: Member[];
 };
 
-/** Todas as pÃƒÂ¡ginas na nuvem que eu vejo, com seus convidados e meu papel em cada uma. */
+/** Todas as páginas na nuvem que eu vejo, com seus convidados e meu papel em cada uma. */
 export async function listAccessOverview(userId: string, email: string): Promise<PageAccess[]> {
   const { data: pages, error } = await supabase
     .from("bi_pages")
@@ -151,12 +151,12 @@ export async function addMember(pageId: string, email: string, role: "viewer" | 
 }
 
 export async function updateMemberRole(id: string, role: "viewer" | "editor") {
-  const { error } = await db.from("bi_page_members").update({ role }).eq("id", id);
+  const { error } = await supabase.from("bi_page_members").update({ role }).eq("id", id);
   if (error) throw error;
 }
 
 export async function removeMember(id: string) {
-  const { error } = await db.from("bi_page_members").delete().eq("id", id);
+  const { error } = await supabase.from("bi_page_members").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -183,7 +183,7 @@ export async function logActivity(
     .insert({ page_id: pageId, user_id: userId, user_email: email, action, detail: detail ?? null });
 }
 
-/* ---------------- links de convite por seleÃƒÂ§ÃƒÂ£o de pÃƒÂ¡ginas ---------------- */
+/* ---------------- links de convite por seleção de páginas ---------------- */
 
 export type ShareLink = {
   id: string;
@@ -248,7 +248,7 @@ export async function redeemShareLink(token: string) {
   return (data ?? []) as { page_id: string; page_name: string; role: string }[];
 }
 
-/* ---------------- preferÃƒÂªncias de notificaÃƒÂ§ÃƒÂ£o de alertas ---------------- */
+/* ---------------- preferências de notificação de alertas ---------------- */
 
 export type NotifyPrefs = {
   enabled: boolean;
@@ -286,5 +286,3 @@ export async function saveNotifyPrefs(userId: string, prefs: NotifyPrefs) {
     .upsert({ user_id: userId, ...prefs }, { onConflict: "user_id" });
   if (error) throw error;
 }
-
-

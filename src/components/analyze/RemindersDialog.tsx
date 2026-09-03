@@ -1,4 +1,4 @@
-﻿import { useState } from "react";
+import { useState } from "react";
 import { Bell, Calendar, Trash2, CheckCircle2, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -51,7 +51,7 @@ export function RemindersDialog({
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Bell className="size-4 text-primary" /> Lembretes e Agenda de AnÃ¡lises
+            <Bell className="size-4 text-primary" /> Lembretes e Agenda de Análises
           </DialogTitle>
         </DialogHeader>
 
@@ -61,17 +61,17 @@ export function RemindersDialog({
             <h3 className="font-semibold text-xs text-muted-foreground uppercase tracking-wider">Novo Lembrete</h3>
             
             <div className="grid gap-2">
-              <Label>O que vocÃª deseja revisar/analisar?</Label>
+              <Label>O que você deseja revisar/analisar?</Label>
               <Input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Revisar queda nas vendas de eletrÃ´nicos..."
+                placeholder="Ex: Revisar queda nas vendas de eletrônicos..."
               />
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <div className="grid gap-2">
-                <Label>Data e HorÃ¡rio</Label>
+                <Label>Data e Horário</Label>
                 <Input
                   type="datetime-local"
                   value={datetime}
@@ -80,13 +80,13 @@ export function RemindersDialog({
               </div>
 
               <div className="grid gap-2">
-                <Label>Vincular a qual grÃ¡fico? (Opcional)</Label>
+                <Label>Vincular a qual gráfico? (Opcional)</Label>
                 <Select value={chartId} onValueChange={setChartId}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value={NONE}>Nenhum grÃ¡fico (geral)</SelectItem>
+                    <SelectItem value={NONE}>Nenhum gráfico (geral)</SelectItem>
                     {currentCharts.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.title}
@@ -103,7 +103,7 @@ export function RemindersDialog({
               onClick={handleAdd}
               disabled={!title.trim() || !datetime}
             >
-              <Calendar className="size-4 mr-1.5" /> Adicionar Ã  Agenda
+              <Calendar className="size-4 mr-1.5" /> Adicionar à Agenda
             </Button>
           </div>
 
@@ -115,7 +115,7 @@ export function RemindersDialog({
               </h4>
               
               {pendingReminders.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic pl-2 py-1">Nenhum lembrete pendente para esta pÃ¡gina.</p>
+                <p className="text-xs text-muted-foreground italic pl-2 py-1">Nenhum lembrete pendente para esta página.</p>
               ) : (
                 <div className="space-y-2">
                   {pendingReminders.map((r) => {
@@ -128,10 +128,10 @@ export function RemindersDialog({
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-foreground text-sm line-clamp-1">{r.title}</p>
                           <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-muted-foreground">
-                            <span>ðŸ“… {new Date(r.datetime).toLocaleString("pt-BR")}</span>
+                            <span>📅 {new Date(r.datetime).toLocaleString("pt-BR")}</span>
                             {linkedChart && (
                               <span className="text-primary font-medium">
-                                ðŸ“Š VÃ­nculo: {linkedChart.title}
+                                📊 Vínculo: {linkedChart.title}
                               </span>
                             )}
                           </div>
@@ -141,7 +141,7 @@ export function RemindersDialog({
                           <button
                             onClick={() => onToggleComplete(r.id)}
                             className="rounded-md p-1.5 text-muted-foreground hover:bg-secondary hover:text-green-500 transition"
-                            title="Marcar como concluÃ­do"
+                            title="Marcar como concluído"
                           >
                             <CheckCircle2 className="size-4" />
                           </button>
@@ -163,7 +163,7 @@ export function RemindersDialog({
             {completedReminders.length > 0 && (
               <div>
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
-                  ConcluÃ­dos ({completedReminders.length})
+                  Concluídos ({completedReminders.length})
                 </h4>
                 <div className="space-y-2 opacity-65">
                   {completedReminders.map((r) => {
@@ -175,7 +175,7 @@ export function RemindersDialog({
                         <div className="min-w-0 flex-1 line-through text-muted-foreground">
                           <p className="font-medium">{r.title}</p>
                           <span className="text-[10px]">
-                            ConcluÃ­do Â· ðŸ“… {new Date(r.datetime).toLocaleString("pt-BR")}
+                            Concluído · 📅 {new Date(r.datetime).toLocaleString("pt-BR")}
                           </span>
                         </div>
                         <button
@@ -196,5 +196,3 @@ export function RemindersDialog({
     </Dialog>
   );
 }
-
-

@@ -1,4 +1,4 @@
-﻿import { Bookmark, Link2, Plus, Trash2 } from "lucide-react";
+import { Bookmark, Link2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -29,19 +29,19 @@ export function ViewsMenu({
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="secondary" size="sm">
-          <Bookmark className="size-4" /> VisÃµes
+          <Bookmark className="size-4" /> Visões
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-72">
         <DropdownMenuItem onSelect={onSave}>
-          <Plus className="size-4" /> Salvar visÃ£o atual
+          <Plus className="size-4" /> Salvar visão atual
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={onShare}>
-          <Link2 className="size-4" /> Copiar link da visÃ£o atual
+          <Link2 className="size-4" /> Copiar link da visão atual
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuLabel className="text-xs text-muted-foreground">VisÃµes salvas</DropdownMenuLabel>
-        {!views.length && <p className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma visÃ£o salva ainda.</p>}
+        <DropdownMenuLabel className="text-xs text-muted-foreground">Visões salvas</DropdownMenuLabel>
+        {!views.length && <p className="px-2 py-1.5 text-xs text-muted-foreground">Nenhuma visão salva ainda.</p>}
         {views.map((v) => (
           <div key={v.id} className="flex items-center gap-1 px-1">
             <button
@@ -61,7 +61,7 @@ export function ViewsMenu({
               <Link2 className="size-3.5" />
             </button>
             <button
-              aria-label="Excluir visÃ£o"
+              aria-label="Excluir visão"
               onClick={() => onDelete(v.id)}
               className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-destructive"
             >
@@ -73,5 +73,3 @@ export function ViewsMenu({
     </DropdownMenu>
   );
 }
-
-

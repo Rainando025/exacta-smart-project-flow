@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { AlertTriangle, Bell, Check, History, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -84,26 +84,26 @@ export function AlertsDialog({
       <DialogContent className="max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base">
-            <Bell className="size-4" /> NÃ£o conformidades e alertas
+            <Bell className="size-4" /> Não conformidades e alertas
           </DialogTitle>
         </DialogHeader>
 
         <Tabs defaultValue="hits">
           <TabsList>
             <TabsTrigger value="hits">
-              OcorrÃªncias{hits.length ? ` (${hits.length})` : ""}
+              Ocorrências{hits.length ? ` (${hits.length})` : ""}
             </TabsTrigger>
             <TabsTrigger value="rules">Regras</TabsTrigger>
             <TabsTrigger value="history">
-              <History className="mr-1 size-3.5" /> HistÃ³rico{events.length ? ` (${events.length})` : ""}
+              <History className="mr-1 size-3.5" /> Histórico{events.length ? ` (${events.length})` : ""}
             </TabsTrigger>
-            <TabsTrigger value="notify">NotificaÃ§Ãµes</TabsTrigger>
+            <TabsTrigger value="notify">Notificações</TabsTrigger>
           </TabsList>
 
           <TabsContent value="hits" className="max-h-96 space-y-2 overflow-auto">
             {!hits.length && (
               <p className="text-sm text-muted-foreground">
-                Nenhuma nÃ£o conformidade encontrada nos dados filtrados no momento.
+                Nenhuma não conformidade encontrada nos dados filtrados no momento.
               </p>
             )}
             {hits.map((h) => (
@@ -119,12 +119,12 @@ export function AlertsDialog({
                   <AlertTriangle className="size-4" /> {h.rule.name}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {describeRule(h.rule)} Â· {h.count.toLocaleString("pt-BR")} de {h.total.toLocaleString("pt-BR")}{" "}
+                  {describeRule(h.rule)} · {h.count.toLocaleString("pt-BR")} de {h.total.toLocaleString("pt-BR")}{" "}
                   registros ({((h.count / Math.max(h.total, 1)) * 100).toFixed(1)}%)
                 </p>
                 {h.rows[0] && (
                   <p className="mt-1 truncate text-xs text-muted-foreground">
-                    Ex.: {Object.entries(h.rows[0]).slice(0, 4).map(([k, v]) => `${k}: ${v ?? "â€”"}`).join(" Â· ")}
+                    Ex.: {Object.entries(h.rows[0]).slice(0, 4).map(([k, v]) => `${k}: ${v ?? "—"}`).join(" · ")}
                   </p>
                 )}
               </div>
@@ -175,8 +175,8 @@ export function AlertsDialog({
                   value={severity}
                   onChange={(e) => setSeverity(e.target.value as "critical" | "warning")}
                 >
-                  <option value="critical">CrÃ­tico</option>
-                  <option value="warning">AtenÃ§Ã£o</option>
+                  <option value="critical">Crítico</option>
+                  <option value="warning">Atenção</option>
                 </select>
                 <Button size="sm" className="md:col-span-2" onClick={add} disabled={!selectedField}>
                   <Plus className="size-4" /> Criar regra
@@ -194,8 +194,8 @@ export function AlertsDialog({
                   <div className="min-w-0 text-sm">
                     <p className="truncate font-medium">{r.name}</p>
                     <p className="text-xs text-muted-foreground">
-                      {describeRule(r)} Â· {r.severity === "critical" ? "CrÃ­tico" : "AtenÃ§Ã£o"}
-                      {hitsByRule.has(r.id) ? ` Â· ${hitsByRule.get(r.id)?.count} ocorrÃªncias` : " Â· sem ocorrÃªncias"}
+                      {describeRule(r)} · {r.severity === "critical" ? "Crítico" : "Atenção"}
+                      {hitsByRule.has(r.id) ? ` · ${hitsByRule.get(r.id)?.count} ocorrências` : " · sem ocorrências"}
                     </p>
                   </div>
                   {canEdit && (
@@ -224,7 +224,7 @@ export function AlertsDialog({
 
           <TabsContent value="history" className="max-h-96 space-y-2 overflow-auto">
             {!events.length && (
-              <p className="text-sm text-muted-foreground">Nenhum alerta disparado atÃ© agora.</p>
+              <p className="text-sm text-muted-foreground">Nenhum alerta disparado até agora.</p>
             )}
             {events.map((e) => (
               <div key={e.id} className="rounded-lg border border-border bg-secondary/40 p-3 text-sm">
@@ -253,19 +253,19 @@ export function AlertsDialog({
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  {new Date(e.at).toLocaleString("pt-BR")} Â· {e.description} Â·{" "}
+                  {new Date(e.at).toLocaleString("pt-BR")} · {e.description} ·{" "}
                   {e.count.toLocaleString("pt-BR")} de {e.total.toLocaleString("pt-BR")} registros
                 </p>
                 {e.rows.slice(0, 3).map((r, i) => (
                   <p key={i} className="mt-1 truncate text-xs text-muted-foreground">
-                    {Object.entries(r).slice(0, 4).map(([k, v]) => `${k}: ${v ?? "â€”"}`).join(" Â· ")}
+                    {Object.entries(r).slice(0, 4).map(([k, v]) => `${k}: ${v ?? "—"}`).join(" · ")}
                   </p>
                 ))}
               </div>
             ))}
             {events.length > 0 && (
               <Button size="sm" variant="secondary" onClick={() => onEventsChange([])}>
-                <Trash2 className="size-3.5" /> Limpar histÃ³rico
+                <Trash2 className="size-3.5" /> Limpar histórico
               </Button>
             )}
           </TabsContent>
@@ -273,7 +273,7 @@ export function AlertsDialog({
           <TabsContent value="notify" className="space-y-3">
             <div className="flex items-center justify-between rounded-lg border border-border bg-secondary/40 p-3">
               <div>
-                <p className="text-sm font-medium">Receber notificaÃ§Ãµes</p>
+                <p className="text-sm font-medium">Receber notificações</p>
                 <p className="text-xs text-muted-foreground">Ativa o envio por e-mail e webhook.</p>
               </div>
               <Switch checked={p.enabled} onCheckedChange={(v) => setPrefs({ enabled: v })} />
@@ -325,7 +325,7 @@ export function AlertsDialog({
                         })
                       }
                     />
-                    {sev === "critical" ? "CrÃ­tico" : "AtenÃ§Ã£o"}
+                    {sev === "critical" ? "Crítico" : "Atenção"}
                   </label>
                 ))}
               </div>
@@ -334,7 +334,7 @@ export function AlertsDialog({
             <div className="space-y-2 rounded-lg border border-border bg-secondary/40 p-3">
               <Label className="text-sm">Regras notificadas</Label>
               <p className="text-xs text-muted-foreground">
-                Sem seleÃ§Ã£o, todas as regras notificam.
+                Sem seleção, todas as regras notificam.
               </p>
               {rules.map((r) => (
                 <label key={r.id} className="flex items-center gap-2 text-sm">
@@ -359,5 +359,3 @@ export function AlertsDialog({
     </Dialog>
   );
 }
-
-

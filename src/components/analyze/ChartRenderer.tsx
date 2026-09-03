@@ -1,4 +1,4 @@
-﻿import {
+import {
   Area,
   AreaChart,
   Bar,
@@ -125,7 +125,7 @@ function tooltipStyle() {
 
 const truncate = (v: unknown) => {
   const s = String(v ?? "");
-  return s.length > 14 ? `${s.slice(0, 13)}â€¦` : s;
+  return s.length > 14 ? `${s.slice(0, 13)}…` : s;
 };
 
 export function ChartRenderer({
@@ -420,5 +420,3 @@ export function ChartRenderer({
     </ResponsiveContainer>
   );
 }
-
-
