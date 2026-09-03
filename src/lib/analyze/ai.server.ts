@@ -1,33 +1,25 @@
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-const MODEL = "google/gemini-2.5-flash";
+import { askAI } from "@/lib/ai";
 
 type Content =
   | { type: "text"; text: string }
   | { type: "file"; file: { filename: string; file_data: string } };
 
 export async function callGateway(system: string, content: Content[]): Promise<string> {
-  const key = process.env["LOVABLE_API_KEY"];
-  if (!key) throw new Error("LOVABLE_API_KEY ausente");
+  // Extract text and file references from content
+  const textParts = content.map((c) => {
+    if (c.type === "text") return c.text;
+    if (c.type === "file") return `[Arquivo anexado: ${c.file.filename}]`;
+    return "";
+  }).filter(Boolean);
 
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
-    body: JSON.stringify({
-      model: MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
+  const fullPrompt = `${system}\n\nENTRADA E DADOS PARA ANÁLISE:\n${textParts.join("\n")}`;
 
-  if (res.status === 429) throw new Error("Limite de requisições atingido. Tente novamente em instantes.");
-  if (res.status === 402) throw new Error("Créditos de IA esgotados. Adicione créditos no workspace.");
-  if (!res.ok) throw new Error(`Falha na IA [${res.status}]: ${await res.text()}`);
-
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
-  return json.choices?.[0]?.message?.content ?? "";
+  try {
+    return await askAI(fullPrompt, "bi_dashboard_generation");
+  } catch (e: any) {
+    console.warn("Falha ao chamar provedor de IA para BI:", e);
+    throw new Error(e?.message || "Erro ao processar dados na IA.");
+  }
 }
 
 export function parseJson<T>(text: string, fallback: T): T {
@@ -48,7 +40,7 @@ export function parseJson<T>(text: string, fallback: T): T {
   }
 }
 
-export const DASHBOARD_SYSTEM = `Você é um analista de BI. Recebe o esquema e uma amostra de um conjunto de dados e devolve a especificação de um dashboard executivo em JSON.
+export const DASHBOARD_SYSTEM = `Você é um analista de BI especialista. Recebe o esquema e uma amostra de um conjunto de dados e devolve a especificação de um dashboard executivo em JSON.
 
 Responda SOMENTE com JSON no formato:
 {

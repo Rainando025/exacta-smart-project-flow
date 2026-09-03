@@ -38,9 +38,12 @@ export function getAIConfig(): AIConfig {
     console.error("Erro ao ler config de IA do localStorage", e);
   }
 
+  const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as Record<string, string | undefined>;
+  const procEnv = (typeof process !== "undefined" ? process.env : {}) as Record<string, string | undefined>;
+
   return {
-    geminiKey: import.meta.env.VITE_GEMINI_API_KEY || "",
-    groqKey: import.meta.env.VITE_GROQ_API_KEY || "",
+    geminiKey: env?.VITE_GEMINI_API_KEY || procEnv?.VITE_GEMINI_API_KEY || procEnv?.GEMINI_API_KEY || "",
+    groqKey: env?.VITE_GROQ_API_KEY || procEnv?.VITE_GROQ_API_KEY || procEnv?.GROQ_API_KEY || "",
     preferredProvider: "auto",
     modelName: "",
   };
@@ -139,14 +142,18 @@ export async function testAIConnection(
 
 export async function askGemini(prompt: string, customKey?: string): Promise<string> {
   const cfg = getAIConfig();
-  const key = customKey || cfg.geminiKey || import.meta.env.VITE_GEMINI_API_KEY;
+  const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as Record<string, string | undefined>;
+  const procEnv = (typeof process !== "undefined" ? process.env : {}) as Record<string, string | undefined>;
+  const key = customKey || cfg.geminiKey || env?.VITE_GEMINI_API_KEY || procEnv?.GEMINI_API_KEY;
   if (!key) throw new Error("Chave de API do Google Gemini não configurada.");
   return tryGeminiWithFallback(key, prompt);
 }
 
 export async function askGroq(prompt: string, customKey?: string): Promise<string> {
   const cfg = getAIConfig();
-  const key = customKey || cfg.groqKey || import.meta.env.VITE_GROQ_API_KEY;
+  const env = (typeof import.meta !== "undefined" ? import.meta.env : {}) as Record<string, string | undefined>;
+  const procEnv = (typeof process !== "undefined" ? process.env : {}) as Record<string, string | undefined>;
+  const key = customKey || cfg.groqKey || env?.VITE_GROQ_API_KEY || procEnv?.GROQ_API_KEY;
   if (!key) throw new Error("Chave de API da Groq não configurada.");
   return tryGroqWithFallback(key, prompt);
 }
