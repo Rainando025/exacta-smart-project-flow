@@ -60,7 +60,7 @@ import { KpiEditorDialog } from "@/components/analyze/KpiEditorDialog";
 import { RemindersDialog } from "@/components/analyze/RemindersDialog";
 import { buildAlertEvents, evaluateAlerts, type AlertEvent, type AlertRule } from "@/lib/analyze/alerts";
 import { dispatchAlertNotification } from "@/lib/analyze/notify.functions";
-import { aggregateKpi, formatNumber, formatKpiValue } from "@/lib/analyze/aggregate";
+import { aggregateKpi, formatNumber, formatKpiValue, buildHeuristicDashboard } from "@/lib/analyze/aggregate";
 import { isAudioEnabled, setAudioEnabled, playChime, playWarning } from "@/lib/analyze/audio";
 import { buildDataset, fileToBase64, mergeDataset, parseCsvText, parseWorkbook } from "@/lib/analyze/parse-file";
 import { extractDocument, generateDashboard } from "@/lib/analyze/ai.functions";
@@ -124,7 +124,7 @@ function Index() {
   const [pages, setPages] = useState<Page[]>([]);
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const [theme, setTheme] = useState<"dark" | "light">("light");
   const [loading, setLoading] = useState<string | null>(null);
   const [orientation, setOrientation] = useState<"landscape" | "portrait">("landscape");
   const [editing, setEditing] = useState<ChartSpec | null>(null);
@@ -160,7 +160,7 @@ function Index() {
 
   /* ---------------- tema ---------------- */
   useEffect(() => {
-    const saved = (localStorage.getItem(THEME_KEY) as "dark" | "light" | null) ?? "dark";
+    const saved = (localStorage.getItem(THEME_KEY) as "dark" | "light" | null) ?? "light";
     setTheme(saved);
   }, []);
   useEffect(() => {
@@ -370,14 +370,30 @@ function Index() {
     async (pageId: string, ds: Dataset) => {
       setLoading("Gerando dashboard com IA...");
       try {
-        const spec = await generateDashboard({
-          data: { name: ds.name, fields: ds.fields, sample: ds.rows.slice(0, 40), rowCount: ds.rows.length },
-        });
-        const valid = new Set(ds.fields.map((f) => f.name));
-        spec.charts = spec.charts.filter((c) => valid.has(c.dimension));
-        spec.kpis = spec.kpis.filter((k) => !k.field || valid.has(k.field));
+        let spec: Dashboard | null = null;
+        try {
+          spec = await generateDashboard({
+            data: { name: ds.name, fields: ds.fields, sample: ds.rows.slice(0, 40), rowCount: ds.rows.length },
+          });
+        } catch (err) {
+          console.warn("Provedor de IA indisponível ou sem resposta, usando gerador heurístico:", err);
+        }
+
+        if (!spec || !spec.charts || spec.charts.length === 0) {
+          spec = buildHeuristicDashboard(ds.name, ds.fields, ds.rows, ds.rows.length);
+        } else {
+          const valid = new Set(ds.fields.map((f) => f.name));
+          spec.charts = spec.charts.filter((c) => valid.has(c.dimension));
+          spec.kpis = spec.kpis.filter((k) => !k.field || valid.has(k.field));
+          if (spec.charts.length === 0) {
+            const fallback = buildHeuristicDashboard(ds.name, ds.fields, ds.rows, ds.rows.length);
+            spec.charts = fallback.charts;
+            if (spec.kpis.length === 0) spec.kpis = fallback.kpis;
+          }
+        }
+
         patchPage(pageId, { dashboard: spec });
-        toast.success("Dashboard gerado", { description: `${spec.charts.length} gráficos criados` });
+        toast.success("Dashboard gerado com sucesso!", { description: `${spec.charts.length} gráficos e ${spec.kpis.length} indicadores criados` });
       } catch (e) {
         toast.error("Falha ao analisar", { description: (e as Error).message });
       } finally {
@@ -441,12 +457,13 @@ function Index() {
 
         const ds = buildDataset(file.name, rows);
         const name = file.name.replace(/\.[^.]+$/, "");
+        const autoDashboard = buildHeuristicDashboard(name, ds.fields, ds.rows, ds.rows.length);
         const newPage: Page = {
           id: `page-${Date.now()}`,
           name,
           icon: pickIcon(name),
           dataset: ds,
-          dashboard: null,
+          dashboard: autoDashboard,
           views: [],
           annotations: [],
           history: [

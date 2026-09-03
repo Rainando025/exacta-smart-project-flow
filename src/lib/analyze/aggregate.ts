@@ -1,4 +1,4 @@
-import type { Agg, ChartSpec, Field, Row } from "./types";
+import type { Agg, ChartSpec, Dashboard, Field, Row } from "./types";
 import { formatGrain, grainSortKey, isDateLike, parseDateValue, type DateGrain } from "./date-grain";
 
 export function inferFields(rows: Row[]): Field[] {
@@ -154,4 +154,162 @@ export function formatKpiValue(n: number, format?: "compact" | "currency" | "per
     default:
       return n.toString();
   }
+}
+
+export function buildHeuristicDashboard(
+  name: string,
+  fields: Field[],
+  sample: Row[],
+  rowCount: number
+): Dashboard {
+  const numericFields = fields.filter((f) => f.type === "number");
+  const dateFields = fields.filter((f) => f.type === "date");
+  const categoricalFields = fields.filter((f) => f.type === "string");
+
+  const kpis: Dashboard["kpis"] = [
+    {
+      id: "kpi-0",
+      label: "Total de Registros",
+      field: null,
+      agg: "count",
+      accent: 0,
+    },
+  ];
+
+  let kpiIdx = 1;
+  for (const numF of numericFields) {
+    if (kpiIdx >= 4) break;
+    if (/^id$/i.test(numF.name) || /_id$/i.test(numF.name)) continue;
+    kpis.push({
+      id: `kpi-${kpiIdx}`,
+      label: `Total de ${numF.name}`,
+      field: numF.name,
+      agg: "sum",
+      accent: kpiIdx % 6,
+    });
+    kpiIdx++;
+  }
+
+  for (const catF of categoricalFields) {
+    if (kpiIdx >= 5) break;
+    if (/^id$/i.test(catF.name)) continue;
+    kpis.push({
+      id: `kpi-${kpiIdx}`,
+      label: `${catF.name}s Distintos`,
+      field: catF.name,
+      agg: "distinct",
+      accent: kpiIdx % 6,
+    });
+    kpiIdx++;
+  }
+
+  const charts: Dashboard["charts"] = [];
+  let chartIdx = 0;
+
+  const mainDate = dateFields[0];
+  const mainNum = numericFields.find((f) => !/^id$/i.test(f.name)) ?? numericFields[0];
+  const mainCat = categoricalFields.find((f) => !/^id$/i.test(f.name)) ?? categoricalFields[0];
+  const secondCat = categoricalFields.find((f) => f.name !== mainCat?.name && !/^id$/i.test(f.name));
+
+  if (mainDate) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Evolução por ${mainDate.name}`,
+      type: "area",
+      dimension: mainDate.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      span: 3,
+      palette: 0,
+    });
+  }
+
+  if (mainCat) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Distribuição por ${mainCat.name}`,
+      type: "bar",
+      dimension: mainCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 10,
+      span: 3,
+      palette: 1,
+    });
+  }
+
+  if (secondCat || mainCat) {
+    const targetCat = secondCat ?? mainCat;
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Participação por ${targetCat.name}`,
+      type: "donut",
+      dimension: targetCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 6,
+      span: 3,
+      palette: 2,
+    });
+  }
+
+  const descCat = categoricalFields.find(
+    (f) => /descri/i.test(f.name) || /nome/i.test(f.name) || /produto/i.test(f.name) || /assunto/i.test(f.name)
+  ) ?? categoricalFields[1];
+
+  if (descCat) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Top Registros por ${descCat.name}`,
+      type: "barH",
+      dimension: descCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 10,
+      span: 3,
+      palette: 3,
+    });
+  }
+
+  if (mainCat && secondCat) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `${mainCat.name} vs ${secondCat.name}`,
+      type: "stackedBar",
+      dimension: mainCat.name,
+      series: secondCat.name,
+      measure: mainNum?.name ?? null,
+      agg: mainNum ? "sum" : "count",
+      limit: 8,
+      span: 3,
+      palette: 4,
+    });
+  }
+
+  const secondNum = numericFields.find((f) => f.name !== mainNum?.name && !/^id$/i.test(f.name));
+  if (secondNum && mainCat) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Média de ${secondNum.name} por ${mainCat.name}`,
+      type: "line",
+      dimension: mainCat.name,
+      measure: secondNum.name,
+      agg: "avg",
+      limit: 10,
+      span: 3,
+      palette: 5,
+    });
+  }
+
+  return {
+    title: name,
+    subtitle: `${rowCount.toLocaleString("pt-BR")} registros analisados`,
+    kpis,
+    charts,
+    insights: [
+      `Análise automática concluída para a base "${name}" com ${rowCount.toLocaleString("pt-BR")} registros.`,
+      mainCat ? `A categoria "${mainCat.name}" concentra a maior representatividade nos dados.` : "",
+      mainNum ? `A coluna "${mainNum.name}" foi identificada como métrica principal de valor.` : "",
+    ].filter(Boolean),
+  };
 }
