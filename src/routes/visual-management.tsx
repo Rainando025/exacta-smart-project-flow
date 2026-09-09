@@ -288,12 +288,134 @@ function GutMatrix({ issues, setIssues }: { issues: any[], setIssues: any }) {
 }
 
 // --- Flowchart Tool ---
-function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], setNodes: any, edges: any[], setEdges: any }) {
+type AnchorHandle = "top" | "right" | "bottom" | "left";
+
+interface NodeDimensions {
+  w: number;
+  h: number;
+  anchors: Record<AnchorHandle, { x: number; y: number }>;
+}
+
+function getNodeDimensions(type: string): NodeDimensions {
+  switch (type) {
+    case "process":
+      return {
+        w: 140,
+        h: 80,
+        anchors: {
+          top: { x: 70, y: 0 },
+          right: { x: 140, y: 40 },
+          bottom: { x: 70, y: 80 },
+          left: { x: 0, y: 40 },
+        },
+      };
+    case "start":
+      return {
+        w: 100,
+        h: 100,
+        anchors: {
+          top: { x: 50, y: 0 },
+          right: { x: 100, y: 50 },
+          bottom: { x: 50, y: 100 },
+          left: { x: 0, y: 50 },
+        },
+      };
+    case "decision":
+      return {
+        w: 120,
+        h: 120,
+        anchors: {
+          top: { x: 60, y: 0 },
+          right: { x: 120, y: 60 },
+          bottom: { x: 60, y: 120 },
+          left: { x: 0, y: 60 },
+        },
+      };
+    case "data":
+      return {
+        w: 140,
+        h: 80,
+        anchors: {
+          top: { x: 80, y: 0 },
+          right: { x: 130, y: 40 },
+          bottom: { x: 60, y: 80 },
+          left: { x: 10, y: 40 },
+        },
+      };
+    case "text":
+    default:
+      return {
+        w: 120,
+        h: 40,
+        anchors: {
+          top: { x: 60, y: 0 },
+          right: { x: 120, y: 20 },
+          bottom: { x: 60, y: 40 },
+          left: { x: 0, y: 20 },
+        },
+      };
+  }
+}
+
+function getAnchorCanvasPos(node: any, handle?: AnchorHandle | string): { x: number; y: number } {
+  const dims = getNodeDimensions(node.type);
+  const hKey = (handle as AnchorHandle) || "right";
+  const rel = dims.anchors[hKey] || { x: dims.w / 2, y: dims.h / 2 };
+  return { x: node.x + rel.x, y: node.y + rel.y };
+}
+
+function getBestHandles(sourceNode: any, targetNode: any): { sourceHandle: AnchorHandle; targetHandle: AnchorHandle } {
+  const handles: AnchorHandle[] = ["top", "right", "bottom", "left"];
+  let bestDist = Infinity;
+  let bestSource: AnchorHandle = "right";
+  let bestTarget: AnchorHandle = "left";
+
+  for (const sH of handles) {
+    const sPos = getAnchorCanvasPos(sourceNode, sH);
+    for (const tH of handles) {
+      const tPos = getAnchorCanvasPos(targetNode, tH);
+      const d = Math.hypot(tPos.x - sPos.x, tPos.y - sPos.y);
+      if (d < bestDist) {
+        bestDist = d;
+        bestSource = sH;
+        bestTarget = tH;
+      }
+    }
+  }
+  return { sourceHandle: bestSource, targetHandle: bestTarget };
+}
+
+function getBezierPath(sPos: { x: number; y: number }, tPos: { x: number; y: number }, sH: AnchorHandle, tH: AnchorHandle) {
+  const dx = Math.abs(tPos.x - sPos.x);
+  const dy = Math.abs(tPos.y - sPos.y);
+  const dist = Math.hypot(dx, dy);
+  const curvature = Math.max(30, Math.min(dist * 0.45, 140));
+
+  let c1 = { ...sPos };
+  let c2 = { ...tPos };
+
+  if (sH === "top") c1.y -= curvature;
+  else if (sH === "right") c1.x += curvature;
+  else if (sH === "bottom") c1.y += curvature;
+  else if (sH === "left") c1.x -= curvature;
+
+  if (tH === "top") c2.y -= curvature;
+  else if (tH === "right") c2.x += curvature;
+  else if (tH === "bottom") c2.y += curvature;
+  else if (tH === "left") c2.x -= curvature;
+
+  return `M ${sPos.x} ${sPos.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${tPos.x} ${tPos.y}`;
+}
+
+function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[]; setNodes: any; edges: any[]; setEdges: any }) {
   const [draggingNode, setDraggingNode] = useState<string | null>(null);
-  const [connectingNode, setConnectingNode] = useState<string | null>(null);
+  const [connectingStart, setConnectingStart] = useState<{ nodeId: string; handle: AnchorHandle } | null>(null);
+  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
+  const [hoveredAnchor, setHoveredAnchor] = useState<{ nodeId: string; handle: AnchorHandle } | null>(null);
+  const [mouseCanvasPos, setMouseCanvasPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [viewTransform, setViewTransform] = useState({ x: 0, y: 0, zoom: 1 });
-  const [selectedElement, setSelectedElement] = useState<{ type: 'node' | 'edge', id: string } | null>(null);
+  const [selectedElement, setSelectedElement] = useState<{ type: "node" | "edge"; id: string } | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const exportToImage = () => {
@@ -305,12 +427,12 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
     const img = new Image();
     const svgSize = svg.getBoundingClientRect();
 
-    canvas.width = svgSize.width * 2; // High resolution
+    canvas.width = svgSize.width * 2;
     canvas.height = svgSize.height * 2;
 
     img.onload = () => {
       if (ctx) {
-        ctx.fillStyle = "#f9fafb"; // Background color
+        ctx.fillStyle = "#0f172a";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
         const pngFile = canvas.toDataURL("image/png");
@@ -328,66 +450,117 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
     const newNode = {
       id,
       type,
-      x: (200 - viewTransform.x) / viewTransform.zoom,
-      y: (200 - viewTransform.y) / viewTransform.zoom,
-      label: type === 'text' ? 'Novo Texto' : 'Novo ' + type,
-      color: '#3b82f6'
+      x: (250 - viewTransform.x) / viewTransform.zoom,
+      y: (150 - viewTransform.y) / viewTransform.zoom,
+      label: type === "text" ? "Novo Texto" : "Novo " + type,
+      color: "#3b82f6",
     };
     setNodes([...nodes, newNode]);
+    setSelectedElement({ type: "node", id });
   };
 
-  const handleMouseDown = (id: string, e: React.MouseEvent) => {
+  const handleMouseDownNode = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setSelectedElement({ type: "node", id });
+
     if (e.shiftKey) {
-      setConnectingNode(id);
-    } else {
-      const node = nodes.find(n => n.id === id);
-      if (node) {
-        setDraggingNode(id);
-        setOffset({ x: e.clientX - node.x * viewTransform.zoom, y: e.clientY - node.y * viewTransform.zoom });
-      }
+      setConnectingStart({ nodeId: id, handle: "right" });
+      return;
     }
-    setSelectedElement({ type: 'node', id });
+
+    const node = nodes.find((n) => n.id === id);
+    if (node) {
+      setDraggingNode(id);
+      setOffset({ x: e.clientX - node.x * viewTransform.zoom, y: e.clientY - node.y * viewTransform.zoom });
+    }
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
+  const handleStartConnection = (nodeId: string, handle: AnchorHandle, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setConnectingStart({ nodeId, handle });
+    setSelectedElement(null);
+  };
+
+  const handleTargetNodeClick = (targetNodeId: string, targetHandle?: AnchorHandle) => {
+    if (!connectingStart) return;
+    if (connectingStart.nodeId === targetNodeId) {
+      setConnectingStart(null);
+      return;
+    }
+
+    const sourceNode = nodes.find((n) => n.id === connectingStart.nodeId);
+    const targetNode = nodes.find((n) => n.id === targetNodeId);
+    if (!sourceNode || !targetNode) return;
+
+    const chosenHandles = targetHandle
+      ? { sourceHandle: connectingStart.handle, targetHandle }
+      : { sourceHandle: connectingStart.handle, targetHandle: getBestHandles(sourceNode, targetNode).targetHandle };
+
+    let edgeLabel = "";
+    if (sourceNode.type === "decision") {
+      const existingEdges = edges.filter((e) => e.source === connectingStart.nodeId);
+      edgeLabel = existingEdges.length === 0 ? "Sim" : "Não";
+    }
+
+    const newEdge = {
+      id: "edge-" + Math.random().toString(36).substr(2, 9),
+      source: connectingStart.nodeId,
+      target: targetNodeId,
+      sourceHandle: chosenHandles.sourceHandle,
+      targetHandle: chosenHandles.targetHandle,
+      label: edgeLabel,
+    };
+
+    setEdges([...edges, newEdge]);
+    setConnectingStart(null);
+    toast.success("Conexão criada entre bordas!");
+  };
+
+  const handleSvgMouseMove = (e: React.MouseEvent) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const mouseX = (e.clientX - rect.left - viewTransform.x) / viewTransform.zoom;
+    const mouseY = (e.clientY - rect.top - viewTransform.y) / viewTransform.zoom;
+    setMouseCanvasPos({ x: mouseX, y: mouseY });
+
     if (draggingNode) {
-      setNodes(nodes.map(n =>
-        n.id === draggingNode
-          ? { ...n, x: (e.clientX - offset.x) / viewTransform.zoom, y: (e.clientY - offset.y) / viewTransform.zoom }
-          : n
-      ));
+      setNodes(
+        nodes.map((n) =>
+          n.id === draggingNode
+            ? { ...n, x: (e.clientX - offset.x) / viewTransform.zoom, y: (e.clientY - offset.y) / viewTransform.zoom }
+            : n
+        )
+      );
     }
   };
 
-  const handleMouseUp = (id?: string) => {
-    if (connectingNode && id && connectingNode !== id) {
-      const sourceNode = nodes.find(n => n.id === connectingNode);
-      let edgeLabel = "";
-      if (sourceNode?.type === 'decision') {
-        const existingEdges = edges.filter(e => e.source === connectingNode);
-        edgeLabel = existingEdges.length === 0 ? "Sim" : "Não";
-      }
-      setEdges([...edges, { id: Math.random().toString(36).substr(2, 9), source: connectingNode, target: id, label: edgeLabel }]);
-    }
+  const handleSvgMouseUp = () => {
     setDraggingNode(null);
-    setConnectingNode(null);
   };
 
   const deleteElement = () => {
     if (!selectedElement) return;
-    if (selectedElement.type === 'node') {
-      setNodes(nodes.filter(n => n.id !== selectedElement.id));
-      setEdges(edges.filter(e => e.source !== selectedElement.id && e.target !== selectedElement.id));
+    if (selectedElement.type === "node") {
+      setNodes(nodes.filter((n) => n.id !== selectedElement.id));
+      setEdges(edges.filter((e) => e.source !== selectedElement.id && e.target !== selectedElement.id));
     } else {
-      setEdges(edges.filter(e => e.id !== selectedElement.id));
+      setEdges(edges.filter((e) => e.id !== selectedElement.id));
     }
     setSelectedElement(null);
   };
 
+  const editEdgeLabel = (edgeId: string) => {
+    const edge = edges.find((e) => e.id === edgeId);
+    if (!edge) return;
+    const newLabel = prompt("Rótulo da ligação / caminho:", edge.label || "");
+    if (newLabel !== null) {
+      setEdges(edges.map((e) => (e.id === edgeId ? { ...e, label: newLabel } : e)));
+    }
+  };
+
   const updateSelectedNode = (updates: any) => {
-    if (selectedElement?.type === 'node') {
-      setNodes(nodes.map(n => n.id === selectedElement.id ? { ...n, ...updates } : n));
+    if (selectedElement?.type === "node") {
+      setNodes(nodes.map((n) => (n.id === selectedElement.id ? { ...n, ...updates } : n)));
     }
   };
 
@@ -401,12 +574,30 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
 
   const colors = ["#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#6366f1", "#ec4899", "#ffffff"];
 
+  const handlesList: AnchorHandle[] = ["top", "right", "bottom", "left"];
+
   return (
-    <div className="flex flex-col h-[calc(100vh-250px)] min-h-[600px] border rounded-2xl overflow-hidden bg-muted/5 relative" onMouseMove={handleMouseMove} onMouseUp={() => handleMouseUp()}>
+    <div
+      className="flex flex-col h-[calc(100vh-210px)] min-h-[680px] w-full border border-white/10 rounded-2xl overflow-hidden bg-muted/5 relative shadow-card"
+      onMouseMove={handleSvgMouseMove}
+      onMouseUp={handleSvgMouseUp}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") setConnectingStart(null);
+        if (e.key === "Delete" || e.key === "Backspace") deleteElement();
+      }}
+      tabIndex={0}
+    >
       {/* Toolbar */}
-      <div className="absolute left-4 top-4 flex flex-col gap-2 p-2 rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-elegant z-20">
-        {tools.map(t => (
-          <Button key={t.type} variant="ghost" size="icon" className="h-10 w-10 rounded-xl hover:bg-accent/20 hover:text-accent" title={t.label} onClick={() => addNode(t.type)}>
+      <div className="absolute left-4 top-4 flex flex-col gap-2 p-2 rounded-2xl border border-white/10 bg-card/90 backdrop-blur-xl shadow-elegant z-20">
+        {tools.map((t) => (
+          <Button
+            key={t.type}
+            variant="ghost"
+            size="icon"
+            className="h-10 w-10 rounded-xl hover:bg-accent/20 hover:text-accent"
+            title={t.label}
+            onClick={() => addNode(t.type)}
+          >
             <t.icon className="h-5 w-5" />
           </Button>
         ))}
@@ -420,43 +611,68 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
       </div>
 
       {/* Viewport controls */}
-      <div className="absolute right-4 top-4 flex items-center gap-2 p-1 rounded-xl border border-white/10 bg-card/80 backdrop-blur-xl z-20">
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewTransform(t => ({ ...t, zoom: t.zoom * 1.1 }))}><Plus className="h-4 w-4" /></Button>
-        <span className="text-[10px] font-bold min-w-[30px] text-center">{Math.round(viewTransform.zoom * 100)}%</span>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewTransform(t => ({ ...t, zoom: t.zoom / 1.1 }))}><Minus className="h-4 w-4" /></Button>
+      <div className="absolute right-4 top-4 flex items-center gap-2 p-1 rounded-xl border border-white/10 bg-card/90 backdrop-blur-xl z-20">
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewTransform((t) => ({ ...t, zoom: t.zoom * 1.1 }))}>
+          <Plus className="h-4 w-4" />
+        </Button>
+        <span className="text-[10px] font-bold min-w-[34px] text-center">{Math.round(viewTransform.zoom * 100)}%</span>
+        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewTransform((t) => ({ ...t, zoom: Math.max(0.3, t.zoom / 1.1) }))}>
+          <Minus className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="h-8 text-[11px] px-2 font-bold" onClick={() => setViewTransform({ x: 0, y: 0, zoom: 1 })}>
+          Reset
+        </Button>
       </div>
 
+      {/* Connection Mode Indicator Banner */}
+      {connectingStart && (
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground px-4 py-2 rounded-full shadow-lg z-30 flex items-center gap-2 text-xs font-bold animate-pulse">
+          <Workflow className="h-4 w-4" />
+          <span>Clique no ponto ou forma de destino para conectar (ESC para cancelar)</span>
+          <button onClick={() => setConnectingStart(null)} className="ml-2 bg-black/20 rounded-full p-1 hover:bg-black/40">
+            &times;
+          </button>
+        </div>
+      )}
+
       {/* Properties Panel */}
-      {selectedElement?.type === 'node' && (
-        <div className="absolute right-4 bottom-4 w-64 p-4 rounded-2xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-elegant z-20 animate-in slide-in-from-right-4">
-          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Propriedades</h4>
+      {selectedElement?.type === "node" && (
+        <div className="absolute right-4 bottom-4 w-64 p-4 rounded-2xl border border-white/10 bg-card/90 backdrop-blur-xl shadow-elegant z-20 animate-in slide-in-from-right-4">
+          <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground mb-3">Propriedades da Forma</h4>
           <div className="space-y-4">
             <div>
               <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Tipo de Forma</Label>
               <select
-                value={nodes.find(n => n.id === selectedElement.id)?.type || ""}
+                value={nodes.find((n) => n.id === selectedElement.id)?.type || ""}
                 onChange={(e) => updateSelectedNode({ type: e.target.value })}
                 className="w-full h-8 text-xs bg-muted/20 rounded-md border border-white/10 px-2"
               >
-                {tools.map(t => <option key={t.type} value={t.type}>{t.label}</option>)}
+                {tools.map((t) => (
+                  <option key={t.type} value={t.type}>
+                    {t.label}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
-              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Rótulo</Label>
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Rótulo / Texto</Label>
               <Input
-                value={nodes.find(n => n.id === selectedElement.id)?.label || ""}
+                value={nodes.find((n) => n.id === selectedElement.id)?.label || ""}
                 onChange={(e) => updateSelectedNode({ label: e.target.value })}
                 className="h-8 text-xs bg-muted/20"
               />
             </div>
             <div>
-              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cor</Label>
+              <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cor do Destaque</Label>
               <div className="flex flex-wrap gap-2">
-                {colors.map(c => (
+                {colors.map((c) => (
                   <button
                     key={c}
                     onClick={() => updateSelectedNode({ color: c })}
-                    className={cn("h-5 w-5 rounded-full border border-white/20", nodes.find(n => n.id === selectedElement.id)?.color === c && "ring-2 ring-accent ring-offset-2 ring-offset-background")}
+                    className={cn(
+                      "h-5 w-5 rounded-full border border-white/20 transition-transform hover:scale-110",
+                      nodes.find((n) => n.id === selectedElement.id)?.color === c && "ring-2 ring-accent ring-offset-2 ring-offset-background"
+                    )}
                     style={{ backgroundColor: c }}
                   />
                 ))}
@@ -473,94 +689,198 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[], set
         onMouseDown={(e) => {
           if (e.button === 0 && e.target === e.currentTarget) {
             setSelectedElement(null);
+            setConnectingStart(null);
           }
         }}
       >
-        <g transform={`translate(${viewTransform.x}, ${viewTransform.y}) scale(${viewTransform.zoom})`}>
-          {/* Grid lines for professional look */}
-          <defs>
-            <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-              <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeOpacity="0.05" strokeWidth="1" />
-            </pattern>
-          </defs>
-          <rect width="5000" height="5000" x="-2500" y="-2500" fill="url(#grid)" />
+        <defs>
+          <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeOpacity="0.06" strokeWidth="1" />
+          </pattern>
 
-          {/* Edges */}
-          {edges.map(edge => {
-            const source = nodes.find(n => n.id === edge.source);
-            const target = nodes.find(n => n.id === edge.target);
+          <marker id="arrowhead" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+            <polygon points="0 0, 12 4, 0 8" fill="#60a5fa" />
+          </marker>
+          <marker id="arrowhead-selected" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+            <polygon points="0 0, 12 4, 0 8" fill="#3b82f6" />
+          </marker>
+        </defs>
+
+        <g transform={`translate(${viewTransform.x}, ${viewTransform.y}) scale(${viewTransform.zoom})`}>
+          <rect width="8000" height="8000" x="-4000" y="-4000" fill="url(#grid-pattern)" />
+
+          {/* Existing Edges */}
+          {edges.map((edge) => {
+            const source = nodes.find((n) => n.id === edge.source);
+            const target = nodes.find((n) => n.id === edge.target);
             if (!source || !target) return null;
 
-            const d = `M ${source.x + (source.type === 'process' ? 64 : 48)} ${source.y + (source.type === 'process' ? 40 : 48)} L ${target.x + (target.type === 'process' ? 64 : 48)} ${target.y + (target.type === 'process' ? 40 : 48)}`;
+            const handlePair =
+              edge.sourceHandle && edge.targetHandle
+                ? { sourceHandle: edge.sourceHandle as AnchorHandle, targetHandle: edge.targetHandle as AnchorHandle }
+                : getBestHandles(source, target);
+
+            const sPos = getAnchorCanvasPos(source, handlePair.sourceHandle);
+            const tPos = getAnchorCanvasPos(target, handlePair.targetHandle);
+            const pathD = getBezierPath(sPos, tPos, handlePair.sourceHandle, handlePair.targetHandle);
+            const isSelected = selectedElement?.id === edge.id;
+
+            const midX = (sPos.x + tPos.x) / 2;
+            const midY = (sPos.y + tPos.y) / 2;
 
             return (
-              <g key={edge.id} onClick={() => setSelectedElement({ type: 'edge', id: edge.id })}>
+              <g key={edge.id} className="cursor-pointer group" onClick={() => setSelectedElement({ type: "edge", id: edge.id })} onDoubleClick={() => editEdgeLabel(edge.id)}>
+                <path d={pathD} stroke="transparent" strokeWidth="14" fill="none" />
                 <path
-                  d={d}
-                  stroke={selectedElement?.id === edge.id ? "#3b82f6" : "#94a3b8"}
-                  strokeWidth="2"
+                  d={pathD}
+                  stroke={isSelected ? "#3b82f6" : "#60a5fa"}
+                  strokeWidth={isSelected ? "3" : "2"}
                   fill="none"
-                  markerEnd="url(#arrowhead)"
+                  strokeDasharray={isSelected ? "5 3" : undefined}
+                  markerEnd={isSelected ? "url(#arrowhead-selected)" : "url(#arrowhead)"}
+                  className="transition-colors group-hover:stroke-accent"
                 />
+
                 {edge.label && (
-                  <text
-                    x={(source.x + target.x) / 2 + 60}
-                    y={(source.y + target.y) / 2 + 50}
-                    className="text-[10px] font-bold fill-muted-foreground bg-background"
-                  >
-                    {edge.label}
-                  </text>
+                  <g transform={`translate(${midX}, ${midY})`}>
+                    <rect x="-24" y="-12" width="48" height="20" rx="6" fill="#1e293b" stroke="#3b82f6" strokeWidth="1" />
+                    <text x="0" y="2" textAnchor="middle" dominantBaseline="middle" className="text-[10px] font-bold fill-white pointer-events-none">
+                      {edge.label}
+                    </text>
+                  </g>
                 )}
               </g>
             );
           })}
 
-          <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
-              <polygon points="0 0, 10 3.5, 0 7" fill="#94a3b8" />
-            </marker>
-          </defs>
+          {/* Active Live Connecting Line Preview */}
+          {connectingStart && (() => {
+            const startNode = nodes.find((n) => n.id === connectingStart.nodeId);
+            if (!startNode) return null;
+            const sPos = getAnchorCanvasPos(startNode, connectingStart.handle);
+            const activePath = getBezierPath(sPos, mouseCanvasPos, connectingStart.handle, "left");
 
-          {/* Nodes */}
-          {nodes.map(node => (
-            <g
-              key={node.id}
-              transform={`translate(${node.x}, ${node.y})`}
-              onMouseDown={(e) => handleMouseDown(node.id, e)}
-              onMouseUp={() => handleMouseUp(node.id)}
-              className={cn("cursor-move group", selectedElement?.id === node.id && "filter drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]")}
-            >
-              {node.type === 'start' && <circle r="48" cx="48" cy="48" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
-              {node.type === 'process' && <rect width="128" height="80" rx="8" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
-              {node.type === 'decision' && <polygon points="64,0 128,64 64,128 0,64" transform="scale(0.75)" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
-              {node.type === 'data' && <polygon points="20,0 128,0 108,80 0,80" fill={node.color} fillOpacity="0.1" stroke={node.color} strokeWidth="2" />}
-              {node.type === 'text' && <text dy="1em" className="text-sm font-medium fill-foreground">{node.label}</text>}
+            return (
+              <g className="pointer-events-none">
+                <path d={activePath} stroke="#3b82f6" strokeWidth="2.5" strokeDasharray="6 4" fill="none" markerEnd="url(#arrowhead-selected)" />
+                <circle cx={mouseCanvasPos.x} cy={mouseCanvasPos.y} r="5" fill="#3b82f6" className="animate-ping" />
+              </g>
+            );
+          })()}
 
-              {node.type !== 'text' && (
+          {/* Render Nodes */}
+          {nodes.map((node) => {
+            const dims = getNodeDimensions(node.type);
+            const isSelected = selectedElement?.id === node.id;
+            const isConnectingSource = connectingStart?.nodeId === node.id;
+
+            return (
+              <g
+                key={node.id}
+                transform={`translate(${node.x}, ${node.y})`}
+                onMouseDown={(e) => handleMouseDownNode(node.id, e)}
+                onClick={() => {
+                  if (connectingStart && connectingStart.nodeId !== node.id) {
+                    handleTargetNodeClick(node.id);
+                  }
+                }}
+                onMouseEnter={() => setHoveredNode(node.id)}
+                onMouseLeave={() => setHoveredNode(null)}
+                className={cn("cursor-move group select-none", isSelected && "filter drop-shadow-[0_0_10px_rgba(59,130,246,0.6)]")}
+              >
+                {/* Shape Geometries */}
+                {node.type === "start" && (
+                  <rect width={dims.w} height={dims.h} rx={dims.h / 2} fill={node.color} fillOpacity="0.15" stroke={node.color} strokeWidth="2.5" />
+                )}
+                {node.type === "process" && (
+                  <rect width={dims.w} height={dims.h} rx="10" fill={node.color} fillOpacity="0.15" stroke={node.color} strokeWidth="2.5" />
+                )}
+                {node.type === "decision" && (
+                  <polygon
+                    points={`${dims.w / 2},0 ${dims.w},${dims.h / 2} ${dims.w / 2},${dims.h} 0,${dims.h / 2}`}
+                    fill={node.color}
+                    fillOpacity="0.15"
+                    stroke={node.color}
+                    strokeWidth="2.5"
+                  />
+                )}
+                {node.type === "data" && (
+                  <polygon
+                    points={`20,0 ${dims.w},0 ${dims.w - 20},${dims.h} 0,${dims.h}`}
+                    fill={node.color}
+                    fillOpacity="0.15"
+                    stroke={node.color}
+                    strokeWidth="2.5"
+                  />
+                )}
+                {node.type === "text" && (
+                  <rect width={dims.w} height={dims.h} rx="6" fill="transparent" stroke={isSelected ? "#3b82f6" : "transparent"} strokeDasharray="3 3" />
+                )}
+
+                {/* Node Label Text */}
                 <text
-                  x={node.type === 'process' ? 64 : node.type === 'decision' ? 48 : 48}
-                  y={node.type === 'process' ? 40 : node.type === 'decision' ? 48 : 48}
+                  x={dims.w / 2}
+                  y={dims.h / 2}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  className="text-[10px] font-black uppercase tracking-tight fill-foreground"
+                  className="text-xs font-bold uppercase tracking-wide fill-foreground pointer-events-none"
                 >
                   {node.label}
                 </text>
-              )}
 
-              {/* Connecting ports */}
-              <circle cx="48" cy="48" r="4" className="opacity-0 group-hover:opacity-100 fill-accent" />
-            </g>
-          ))}
+                {/* Border Connection Handles (Points) */}
+                {(isSelected || hoveredNode === node.id || connectingStart) &&
+                  handlesList.map((hName) => {
+                    const offsetPos = dims.anchors[hName];
+                    const isAnchorHovered = hoveredAnchor?.nodeId === node.id && hoveredAnchor?.handle === hName;
+                    const isStartHandle = isConnectingSource && connectingStart?.handle === hName;
+
+                    return (
+                      <g
+                        key={hName}
+                        transform={`translate(${offsetPos.x}, ${offsetPos.y})`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (connectingStart) {
+                            handleTargetNodeClick(node.id, hName);
+                          } else {
+                            handleStartConnection(node.id, hName, e);
+                          }
+                        }}
+                        onMouseEnter={() => setHoveredAnchor({ nodeId: node.id, handle: hName })}
+                        onMouseLeave={() => setHoveredAnchor(null)}
+                        className="cursor-pointer group/anchor"
+                      >
+                        <circle
+                          r={isAnchorHovered || isStartHandle ? "9" : "6"}
+                          fill="#3b82f6"
+                          fillOpacity={isAnchorHovered || isStartHandle ? "0.4" : "0.2"}
+                          className="transition-all duration-150"
+                        />
+                        <circle
+                          r={isAnchorHovered || isStartHandle ? "5" : "3.5"}
+                          fill={isStartHandle ? "#06b6d4" : isAnchorHovered ? "#60a5fa" : "#ffffff"}
+                          stroke="#3b82f6"
+                          strokeWidth="1.5"
+                          className="transition-all duration-150 shadow-md"
+                        />
+                      </g>
+                    );
+                  })}
+              </g>
+            );
+          })}
         </g>
       </svg>
 
-      {/* Help Overlay */}
-      <div className="absolute left-4 bottom-4 p-3 rounded-xl border border-white/5 bg-black/20 backdrop-blur-md text-[10px] text-muted-foreground space-y-1">
-        <p>• Arraste para mover as formas</p>
-        <p>• SHIFT + Arraste entre formas para conectar</p>
-        <p>• Clique em uma forma para editar propriedades</p>
-        <p>• Decisões criam 'Sim'/'Não' automaticamente</p>
+      {/* Help Instructions Overlay */}
+      <div className="absolute left-4 bottom-4 p-3.5 rounded-xl border border-white/10 bg-black/40 backdrop-blur-md text-[11px] text-muted-foreground space-y-1 z-20">
+        <p className="font-bold text-foreground flex items-center gap-1.5">
+          <Workflow className="h-3.5 w-3.5 text-accent" /> Como conectar formas:
+        </p>
+        <p>1. Passe o mouse sobre qualquer forma para revelar os 4 pontos de conexão nas bordas.</p>
+        <p>2. Clique em um ponto da forma de origem e em seguida clique no destino.</p>
+        <p>3. Dobre clique em uma linha para adicionar ou alterar o texto do caminho (Sim/Não).</p>
       </div>
     </div>
   );
@@ -584,7 +904,7 @@ function VisualManagementPage() {
 
   useEffect(() => {
     const loadProjects = async () => {
-      const { data } = await supabase.from("projects").select("*").order("name");
+      const { data } = await supabase.from("projects").select("id, name").order("name");
       if (data) setProjects(data);
     };
     loadProjects();
@@ -633,7 +953,7 @@ function VisualManagementPage() {
       return;
     }
     const { data, error }: any = await (supabase.from("visual_boards" as any))
-      .select("*")
+      .select("id, data")
       .eq("project_id", selectedProjectId)
       .eq("tool_type", activeTab)
       .order("created_at", { ascending: false })
@@ -768,7 +1088,7 @@ function VisualManagementPage() {
   };
 
   return (
-    <div className="p-6 lg:p-10 max-w-[1400px] mx-auto space-y-6">
+    <div className="p-4 lg:p-6 w-full max-w-none space-y-6 flex-1 flex flex-col min-h-screen">
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <p className="text-sm text-accent font-medium uppercase tracking-wider">Metodologias</p>
@@ -816,7 +1136,7 @@ function VisualManagementPage() {
         </div>
       </header>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
         <div className="overflow-x-auto pb-2">
           <TabsList className="bg-card/50 border border-white/5 p-1 rounded-xl w-fit">
             <TabsTrigger value="swot" className="rounded-lg gap-2">SWOT</TabsTrigger>
@@ -829,14 +1149,14 @@ function VisualManagementPage() {
           </TabsList>
         </div>
 
-        <Card ref={printRef} className="mt-6 p-6 border-white/5 bg-card/30 backdrop-blur-sm min-h-[500px] shadow-elegant relative overflow-hidden">
-          <TabsContent value="swot" className="mt-0"><SwotMatrix data={swot} setData={setSwot} /></TabsContent>
-          <TabsContent value="eisenhower" className="mt-0"><EisenhowerMatrix tasks={eisenhower} setTasks={setEisenhower} /></TabsContent>
-          <TabsContent value="5w2h" className="mt-0"><FiveWTwoH rows={fiveW} setRows={setFiveW} /></TabsContent>
-          <TabsContent value="pareto" className="mt-0"><ParetoDiagram data={pareto} setData={setPareto} /></TabsContent>
-          <TabsContent value="smart" className="mt-0"><SmartMatrix goal={smart} setGoal={setSmart} /></TabsContent>
-          <TabsContent value="gut" className="mt-0"><GutMatrix issues={gut} setIssues={setGut} /></TabsContent>
-          <TabsContent value="flowchart" className="mt-0"><FlowchartTool nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} /></TabsContent>
+        <Card ref={printRef} className="mt-4 p-4 lg:p-6 border-white/5 bg-card/30 backdrop-blur-sm flex-1 min-h-[calc(100vh-210px)] shadow-elegant relative overflow-hidden flex flex-col">
+          <TabsContent value="swot" className="mt-0 flex-1"><SwotMatrix data={swot} setData={setSwot} /></TabsContent>
+          <TabsContent value="eisenhower" className="mt-0 flex-1"><EisenhowerMatrix tasks={eisenhower} setTasks={setEisenhower} /></TabsContent>
+          <TabsContent value="5w2h" className="mt-0 flex-1"><FiveWTwoH rows={fiveW} setRows={setFiveW} /></TabsContent>
+          <TabsContent value="pareto" className="mt-0 flex-1"><ParetoDiagram data={pareto} setData={setPareto} /></TabsContent>
+          <TabsContent value="smart" className="mt-0 flex-1"><SmartMatrix goal={smart} setGoal={setSmart} /></TabsContent>
+          <TabsContent value="gut" className="mt-0 flex-1"><GutMatrix issues={gut} setIssues={setGut} /></TabsContent>
+          <TabsContent value="flowchart" className="mt-0 flex-1 flex flex-col"><FlowchartTool nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} /></TabsContent>
         </Card>
       </Tabs>
 
