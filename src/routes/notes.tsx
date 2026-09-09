@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { NeuralMap } from "@/components/NeuralMap";
 import { CalendarScheduler } from "@/components/CalendarScheduler";
 import { toast } from "sonner";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 export const Route = createFileRoute("/notes")({ component: NotesPage });
 
@@ -120,13 +121,11 @@ function NotesContent() {
                 </div>
                 <div className="space-y-2">
                   <Label>Cor</Label>
-                  <div className="flex gap-2 flex-wrap">
-                    {COLORS.map((c) => (
-                      <button key={c} onClick={() => setColor(c)}
-                        className={`h-7 w-7 rounded-full transition-all ${color === c ? "ring-2 ring-offset-2 ring-accent scale-110" : "hover:scale-105"}`}
-                        style={{ backgroundColor: c }} />
-                    ))}
-                  </div>
+                  <RichColorPicker
+                    value={color}
+                    onChange={(c) => setColor(c)}
+                    compact
+                  />
                 </div>
               </div>
               <Button onClick={handleSave} className="w-full bg-gradient-primary text-primary-foreground">

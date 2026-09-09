@@ -25,6 +25,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useEffect } from "react";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 export const Route = createFileRoute("/visual-management")({
   component: () => <AppShell><VisualManagementPage /></AppShell>,
@@ -576,20 +577,30 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[]; set
 
   const handlesList: AnchorHandle[] = ["top", "right", "bottom", "left"];
 
-  const handleWheel = (e: React.WheelEvent) => {
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    setViewTransform((t) => ({
-      ...t,
-      zoom: Math.min(4, Math.max(0.2, t.zoom * zoomFactor)),
-    }));
-  };
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      setViewTransform((t) => ({
+        ...t,
+        zoom: Math.min(4, Math.max(0.2, t.zoom * zoomFactor)),
+      }));
+    };
+    el.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => el.removeEventListener("wheel", onWheelNative);
+  }, []);
 
   return (
     <div
+      ref={containerRef}
       className="flex flex-col h-[calc(100vh-210px)] min-h-[680px] w-full border border-white/10 rounded-2xl overflow-hidden bg-muted/5 relative shadow-card"
       onMouseMove={handleSvgMouseMove}
       onMouseUp={handleSvgMouseUp}
-      onWheel={handleWheel}
       onKeyDown={(e) => {
         if (e.key === "Escape") setConnectingStart(null);
         if (e.key === "Delete" || e.key === "Backspace") deleteElement();
@@ -673,19 +684,11 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[]; set
             </div>
             <div>
               <Label className="text-[10px] uppercase font-bold text-muted-foreground/60 mb-1 block">Cor do Destaque</Label>
-              <div className="flex flex-wrap gap-2">
-                {colors.map((c) => (
-                  <button
-                    key={c}
-                    onClick={() => updateSelectedNode({ color: c })}
-                    className={cn(
-                      "h-5 w-5 rounded-full border border-white/20 transition-transform hover:scale-110",
-                      nodes.find((n) => n.id === selectedElement.id)?.color === c && "ring-2 ring-accent ring-offset-2 ring-offset-background"
-                    )}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </div>
+              <RichColorPicker
+                value={nodes.find((n) => n.id === selectedElement.id)?.color || "#3b82f6"}
+                onChange={(c) => updateSelectedNode({ color: c })}
+                compact
+              />
             </div>
           </div>
         </div>

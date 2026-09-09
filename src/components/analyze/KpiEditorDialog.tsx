@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AGG_LABELS, type Agg, type KpiSpec, type Field } from "@/lib/analyze/types";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 const NONE = "__none__";
 
@@ -179,26 +180,11 @@ export function KpiEditorDialog({
           {/* Cor de Destaque */}
           <div className="grid gap-1.5">
             <Label className="text-xs">Cor do Card (Destaque)</Label>
-            <div className="flex items-center gap-2">
-              {accentColors.map((c) => (
-                <button
-                  key={c.hex}
-                  type="button"
-                  title={c.name}
-                  onClick={() => set({ accentColor: c.hex })}
-                  className={`w-6 h-6 rounded-full transition-transform ${
-                    draft.accentColor === c.hex ? "scale-125 ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:scale-110"
-                  }`}
-                  style={{ backgroundColor: c.hex }}
-                />
-              ))}
-              <Input
-                type="color"
-                value={draft.accentColor || "#3b82f6"}
-                onChange={(e) => set({ accentColor: e.target.value })}
-                className="w-8 h-8 p-0 border-0 cursor-pointer bg-transparent"
-              />
-            </div>
+            <RichColorPicker
+              value={draft.accentColor || "#3b82f6"}
+              onChange={(c) => set({ accentColor: c })}
+              compact
+            />
           </div>
 
           <div className="border-t border-border/60 my-1 pt-3">

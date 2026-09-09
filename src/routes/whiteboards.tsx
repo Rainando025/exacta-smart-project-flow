@@ -8,24 +8,29 @@ import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Presentation, Plus, Eraser, MousePointer2, Type, Square, Circle,
-  Diamond, Minus, Download, Share2, Trash2, Pencil, ArrowRight, Wifi, WifiOff
+  Diamond, Minus, Download, Share2, Trash2, Pencil, ArrowRight, Wifi, WifiOff,
+  Paintbrush, PenTool, Sparkles, Feather
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 export const Route = createFileRoute("/whiteboards")({
   component: () => <AppShell><WhiteboardsPage /></AppShell>,
 });
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type ToolType = "select" | "pen" | "line" | "arrow" | "rect" | "circle" | "diamond" | "text" | "eraser";
+type ToolType = "select" | "pencil" | "pen" | "calligraphy" | "brush" | "spray" | "line" | "arrow" | "rect" | "circle" | "diamond" | "text" | "eraser";
 
 interface Point { x: number; y: number; }
+
+interface SprayDot { x: number; y: number; r: number; }
 
 interface WBElement {
   id: string;
   type: ToolType;
   points?: Point[];
+  sprayDots?: SprayDot[];
   x?: number; y?: number; w?: number; h?: number;
   text?: string;
   color: string;
@@ -35,7 +40,6 @@ interface WBElement {
 
 interface Whiteboard { id: string; title: string; data: any; updated_at: string; }
 
-const COLORS = ["#e2e8f0", "#f472b6", "#fb923c", "#facc15", "#4ade80", "#38bdf8", "#a78bfa", "#f87171"];
 const STROKE_WIDTHS = [2, 4, 8, 14];
 
 // ─── Main component ───────────────────────────────────────────────────────────
@@ -60,6 +64,32 @@ function WhiteboardsPage() {
   const [cam, setCam] = useState({ x: 0, y: 0, scale: 1 });
   const isPanning = useRef(false);
   const lastPan = useRef<Point>({ x: 0, y: 0 });
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
+
+  // Wheel listener attached with passive: false to prevent background window scroll
+  useEffect(() => {
+    const el = canvasContainerRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const factor = e.deltaY < 0 ? 1.08 : 0.93;
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      setCam((c) => {
+        const ns = Math.max(0.15, Math.min(5, c.scale * factor));
+        return {
+          x: mx - ((mx - c.x) / c.scale) * ns,
+          y: my - ((my - c.y) / c.scale) * ns,
+          scale: ns,
+        };
+      });
+    };
+    el.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => el.removeEventListener("wheel", onWheelNative);
+  }, []);
 
   // Drawing state
   const drawing = useRef(false);
@@ -80,7 +110,6 @@ function WhiteboardsPage() {
 
   // ── Open board ───────────────────────────────────────────────────────────────
   const openBoard = useCallback(async (board: Whiteboard) => {
-    // Disconnect previous
     if (realtimeChannel.current) {
       supabase.removeChannel(realtimeChannel.current);
       realtimeChannel.current = null;
@@ -91,15 +120,11 @@ function WhiteboardsPage() {
     setListOpen(false);
     setConnected(false);
 
-    // Subscribe to realtime
     const ch = supabase.channel(`whiteboard:${board.id}`)
       .on("broadcast", { event: "elements" }, ({ payload }) => {
         if (payload.sender !== user?.id) {
           setElements(payload.elements);
         }
-      })
-      .on("broadcast", { event: "cursor" }, () => {
-        // future: show remote cursors
       })
       .subscribe((status) => {
         setConnected(status === "SUBSCRIBED");
@@ -114,7 +139,6 @@ function WhiteboardsPage() {
       .eq("id", boardId);
   }, []);
 
-  // Broadcast + save after each meaningful change
   const commitElements = useCallback((els: WBElement[]) => {
     setElements(els);
     if (activeBoard) {
@@ -158,7 +182,6 @@ function WhiteboardsPage() {
   // ── Pan handlers ─────────────────────────────────────────────────────────────
   const onPanStart = (e: React.PointerEvent) => {
     if (tool !== "select" || e.button !== 0) return;
-    // only pan if clicking empty space (not an element)
     const target = e.target as SVGElement;
     if (target.dataset.elId) return;
     isPanning.current = true;
@@ -177,22 +200,6 @@ function WhiteboardsPage() {
 
   const onPanEnd = () => { isPanning.current = false; };
 
-  const onWheel = (e: React.WheelEvent) => {
-    e.preventDefault();
-    const factor = e.deltaY < 0 ? 1.08 : 0.93;
-    const rect = canvasRef.current!.getBoundingClientRect();
-    const mx = e.clientX - rect.left;
-    const my = e.clientY - rect.top;
-    setCam((c) => {
-      const ns = Math.max(0.15, Math.min(5, c.scale * factor));
-      return {
-        x: mx - ((mx - c.x) / c.scale) * ns,
-        y: my - ((my - c.y) / c.scale) * ns,
-        scale: ns,
-      };
-    });
-  };
-
   // ── Drawing handlers ─────────────────────────────────────────────────────────
   const onDrawStart = (e: React.PointerEvent) => {
     if (tool === "select") { onPanStart(e); return; }
@@ -207,13 +214,26 @@ function WhiteboardsPage() {
     }
     drawing.current = true;
     const p = svgCoords(e);
+    let initialDots: SprayDot[] = [];
+    if (tool === "spray") {
+      for (let i = 0; i < 14; i++) {
+        const offsetR = Math.random() * strokeWidth * 3.5;
+        const angle = Math.random() * Math.PI * 2;
+        initialDots.push({
+          x: p.x + Math.cos(angle) * offsetR,
+          y: p.y + Math.sin(angle) * offsetR,
+          r: Math.random() * 1.5 + 0.5,
+        });
+      }
+    }
     const el: WBElement = {
       id: crypto.randomUUID(),
       type: tool,
       color,
       strokeWidth,
-      opacity: 0.9,
+      opacity: tool === "brush" ? 0.65 : tool === "pencil" ? 0.85 : 0.95,
       points: [p],
+      sprayDots: tool === "spray" ? initialDots : undefined,
       x: p.x, y: p.y, w: 0, h: 0,
     };
     currentEl.current = el;
@@ -225,8 +245,22 @@ function WhiteboardsPage() {
     if (!drawing.current || !currentEl.current) return;
     const p = svgCoords(e);
     const el = currentEl.current;
-    if (tool === "pen" || tool === "line" || tool === "arrow") {
+    if (["pencil", "pen", "calligraphy", "brush", "line", "arrow"].includes(tool)) {
       el.points = [...(el.points || []), p];
+    } else if (tool === "spray") {
+      el.points = [...(el.points || []), p];
+      const newDots: SprayDot[] = [];
+      const count = Math.max(8, Math.min(30, Math.round(strokeWidth * 3.5)));
+      for (let i = 0; i < count; i++) {
+        const offsetR = Math.random() * strokeWidth * 4;
+        const angle = Math.random() * Math.PI * 2;
+        newDots.push({
+          x: p.x + Math.cos(angle) * offsetR,
+          y: p.y + Math.sin(angle) * offsetR,
+          r: Math.random() * 1.6 + 0.4,
+        });
+      }
+      el.sprayDots = [...(el.sprayDots || []), ...newDots];
     } else {
       el.w = p.x - (el.x || 0);
       el.h = p.y - (el.y || 0);
@@ -262,7 +296,6 @@ function WhiteboardsPage() {
     const svg = canvasRef.current;
     if (!svg) return;
     const clone = svg.cloneNode(true) as SVGSVGElement;
-    // Remove transform group to export at 1:1
     const serializer = new XMLSerializer();
     const src = serializer.serializeToString(clone);
     const blob = new Blob([src], { type: "image/svg+xml" });
@@ -278,16 +311,60 @@ function WhiteboardsPage() {
   // ── Render element ───────────────────────────────────────────────────────────
   const renderEl = (el: WBElement) => {
     const isSelected = selectedId === el.id;
-    const sel = isSelected ? { filter: "drop-shadow(0 0 4px #6366f1)" } : {};
+    const sel = isSelected ? { filter: "drop-shadow(0 0 5px #6366f1)" } : {};
     const clickProps = {
       "data-el-id": el.id,
       onClick: () => { if (tool === "select") setSelectedId(el.id); if (tool === "eraser") onEraserClick(el.id); },
       style: sel,
     };
 
+    const { style: clickStyle, ...otherClickProps } = clickProps;
+
+    if (el.type === "pencil" && el.points && el.points.length > 1) {
+      const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+      return <path key={el.id} d={d} stroke={el.color} strokeWidth={Math.max(1, Math.round(el.strokeWidth / 2))} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 0.5" opacity={el.opacity || 0.85} {...clickProps} />;
+    }
     if (el.type === "pen" && el.points && el.points.length > 1) {
       const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-      return <path key={el.id} d={d} stroke={el.color} strokeWidth={el.strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={el.opacity} {...clickProps} />;
+      return <path key={el.id} d={d} stroke={el.color} strokeWidth={el.strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={el.opacity || 0.9} {...clickProps} />;
+    }
+    if (el.type === "calligraphy" && el.points && el.points.length > 1) {
+      const d1 = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+      const dx = el.strokeWidth * 1.2;
+      const dy = -el.strokeWidth * 0.8;
+      const d2 = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + dx} ${p.y + dy}`).join(" ");
+      return (
+        <g key={el.id} {...clickProps}>
+          <path d={d1} stroke={el.color} strokeWidth={el.strokeWidth} fill="none" strokeLinecap="square" strokeLinejoin="miter" opacity={el.opacity || 0.9} />
+          <path d={d2} stroke={el.color} strokeWidth={Math.max(1, el.strokeWidth * 0.5)} fill="none" strokeLinecap="square" strokeLinejoin="miter" opacity={(el.opacity || 0.9) * 0.7} />
+        </g>
+      );
+    }
+    if (el.type === "brush" && el.points && el.points.length > 1) {
+      const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+      return (
+        <path
+          key={el.id}
+          d={d}
+          stroke={el.color}
+          strokeWidth={el.strokeWidth * 2.2}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          opacity={el.opacity || 0.65}
+          style={{ ...clickStyle, filter: `drop-shadow(0 0 3px ${el.color}88)` }}
+          {...otherClickProps}
+        />
+      );
+    }
+    if (el.type === "spray" && el.sprayDots && el.sprayDots.length > 0) {
+      return (
+        <g key={el.id} opacity={el.opacity || 0.9} {...clickProps}>
+          {el.sprayDots.map((dot, idx) => (
+            <circle key={idx} cx={dot.x} cy={dot.y} r={dot.r} fill={el.color} />
+          ))}
+        </g>
+      );
     }
     if ((el.type === "line" || el.type === "arrow") && el.points && el.points.length >= 2) {
       const p1 = el.points[0];
@@ -342,7 +419,11 @@ function WhiteboardsPage() {
   // ── Toolbar tools config ─────────────────────────────────────────────────────
   const tools: { id: ToolType; icon: any; label: string }[] = [
     { id: "select", icon: MousePointer2, label: "Selecionar / Mover (V)" },
-    { id: "pen", icon: Pencil, label: "Caneta livre (P)" },
+    { id: "pencil", icon: Pencil, label: "Lápis fino (N)" },
+    { id: "pen", icon: PenTool, label: "Caneta livre (P)" },
+    { id: "calligraphy", icon: Feather, label: "Caligrafia (K)" },
+    { id: "brush", icon: Paintbrush, label: "Pincel macio (B)" },
+    { id: "spray", icon: Sparkles, label: "Spray / Aerógrafo (S)" },
     { id: "line", icon: Minus, label: "Linha reta (L)" },
     { id: "arrow", icon: ArrowRight, label: "Seta (A)" },
     { id: "rect", icon: Square, label: "Retângulo (R)" },
@@ -354,7 +435,10 @@ function WhiteboardsPage() {
 
   // Keyboard shortcuts
   useEffect(() => {
-    const map: Record<string, ToolType> = { v: "select", p: "pen", l: "line", a: "arrow", r: "rect", c: "circle", d: "diamond", t: "text", e: "eraser" };
+    const map: Record<string, ToolType> = {
+      v: "select", n: "pencil", p: "pen", k: "calligraphy", b: "brush",
+      s: "spray", l: "line", a: "arrow", r: "rect", c: "circle", d: "diamond", t: "text", e: "eraser"
+    };
     const handler = (ev: KeyboardEvent) => {
       if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) return;
       if (map[ev.key.toLowerCase()]) setTool(map[ev.key.toLowerCase()]);
@@ -488,16 +572,16 @@ function WhiteboardsPage() {
       </header>
 
       {/* Canvas area */}
-      <div className="flex flex-1 overflow-hidden relative">
+      <div ref={canvasContainerRef} className="flex flex-1 overflow-hidden relative">
         {/* Side toolbar */}
-        <aside className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl border border-white/10 bg-card/85 backdrop-blur-xl shadow-elegant">
+        <aside className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl border border-white/10 bg-card/85 backdrop-blur-xl shadow-elegant max-h-[90vh] overflow-y-auto no-scrollbar">
           {tools.map((t) => (
             <button
               key={t.id}
               title={t.label}
               onClick={() => setTool(t.id)}
               className={cn(
-                "h-10 w-10 rounded-xl flex items-center justify-center transition-all",
+                "h-9 w-9 rounded-xl flex items-center justify-center transition-all",
                 tool === t.id
                   ? "bg-accent/20 text-accent shadow-inner"
                   : "text-muted-foreground hover:text-foreground hover:bg-muted"
@@ -507,24 +591,18 @@ function WhiteboardsPage() {
             </button>
           ))}
 
-          <div className="h-px bg-white/10 my-1 w-8 mx-auto" />
+          <div className="h-px bg-white/10 my-1 w-7 mx-auto" />
 
-          {/* Colors */}
-          <div className="flex flex-col gap-1.5 items-center">
-            {COLORS.map((c) => (
-              <button
-                key={c}
-                onClick={() => setColor(c)}
-                className={cn(
-                  "h-5 w-5 rounded-full transition-transform hover:scale-110",
-                  color === c ? "ring-2 ring-offset-1 ring-foreground scale-110" : ""
-                )}
-                style={{ backgroundColor: c }}
-              />
-            ))}
+          {/* Color Picker with multiple palettes */}
+          <div className="flex justify-center py-1">
+            <RichColorPicker
+              value={color}
+              onChange={setColor}
+              compact
+            />
           </div>
 
-          <div className="h-px bg-white/10 my-1 w-8 mx-auto" />
+          <div className="h-px bg-white/10 my-1 w-7 mx-auto" />
 
           {/* Stroke widths */}
           {STROKE_WIDTHS.map((sw) => (
@@ -533,7 +611,7 @@ function WhiteboardsPage() {
               onClick={() => setStrokeWidth(sw)}
               title={`Espessura ${sw}px`}
               className={cn(
-                "h-8 w-10 flex items-center justify-center rounded-lg transition",
+                "h-7 w-9 flex items-center justify-center rounded-lg transition",
                 strokeWidth === sw ? "bg-accent/20 text-accent" : "text-muted-foreground hover:bg-muted"
               )}
             >
@@ -547,8 +625,7 @@ function WhiteboardsPage() {
           ref={canvasRef}
           className={cn(
             "flex-1 w-full h-full",
-            tool === "pen" || tool === "line" || tool === "arrow" ? "cursor-crosshair" :
-            tool === "rect" || tool === "circle" || tool === "diamond" ? "cursor-crosshair" :
+            ["pencil", "pen", "calligraphy", "brush", "spray", "line", "arrow", "rect", "circle", "diamond"].includes(tool) ? "cursor-crosshair" :
             tool === "eraser" ? "cursor-cell" :
             tool === "text" ? "cursor-text" :
             "cursor-grab active:cursor-grabbing"
@@ -561,7 +638,6 @@ function WhiteboardsPage() {
           onPointerMove={onDrawMove}
           onPointerUp={onDrawEnd}
           onPointerLeave={onDrawEnd}
-          onWheel={onWheel}
         >
           <defs>
             <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">

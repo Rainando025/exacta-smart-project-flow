@@ -15,6 +15,7 @@ import { UserPlus, Users, Shield, Mail, KeyRound, Send, X, Copy, ScrollText, Use
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { getAIConfig, saveAIConfig, testAIConnection, type AIConfig } from "@/lib/ai";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 export const Route = createFileRoute("/settings")({ component: SettingsPage });
 
@@ -852,15 +853,12 @@ function SettingsContent() {
               <Input value={deptName} onChange={(e) => setDeptName(e.target.value)} placeholder="Ex: Engenharia, Marketing..." onKeyDown={(e) => e.key === "Enter" && saveDept()} />
             </div>
             <div className="space-y-2">
-              <Label>Cor</Label>
-              <div className="flex items-center gap-3">
-                <input type="color" value={deptColor} onChange={(e) => setDeptColor(e.target.value)} className="h-10 w-16 rounded border border-input cursor-pointer" />
-                <div className="flex gap-2">
-                  {["#6366f1", "#06b6d4", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"].map((c) => (
-                    <button key={c} onClick={() => setDeptColor(c)} className={`h-6 w-6 rounded-full transition hover:scale-110 ${deptColor === c ? "ring-2 ring-offset-1 ring-foreground" : ""}`} style={{ backgroundColor: c }} />
-                  ))}
-                </div>
-              </div>
+              <Label>Cor do Setor</Label>
+              <RichColorPicker
+                value={deptColor}
+                onChange={setDeptColor}
+                compact
+              />
             </div>
           </div>
           <DialogFooter className="gap-2">

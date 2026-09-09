@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 interface Node {
   id: string; // Can be a UUID from neural_nodes or note.id
@@ -78,6 +79,19 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
     };
     animId = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(animId);
+  }, []);
+
+  // Wheel listener attached with passive: false to prevent background window scroll
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onWheelNative = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setPan((p) => ({ x: p.x - e.deltaX * 0.8, y: p.y - e.deltaY * 0.8 }));
+    };
+    el.addEventListener("wheel", onWheelNative, { passive: false });
+    return () => el.removeEventListener("wheel", onWheelNative);
   }, []);
 
   // Fetch all nodes, edges, and notes from Supabase
@@ -633,14 +647,11 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
             {!editNode?.is_note && (
               <div className="space-y-2">
                 <Label>Cor do Nó</Label>
-                <div className="flex gap-2">
-                  {COLORS.map((c) => (
-                    <button 
-                      key={c} onClick={() => setNodeColor(c)}
-                      className={`h-6 w-6 rounded-full transition-transform ${nodeColor === c ? 'scale-125 ring-2 ring-white/50' : 'hover:scale-110'} ${c}`}
-                    />
-                  ))}
-                </div>
+                <RichColorPicker
+                  value={nodeColor.startsWith("bg-") ? (HEX_COLORS[nodeColor] || "#3b82f6") : nodeColor}
+                  onChange={(c) => setNodeColor(c)}
+                  compact
+                />
               </div>
             )}
           </div>

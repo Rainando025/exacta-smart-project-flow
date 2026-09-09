@@ -17,6 +17,7 @@ import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
 import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
 import { AttachmentsPanel } from "@/components/AttachmentsPanel";
+import { RichColorPicker } from "@/components/ui/color-picker";
 
 const COLORS = ["#1e3a8a", "#0891b2", "#7c3aed", "#059669", "#dc2626", "#d97706"];
 const STATUSES = [
@@ -185,12 +186,12 @@ function ProjectsPage() {
                 <div><Label>Prazo</Label><Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} /></div>
                 <div>
                   <Label>Cor</Label>
-                  <div className="flex gap-2 mt-2">
-                    {COLORS.map((c) => (
-                      <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
-                        className={`h-8 w-8 rounded-lg border-2 ${form.color === c ? "border-foreground scale-110" : "border-transparent"} transition`}
-                        style={{ backgroundColor: c }} />
-                    ))}
+                  <div className="mt-1.5">
+                    <RichColorPicker
+                      value={form.color}
+                      onChange={(c) => setForm({ ...form, color: c })}
+                      compact
+                    />
                   </div>
                 </div>
               </div>
@@ -291,12 +292,12 @@ function ProjectsPage() {
               </div>
               <div>
                 <Label>Cor</Label>
-                <div className="flex gap-2 mt-2">
-                  {COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setEditing({ ...editing, color: c })}
-                      className={`h-8 w-8 rounded-lg border-2 ${editing.color === c ? "border-foreground scale-110" : "border-transparent"} transition`}
-                      style={{ backgroundColor: c }} />
-                  ))}
+                <div className="mt-1.5">
+                  <RichColorPicker
+                    value={editing.color}
+                    onChange={(c) => setEditing({ ...editing, color: c })}
+                    compact
+                  />
                 </div>
               </div>
             </div>
