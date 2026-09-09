@@ -639,7 +639,7 @@ export function ChatPage() {
 
         {/* ── ABA 1: CHAT DE MENSAGENS ── */}
         {activeTab === "messages" && (
-          <>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
             <div className="flex-1 overflow-y-auto px-4 md:px-8 py-4 space-y-1">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-6 text-muted-foreground">
@@ -834,7 +834,7 @@ export function ChatPage() {
                     </div>
                 </div>
             </footer>
-          </>
+          </div>
         )}
 
         {/* ── ABA 2: PENDÊNCIAS DO PLANTÃO ── */}

@@ -1,4 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { AppShell } from "@/components/AppShell";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
@@ -116,7 +117,11 @@ export const Route = createFileRoute("/analyze")({
       { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
-  component: Index,
+  component: () => (
+    <AppShell>
+      <Index />
+    </AppShell>
+  ),
 });
 
 const ACCENTS = ["neon-blue", "neon-red", "neon-cyan", "neon-purple", "neon-orange", "neon-green"];

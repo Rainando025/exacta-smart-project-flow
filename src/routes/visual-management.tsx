@@ -576,11 +576,20 @@ function FlowchartTool({ nodes, setNodes, edges, setEdges }: { nodes: any[]; set
 
   const handlesList: AnchorHandle[] = ["top", "right", "bottom", "left"];
 
+  const handleWheel = (e: React.WheelEvent) => {
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    setViewTransform((t) => ({
+      ...t,
+      zoom: Math.min(4, Math.max(0.2, t.zoom * zoomFactor)),
+    }));
+  };
+
   return (
     <div
       className="flex flex-col h-[calc(100vh-210px)] min-h-[680px] w-full border border-white/10 rounded-2xl overflow-hidden bg-muted/5 relative shadow-card"
       onMouseMove={handleSvgMouseMove}
       onMouseUp={handleSvgMouseUp}
+      onWheel={handleWheel}
       onKeyDown={(e) => {
         if (e.key === "Escape") setConnectingStart(null);
         if (e.key === "Delete" || e.key === "Backspace") deleteElement();

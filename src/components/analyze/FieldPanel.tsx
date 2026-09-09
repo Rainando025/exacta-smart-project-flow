@@ -56,7 +56,7 @@ export function FieldPanel({
   }, [categorical, rows]);
 
   return (
-    <aside className="no-print panel flex h-[calc(100vh-6rem)] w-[300px] shrink-0 flex-col overflow-hidden">
+    <aside className="no-print panel flex max-h-[calc(100vh-8rem)] w-[300px] shrink-0 flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
         <p className="label-eyebrow !text-foreground">Campos e análises</p>
         <button onClick={onClose} className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground">
