@@ -39,16 +39,27 @@ export function KpiEditorDialog({
   const numeric = fields.filter((f) => f.type === "number");
 
   const formatLabels: Record<NonNullable<KpiSpec["format"]>, string> = {
-    compact: "Compacto (ex: 1.2M, 15k)",
-    currency: "Monetário (R$)",
+    compact: "Compacto (ex: 1,2M, 15k)",
+    currency: "Moeda R$ Completo (ex: R$ 1.250,00)",
+    currency_compact: "Moeda R$ Compacto (ex: R$ 1,2k)",
     percent: "Percentual (%)",
-    decimal: "Decimal (1.200,00)",
-    none: "Sem formatação (1200000)",
+    decimal: "Decimal com milhar (ex: 1.250,00)",
+    integer: "Número Inteiro (ex: 1.250)",
+    none: "Sem formatação (1250)",
   };
+
+  const accentColors = [
+    { name: "Azul Neon", hex: "#3b82f6" },
+    { name: "Verde Esmeralda", hex: "#10b981" },
+    { name: "Roxo Violeta", hex: "#8b5cf6" },
+    { name: "Âmbar Laranja", hex: "#f59e0b" },
+    { name: "Rosa Crimson", hex: "#f43f5e" },
+    { name: "Ciano Neon", hex: "#06b6d4" },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display">Editar Card de KPI</DialogTitle>
         </DialogHeader>
@@ -108,7 +119,7 @@ export function KpiEditorDialog({
             <Label>Formato de Exibição</Label>
             <Select
               value={draft.format ?? "compact"}
-              onValueChange={(v) => set({ format: v as "compact" | "currency" | "percent" | "decimal" | "none" })}
+              onValueChange={(v) => set({ format: v as any })}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -121,6 +132,73 @@ export function KpiEditorDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          {/* Decimais, Prefixo e Sufixo */}
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="grid gap-1">
+              <Label className="text-xs">Casas Decimais</Label>
+              <Select
+                value={draft.decimalPlaces !== undefined ? String(draft.decimalPlaces) : "auto"}
+                onValueChange={(v) => set({ decimalPlaces: v === "auto" ? undefined : Number(v) })}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Auto</SelectItem>
+                  <SelectItem value="0">0 (Sem decimais)</SelectItem>
+                  <SelectItem value="1">1 casa (0,0)</SelectItem>
+                  <SelectItem value="2">2 casas (0,00)</SelectItem>
+                  <SelectItem value="3">3 casas (0,000)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-1">
+              <Label className="text-xs">Prefixo</Label>
+              <Input
+                className="h-8 text-xs"
+                value={draft.prefix ?? ""}
+                onChange={(e) => set({ prefix: e.target.value })}
+                placeholder="ex: R$ "
+              />
+            </div>
+
+            <div className="grid gap-1">
+              <Label className="text-xs">Sufixo</Label>
+              <Input
+                className="h-8 text-xs"
+                value={draft.suffix ?? ""}
+                onChange={(e) => set({ suffix: e.target.value })}
+                placeholder="ex: /mês"
+              />
+            </div>
+          </div>
+
+          {/* Cor de Destaque */}
+          <div className="grid gap-1.5">
+            <Label className="text-xs">Cor do Card (Destaque)</Label>
+            <div className="flex items-center gap-2">
+              {accentColors.map((c) => (
+                <button
+                  key={c.hex}
+                  type="button"
+                  title={c.name}
+                  onClick={() => set({ accentColor: c.hex })}
+                  className={`w-6 h-6 rounded-full transition-transform ${
+                    draft.accentColor === c.hex ? "scale-125 ring-2 ring-primary ring-offset-2 ring-offset-background" : "hover:scale-110"
+                  }`}
+                  style={{ backgroundColor: c.hex }}
+                />
+              ))}
+              <Input
+                type="color"
+                value={draft.accentColor || "#3b82f6"}
+                onChange={(e) => set({ accentColor: e.target.value })}
+                className="w-8 h-8 p-0 border-0 cursor-pointer bg-transparent"
+              />
+            </div>
           </div>
 
           <div className="border-t border-border/60 my-1 pt-3">

@@ -53,9 +53,11 @@ export const AGG_LABELS: Record<Agg, string> = {
   distinct: "Valores distintos",
 };
 
+export type NumberFormat = "compact" | "currency" | "currency_compact" | "percent" | "decimal" | "integer" | "none";
+
 export type ColorRule = {
   id: string;
-  op: "gt" | "lt" | "eq" | "between";
+  op: "gt" | "gte" | "lt" | "lte" | "eq" | "between";
   value1: number;
   value2?: number;
   color: string;
@@ -81,6 +83,12 @@ export type ChartSpec = {
   gradientColors?: [string, string];
   /** Granularidade quando a dimensão for uma data (dia, mês, trimestre, ano...). */
   dateGrain?: import("./date-grain").DateGrain;
+  /** Formatação dos valores do gráfico (eixo Y, tooltip, labels). */
+  format?: NumberFormat;
+  decimalPlaces?: number;
+  prefix?: string;
+  suffix?: string;
+  showDataLabels?: boolean;
 };
 
 
@@ -92,7 +100,11 @@ export type KpiSpec = {
   filterField?: string | null;
   filterValue?: string | null;
   accent?: string | number;
-  format?: "compact" | "currency" | "percent" | "decimal" | "none";
+  accentColor?: string;
+  format?: NumberFormat;
+  decimalPlaces?: number;
+  prefix?: string;
+  suffix?: string;
 };
 
 export type Dashboard = {

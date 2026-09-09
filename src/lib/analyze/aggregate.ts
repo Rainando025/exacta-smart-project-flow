@@ -1,4 +1,4 @@
-import type { Agg, ChartSpec, Dashboard, Field, Row } from "./types";
+import type { Agg, ChartSpec, Dashboard, Field, NumberFormat, Row } from "./types";
 import { formatGrain, grainSortKey, isDateLike, parseDateValue, type DateGrain } from "./date-grain";
 
 export function inferFields(rows: Row[]): Field[] {
@@ -21,14 +21,44 @@ export function inferFields(rows: Row[]): Field[] {
 }
 
 function isNumeric(v: string) {
-  const s = v.trim().replace(/\s/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".").replace(/[R$€%]/g, "");
-  return s !== "" && !Number.isNaN(Number(s));
+  // Strip currency symbols, spaces, percent sign
+  const stripped = v.trim().replace(/^[R$€\s]+|[\s€%]+$/g, "").trim();
+  if (stripped === "") return false;
+  // Detect Brazilian format: uses "." as thousands sep and "," as decimal
+  // e.g. "1.234,56" or "1.234" (whole number with thousand dot)
+  const brFormat = /^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(stripped);
+  if (brFormat) return true;
+  // International format: uses "," as thousands and "." as decimal
+  // e.g. "1,234.56" or "1,234"
+  const intFormat = /^-?\d{1,3}(,\d{3})*(\.\d+)?$/.test(stripped);
+  if (intFormat) return true;
+  // Plain number (no separator)
+  return stripped !== "" && !Number.isNaN(Number(stripped));
 }
 
 export function toNumber(v: unknown): number {
   if (typeof v === "number") return v;
   if (typeof v !== "string") return 0;
-  const s = v.trim().replace(/\s/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".").replace(/[R$€%]/g, "");
+  // Strip currency symbols, leading/trailing spaces
+  let s = v.trim().replace(/^[R$€\s]+|[\s€]+$/g, "").replace(/\s/g, "").trim();
+  if (s === "") return 0;
+  // Handle negative in parentheses: (100) -> -100
+  if (s.startsWith("(") && s.endsWith(")")) s = "-" + s.slice(1, -1);
+  // Strip trailing % sign
+  const hasPercent = s.endsWith("%");
+  if (hasPercent) s = s.slice(0, -1);
+  // Detect Brazilian format: comma as decimal separator (e.g. 1.234,56 or 1234,56)
+  const brFormat = /^-?\d{1,3}(\.\d{3})*(,\d+)?$/.test(s);
+  const brWhole = /^-?\d{1,3}(\.\d{3})+$/.test(s); // e.g. "1.234" -> 1234
+  if (brFormat || brWhole) {
+    // It's Brazilian: remove dots (thousand sep) and replace comma with dot (decimal sep)
+    s = s.replace(/\./g, "").replace(",", ".");
+  } else {
+    // International or plain: remove commas as thousand seps
+    const intFormat = /^-?\d{1,3}(,\d{3})*(\.\d+)?$/.test(s);
+    if (intFormat) s = s.replace(/,/g, "");
+    // else keep as-is (plain number)
+  }
   const n = Number(s);
   return Number.isNaN(n) ? 0 : n;
 }
@@ -133,27 +163,90 @@ function round(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-export function formatNumber(n: number) {
-  if (Math.abs(n) >= 1_000_000) return (n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "M";
-  if (Math.abs(n) >= 10_000) return (n / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 }) + "k";
-  return n.toLocaleString("pt-BR", { maximumFractionDigits: 2 });
+// Regex for field names that are IDs / temporal / geographic — should NOT be summed
+const ID_TEMPORAL_REGEX = /^(id|ano|year|mes|m[eê]s|dia|day|week|semana|cod(igo)?|c[oó]d|cep|cpf|cnpj|rg|tel|fone|celular|zip|fax|not[ae]|pedido|nf|num(ero)?|n[uú]m)($|_|\s)/i;
+
+/** Returns true when a field name looks like an identifier or temporal value that shouldn't be aggregated numerically */
+export function isIdOrTemporalField(name: string): boolean {
+  return ID_TEMPORAL_REGEX.test(name) || /^id$/i.test(name) || /_id$/i.test(name);
 }
 
-export function formatKpiValue(n: number, format?: "compact" | "currency" | "percent" | "decimal" | "none") {
-  if (format === undefined || format === "compact") {
-    return formatNumber(n);
-  }
+/**
+ * Unified number formatting engine.
+ * Supports: compact (1.2k / 1.2M), currency (R$ 1.250,00), currency_compact (R$ 1,2k),
+ * percent (10,5%), decimal (custom decimals), integer, none (raw)
+ */
+export function formatNumberValue(
+  n: number,
+  opts: {
+    format?: NumberFormat;
+    decimalPlaces?: number;
+    prefix?: string;
+    suffix?: string;
+  } = {}
+): string {
+  const { format = "compact", decimalPlaces, prefix = "", suffix = "" } = opts;
+  const wrap = (v: string) => `${prefix}${v}${suffix}`;
+
   switch (format) {
-    case "currency":
-      return n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-    case "percent":
-      return n.toLocaleString("pt-BR", { minimumFractionDigits: 1, maximumFractionDigits: 2 }) + "%";
-    case "decimal":
-      return n.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    case "currency": {
+      const decimals = decimalPlaces ?? 2;
+      const formatted = Math.abs(n).toLocaleString("pt-BR", {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals,
+      });
+      return wrap(`${n < 0 ? "-" : ""}R$\u00a0${formatted}`);
+    }
+    case "currency_compact": {
+      const abs = Math.abs(n);
+      const sign = n < 0 ? "-" : "";
+      if (abs >= 1_000_000)
+        return wrap(`${sign}R$\u00a0${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}M`);
+      if (abs >= 1_000)
+        return wrap(`${sign}R$\u00a0${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`);
+      return wrap(`${sign}R$\u00a0${abs.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`);
+    }
+    case "percent": {
+      const decimals = decimalPlaces ?? 1;
+      return wrap(n.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }) + "%");
+    }
+    case "decimal": {
+      const decimals = decimalPlaces ?? 2;
+      return wrap(n.toLocaleString("pt-BR", { minimumFractionDigits: decimals, maximumFractionDigits: decimals }));
+    }
+    case "integer":
+      return wrap(Math.round(n).toLocaleString("pt-BR"));
     case "none":
-    default:
-      return n.toString();
+      return wrap(String(n));
+    case "compact":
+    default: {
+      const abs = Math.abs(n);
+      if (abs >= 1_000_000)
+        return wrap((n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: decimalPlaces ?? 1 }) + "M");
+      if (abs >= 10_000)
+        return wrap((n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: decimalPlaces ?? 1 }) + "k");
+      return wrap(n.toLocaleString("pt-BR", { maximumFractionDigits: decimalPlaces ?? 2 }));
+    }
   }
+}
+
+/** Compact number format for chart axes (always short, no prefix/suffix) */
+export function formatNumber(n: number, decimalPlaces?: number) {
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000) return (n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: decimalPlaces ?? 1 }) + "M";
+  if (abs >= 10_000) return (n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: decimalPlaces ?? 1 }) + "k";
+  return n.toLocaleString("pt-BR", { maximumFractionDigits: decimalPlaces ?? 2 });
+}
+
+/** Legacy KPI format function — delegates to formatNumberValue */
+export function formatKpiValue(
+  n: number,
+  format?: NumberFormat,
+  decimalPlaces?: number,
+  prefix?: string,
+  suffix?: string
+) {
+  return formatNumberValue(n, { format: format ?? "compact", decimalPlaces, prefix, suffix });
 }
 
 export function buildHeuristicDashboard(
@@ -165,6 +258,13 @@ export function buildHeuristicDashboard(
   const numericFields = fields.filter((f) => f.type === "number");
   const dateFields = fields.filter((f) => f.type === "date");
   const categoricalFields = fields.filter((f) => f.type === "string");
+
+  // Identify quantitative numeric fields (not IDs, codes, years, CEP etc.)
+  const quantFields = numericFields.filter((f) => !isIdOrTemporalField(f.name));
+
+  // Prioritise currency-like fields
+  const currencyLike = (name: string) => /valor|preco|pre[çc]o|custo|receita|total|faturamento|salario|sal[aá]rio|lucro|despesa|pagamento|premi[ou]/i.test(name);
+  const quantityLike = (name: string) => /quant(idade)?|qtd|qtde|count|amount|volume|unidade|un\b|pcs|kg|ton/i.test(name);
 
   const kpis: Dashboard["kpis"] = [
     {
@@ -178,17 +278,16 @@ export function buildHeuristicDashboard(
   ];
 
   let kpiIdx = 1;
-  for (const numF of numericFields) {
+  for (const numF of quantFields) {
     if (kpiIdx >= 4) break;
-    if (/^id$/i.test(numF.name) || /_id$/i.test(numF.name)) continue;
-    const isCurrency = /valor|preco|preço|custo|receita|total|faturamento/i.test(numF.name);
+    const isCurrency = currencyLike(numF.name);
     kpis.push({
       id: `kpi-${kpiIdx}`,
       label: `Total de ${numF.name}`,
       field: numF.name,
       agg: "sum",
       accent: kpiIdx % 6,
-      format: isCurrency ? "currency" : "compact",
+      format: isCurrency ? "currency" : quantityLike(numF.name) ? "integer" : "compact",
     });
     kpiIdx++;
   }
@@ -211,13 +310,14 @@ export function buildHeuristicDashboard(
   let chartIdx = 0;
 
   const mainDate = dateFields[0];
-  const mainNum = numericFields.find((f) => !/^id$/i.test(f.name)) ?? numericFields[0];
-  const secondNum = numericFields.find((f) => f.name !== mainNum?.name && !/^id$/i.test(f.name));
+  const mainNum = quantFields.find((f) => currencyLike(f.name)) ?? quantFields[0];
+  const secondNum = quantFields.find((f) => f.name !== mainNum?.name);
   const mainCat = categoricalFields.find((f) => !/^id$/i.test(f.name)) ?? categoricalFields[0];
   const secondCat = categoricalFields.find((f) => f.name !== mainCat?.name && !/^id$/i.test(f.name));
   const thirdCat = categoricalFields.find(
     (f) => f.name !== mainCat?.name && f.name !== secondCat?.name && !/^id$/i.test(f.name)
   );
+  const mainNumFmt: "currency" | "compact" | "integer" = mainNum ? (currencyLike(mainNum.name) ? "currency" : quantityLike(mainNum.name) ? "integer" : "compact") : "compact";
 
   // 1. Chart: Area Chart for Time Evolution
   if (mainDate) {
@@ -230,6 +330,7 @@ export function buildHeuristicDashboard(
       agg: mainNum ? "sum" : "count",
       span: 3,
       palette: 0,
+      format: mainNumFmt,
     });
   }
 
@@ -245,6 +346,7 @@ export function buildHeuristicDashboard(
       limit: 10,
       span: 3,
       palette: 1,
+      format: mainNumFmt,
     });
   }
 

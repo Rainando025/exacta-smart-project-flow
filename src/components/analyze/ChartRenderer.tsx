@@ -28,7 +28,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { buildChartData, formatNumber } from "@/lib/analyze/aggregate";
+import { buildChartData, formatNumber, formatNumberValue } from "@/lib/analyze/aggregate";
 import type { ChartSpec, Row } from "@/lib/analyze/types";
 
 const PALETTE = [
@@ -89,7 +89,9 @@ function getCellColor(
     for (const rule of spec.colorRules) {
       let match = false;
       if (rule.op === "gt" && val > rule.value1) match = true;
+      else if (rule.op === "gte" && val >= rule.value1) match = true;
       else if (rule.op === "lt" && val < rule.value1) match = true;
+      else if (rule.op === "lte" && val <= rule.value1) match = true;
       else if (rule.op === "eq" && val === rule.value1) match = true;
       else if (rule.op === "between" && rule.value2 !== undefined && val >= rule.value1 && val <= rule.value2) match = true;
       
@@ -175,6 +177,26 @@ export function ChartRenderer({
   });
   const cursorClass = onSelect ? "cursor-pointer" : "";
 
+  // Formatting helpers based on chart spec settings
+  const fmtVal = (n: number) =>
+    formatNumberValue(n, {
+      format: spec.format ?? "compact",
+      decimalPlaces: spec.decimalPlaces,
+      prefix: spec.prefix,
+      suffix: spec.suffix,
+    });
+  const axisTickFmt = (n: number) => {
+    // For axis ticks, use compact format to keep ticks short even if format is currency
+    if (spec.format === "currency" || spec.format === "currency_compact") {
+      const abs = Math.abs(n);
+      if (abs >= 1_000_000) return `R$\u00a0${(n / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}M`;
+      if (abs >= 1_000) return `R$\u00a0${(n / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k`;
+      return `R$\u00a0${n.toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`;
+    }
+    return formatNumber(n, spec.decimalPlaces);
+  };
+  const tooltipFmt: any = (value: any) => [fmtVal(Number(value ?? 0)), ""];
+
   if (!data.length) {
     return <div className="flex h-full items-center justify-center text-xs text-muted-foreground">Sem dados</div>;
   }
@@ -212,7 +234,7 @@ export function ChartRenderer({
                         className="inline-block px-1.5 py-0.5 rounded"
                         style={cellColor ? { color: cellColor, backgroundColor: `${cellColor}18`, fontWeight: "600" } : {}}
                       >
-                        {formatNumber(val)}
+                        {fmtVal(val)}
                       </span>
                     </td>
                   );
@@ -231,9 +253,9 @@ export function ChartRenderer({
         return (
           <BarChart data={data} layout="vertical" margin={{ left: 8, right: 24 }} onClick={rootClick}>
             {grid}
-            <XAxis type="number" {...axis} tickFormatter={formatNumber} />
+            <XAxis type="number" {...axis} tickFormatter={axisTickFmt} />
             <YAxis type="category" dataKey="name" width={110} {...axis} interval={0} tickFormatter={truncate} />
-            <Tooltip {...tooltipStyle()} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} />
             {legend}
             {keys.map((k, i) => (
               <Bar key={k} dataKey={k} fill={color(i)} radius={[0, 4, 4, 0]} barSize={12}>
@@ -249,8 +271,8 @@ export function ChartRenderer({
           <BarChart data={data} onClick={rootClick}>
             {grid}
             <XAxis dataKey="name" {...catAxis} />
-            <YAxis {...axis} tickFormatter={formatNumber} />
-            <Tooltip {...tooltipStyle()} />
+            <YAxis {...axis} tickFormatter={axisTickFmt} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} />
             {legend}
             {keys.map((k, i) => (
               <Bar key={k} dataKey={k} stackId="s" fill={color(i)} radius={[4, 4, 0, 0]} />
@@ -262,8 +284,8 @@ export function ChartRenderer({
           <LineChart data={data} onClick={rootClick}>
             {grid}
             <XAxis dataKey="name" {...catAxis} />
-            <YAxis {...axis} tickFormatter={formatNumber} />
-            <Tooltip {...tooltipStyle()} />
+            <YAxis {...axis} tickFormatter={axisTickFmt} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} />
             {legend}
             {keys.map((k, i) => (
               <Line key={k} type="monotone" dataKey={k} stroke={color(i)} strokeWidth={2} dot={{ r: 2 }} />
@@ -284,8 +306,8 @@ export function ChartRenderer({
             </defs>
             {grid}
             <XAxis dataKey="name" {...catAxis} />
-            <YAxis {...axis} tickFormatter={formatNumber} />
-            <Tooltip {...tooltipStyle()} />
+            <YAxis {...axis} tickFormatter={axisTickFmt} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} />
             {legend}
             {keys.map((k, i) => (
               <Area
@@ -350,8 +372,8 @@ export function ChartRenderer({
           <ScatterChart onClick={rootClick}>
             {grid}
             <XAxis dataKey="name" {...catAxis} />
-            <YAxis dataKey={keys[0] as string} {...axis} tickFormatter={formatNumber} />
-            <Tooltip {...tooltipStyle()} cursor={{ strokeDasharray: "3 3" }} />
+            <YAxis dataKey={keys[0] as string} {...axis} tickFormatter={axisTickFmt} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} cursor={{ strokeDasharray: "3 3" }} />
             <Scatter data={data} fill={color(0)}>
               {data.map((d, i) => (
                 <Cell key={d.name} {...cellProps(d.name)} fill={getCellColor(Number(d[keys[0] as string] ?? 0), color(i), spec, data, keys[0] as string)} />
@@ -364,8 +386,8 @@ export function ChartRenderer({
           <ComposedChart data={data} onClick={rootClick}>
             {grid}
             <XAxis dataKey="name" {...catAxis} />
-            <YAxis {...axis} tickFormatter={formatNumber} />
-            <Tooltip {...tooltipStyle()} />
+            <YAxis {...axis} tickFormatter={axisTickFmt} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} />
             {legend}
             {keys.map((k, i) =>
               i === 0 ? (
@@ -405,8 +427,8 @@ export function ChartRenderer({
           <BarChart data={data} onClick={rootClick}>
             {grid}
             <XAxis dataKey="name" {...catAxis} />
-            <YAxis {...axis} tickFormatter={formatNumber} />
-            <Tooltip {...tooltipStyle()} />
+            <YAxis {...axis} tickFormatter={axisTickFmt} />
+            <Tooltip {...tooltipStyle()} formatter={tooltipFmt} />
             {legend}
             {keys.map((k, i) => (
               <Bar key={k} dataKey={k} fill={color(i)} radius={[4, 4, 0, 0]}>

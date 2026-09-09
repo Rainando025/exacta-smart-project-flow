@@ -31,6 +31,11 @@ import {
   X,
   Volume2,
   VolumeX,
+  Download,
+  DollarSign,
+  TrendingUp,
+  Hash,
+  LineChart as LineChartIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
@@ -58,6 +63,7 @@ import { AlertsDialog } from "@/components/analyze/AlertsDialog";
 import { MergeDatasetsDialog } from "@/components/analyze/MergeDatasetsDialog";
 import { KpiEditorDialog } from "@/components/analyze/KpiEditorDialog";
 import { RemindersDialog } from "@/components/analyze/RemindersDialog";
+import { ImportChartDialog } from "@/components/analyze/ImportChartDialog";
 import { buildAlertEvents, evaluateAlerts, type AlertEvent, type AlertRule } from "@/lib/analyze/alerts";
 import { dispatchAlertNotification } from "@/lib/analyze/notify.functions";
 import { aggregateKpi, formatNumber, formatKpiValue, buildHeuristicDashboard } from "@/lib/analyze/aggregate";
@@ -147,6 +153,7 @@ function Index() {
   const [mergeOpen, setMergeOpen] = useState(false);
   const [editingKpi, setEditingKpi] = useState<KpiSpec | null>(null);
   const [kpiEditorOpen, setKpiEditorOpen] = useState(false);
+  const [importChartOpen, setImportChartOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(isAudioEnabled());
 
   const [user, setUser] = useState<{ id: string; email: string | null } | null>(null);
@@ -993,166 +1000,106 @@ function Index() {
           </div>
         </div>
 
-        {/* Tab-based Ribbon Menu (PowerBI style) */}
+        {/* HUD / Barra de Ferramentas Nexus BI */}
         {dashboard && (
-          <Tabs defaultValue="inicio" className="w-full border-b border-border/40 bg-secondary/15">
-            <div className={`mx-auto flex flex-wrap items-center justify-between px-5 ${shell}`}>
-              <TabsList className="bg-transparent border-none p-0 h-10 gap-1">
-                <TabsTrigger value="inicio" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  Página Inicial
-                </TabsTrigger>
-                <TabsTrigger value="visualizacoes" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  Visualizações e Cards
-                </TabsTrigger>
-                <TabsTrigger value="alertas" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  Filtros e Alertas
-                </TabsTrigger>
-                <TabsTrigger value="colaboracao" className="text-xs h-10 border-b-2 border-transparent rounded-none data-[state=active]:border-primary data-[state=active]:bg-transparent">
-                  Compartilhar e Ajuda
-                </TabsTrigger>
-              </TabsList>
+          <div className="w-full border-b border-border/50 bg-card/60 backdrop-blur-md">
+            <div className={`mx-auto px-5 py-2 flex flex-wrap items-center justify-between gap-2.5 ${shell}`}>
+              {/* Bloco 1: Dados & Fontes */}
+              <div className="flex flex-wrap items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/50">
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => { modeRef.current = "replace"; inputRef.current?.click(); }}>
+                  <Upload className="size-3.5 text-primary" /> Nova Página
+                </Button>
+                {dataset && (
+                  <>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => { modeRef.current = "append"; inputRef.current?.click(); }}>
+                      <Layers className="size-3.5 text-blue-500" /> Acrescentar Dados
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => setMergeOpen(true)}>
+                      <FileSpreadsheet className="size-3.5 text-emerald-500" /> Mesclar JOIN
+                    </Button>
+                  </>
+                )}
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => page && dataset && canEdit && analyze(page.id, dataset)} disabled={!!loading || !canEdit}>
+                  <Sparkles className="size-3.5 text-purple-500" /> IA Reanalisar
+                </Button>
+              </div>
 
-              <div className="flex rounded-md bg-secondary/80 p-0.5 border border-border/50 scale-90">
-                <button
-                  onClick={() => setOrientation("landscape")}
-                  className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors ${
-                    orientation === "landscape" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground"
-                  }`}
-                >
-                  <Monitor className="size-3" /> Paisagem
-                </button>
-                <button
-                  onClick={() => setOrientation("portrait")}
-                  className={`flex items-center gap-1 rounded px-2 py-1 text-[11px] transition-colors ${
-                    orientation === "portrait" ? "bg-primary text-primary-foreground font-semibold" : "text-muted-foreground"
-                  }`}
-                >
-                  <Smartphone className="size-3" /> Retrato
-                </button>
+              {/* Bloco 2: Visuais & Dashboard */}
+              <div className="flex flex-wrap items-center gap-1 bg-muted/40 p-1 rounded-lg border border-border/50">
+                {canEdit && (
+                  <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={addChart}>
+                    <Plus className="size-3.5 text-primary" /> Novo Gráfico
+                  </Button>
+                )}
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => setImportChartOpen(true)}>
+                  <Download className="size-3.5 text-cyan-500" /> Importar Gráfico
+                </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => {
+                  if (dashboard.kpis?.length) { setEditingKpi(dashboard.kpis[0]!); setKpiEditorOpen(true); }
+                  else { toast.info("Nenhum KPI para editar. Crie um indicador usando o botão '+' na seção de KPI."); }
+                }}>
+                  <Pencil className="size-3.5 text-amber-500" /> Editar Cards
+                </Button>
+                <Button variant={panelOpen ? "secondary" : "ghost"} size="sm" className="h-7 text-xs gap-1.5 shadow-none px-2.5" onClick={() => setPanelOpen((v) => !v)}>
+                  <SlidersHorizontal className="size-3.5" /> Campos
+                </Button>
+              </div>
+
+              {/* Bloco 3: Filtros, Alertas & Opções */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Button variant={criticalCount ? "destructive" : "outline"} size="sm" className="h-7 text-xs gap-1.5 px-2.5" onClick={() => setAlertsOpen(true)}>
+                  <Bell className="size-3.5" /> Alertas
+                  {alertHits.length > 0 && <span className="ml-1 rounded-full bg-primary/20 px-1 text-[10px]">{alertHits.length}</span>}
+                </Button>
+
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1 hover:bg-background px-2" onClick={() => { setFilters({}); setCross(null); toast.info("Filtros limpos"); }}>
+                  <Filter className="size-3.5 text-muted-foreground" /> Limpar Filtros
+                </Button>
+
+                <ViewsMenu
+                  views={page?.views ?? []}
+                  onSave={saveView}
+                  onApply={applyView}
+                  onDelete={(id) => page && patchPage(page.id, { views: (page.views ?? []).filter((v) => v.id !== id) })}
+                  onShare={() => void copyLink(currentState())}
+                  onShareView={(v) => void copyLink({ ...v.state, ...(page ? { pageName: page.name } : {}) })}
+                />
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-7 text-xs gap-1 px-2.5">
+                      <Settings className="size-3.5" /> Opções
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-52">
+                    <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground">Exibição & Layout</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setOrientation("landscape")} className="text-xs gap-2">
+                      <Monitor className="size-3.5" /> Orientação Paisagem
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setOrientation("portrait")} className="text-xs gap-2">
+                      <Smartphone className="size-3.5" /> Orientação Retrato
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel className="text-[11px] font-semibold text-muted-foreground">Exportação & Ações</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setPresenting(true)} className="text-xs gap-2">
+                      <Play className="size-3.5" /> Apresentação (F11)
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => window.print()} className="text-xs gap-2">
+                      <Printer className="size-3.5" /> Imprimir / PDF
+                    </DropdownMenuItem>
+                    {page && (
+                      <DropdownMenuItem onClick={() => setShareOpen(true)} className="text-xs gap-2">
+                        <Share2 className="size-3.5" /> Compartilhar Página
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={() => setNotesFor({ id: "page", title: page?.name ?? "Página" })} className="text-xs gap-2">
+                      <MessageSquare className="size-3.5" /> Anotações ({annotations.length})
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
-
-            <div className="bg-background/40 py-2 border-t border-border/30">
-              <div className={`mx-auto px-5 ${shell}`}>
-                <TabsContent value="inicio" className="mt-0 flex flex-wrap items-center gap-1.5">
-                  <Button variant="secondary" size="sm" onClick={() => {
-                    modeRef.current = "replace";
-                    inputRef.current?.click();
-                  }}>
-                    <Upload className="size-3.5" /> Nova página
-                  </Button>
-                  
-                  {dataset && (
-                    <>
-                      <Button variant="secondary" size="sm" onClick={() => {
-                        modeRef.current = "append";
-                        inputRef.current?.click();
-                      }}>
-                        <Layers className="size-3.5" /> Acrescentar dados
-                      </Button>
-                      
-                      <Button variant="secondary" size="sm" onClick={() => setMergeOpen(true)}>
-                        <Layers className="size-3.5" /> Mesclar dados (JOIN)
-                      </Button>
-                    </>
-                  )}
-                  
-                  <div className="h-6 w-px bg-border/85 mx-1" />
-                  
-                  <Button variant={panelOpen ? "default" : "secondary"} size="sm" onClick={() => setPanelOpen((v) => !v)}>
-                    <SlidersHorizontal className="size-3.5" /> Campos lateral
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => setPresenting(true)}>
-                    <Play className="size-3.5" /> Apresentar (F11)
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => window.print()}>
-                    <Printer className="size-3.5" /> Imprimir
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="visualizacoes" className="mt-0 flex flex-wrap items-center gap-1.5">
-                  {canEdit && (
-                    <Button variant="secondary" size="sm" onClick={addChart}>
-                      <Plus className="size-3.5" /> Novo Gráfico
-                    </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      if (dashboard.kpis?.length) {
-                        setEditingKpi(dashboard.kpis[0]!);
-                        setKpiEditorOpen(true);
-                      } else {
-                        toast.info("Nenhum KPI para editar. Crie um indicador usando o botão '+' na seção de KPI.");
-                      }
-                    }}
-                  >
-                    <Pencil className="size-3.5" /> Editar Cards de KPI
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => page && dataset && canEdit && analyze(page.id, dataset)}
-                    disabled={!!loading || !canEdit}
-                  >
-                    <RefreshCw className="size-3.5" /> Reanalisar base com IA
-                  </Button>
-                </TabsContent>
-
-                <TabsContent value="alertas" className="mt-0 flex flex-wrap items-center gap-1.5">
-                  <Button
-                    variant={criticalCount ? "destructive" : "secondary"}
-                    size="sm"
-                    onClick={() => setAlertsOpen(true)}
-                  >
-                    <Bell className="size-3.5" /> Regras de Alertas
-                    {alertHits.length > 0 && (
-                      <span className="ml-1.5 rounded-full bg-background/30 px-1.5 py-0.5 text-[10px]">{alertHits.length}</span>
-                    )}
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => {
-                    setFilters({});
-                    setCross(null);
-                    toast.info("Filtros limpos");
-                  }}>
-                    <Filter className="size-3.5" /> Limpar filtros (F)
-                  </Button>
-                  
-                  <div className="h-6 w-px bg-border/85 mx-1" />
-                  
-                  <ViewsMenu
-                    views={page?.views ?? []}
-                    onSave={saveView}
-                    onApply={applyView}
-                    onDelete={(id) =>
-                      page && patchPage(page.id, { views: (page.views ?? []).filter((v) => v.id !== id) })
-                    }
-                    onShare={() => void copyLink(currentState())}
-                    onShareView={(v) => void copyLink({ ...v.state, ...(page ? { pageName: page.name } : {}) })}
-                  />
-                </TabsContent>
-
-                <TabsContent value="colaboracao" className="mt-0 flex flex-wrap items-center gap-1.5">
-                  {page && (
-                    <Button variant="secondary" size="sm" onClick={() => setShareOpen(true)}>
-                      <Share2 className="size-3.5" /> Compartilhar página
-                    </Button>
-                  )}
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setNotesFor({ id: "page", title: page?.name ?? "Página" })}
-                  >
-                    <MessageSquare className="size-3.5" /> Anotações (N)
-                    {annotations.length > 0 && (
-                      <span className="ml-1.5 rounded-full bg-primary/20 px-1.5 py-0.5 text-[10px]">{annotations.length}</span>
-                    )}
-                  </Button>
-                </TabsContent>
-              </div>
-            </div>
-          </Tabs>
+          </div>
         )}
 
         {pages.length > 0 && (
@@ -1279,32 +1226,59 @@ function Index() {
               )}
 
               <section
-                className={`grid grid-cols-2 gap-3 ${
+                className={`grid grid-cols-2 gap-3.5 ${
                   orientation === "landscape" ? "lg:grid-cols-5" : "lg:grid-cols-3"
                 }`}
               >
-                {kpiCards.map((k) => (
-                  <div key={k.id} className="panel relative overflow-hidden px-4 py-3 group">
-                    <div className="absolute inset-y-0 left-0 w-[3px]" style={{ background: `var(--${k.accent})` }} />
-                    <p className="label-eyebrow" style={{ color: `var(--${k.accent})` }}>
-                      {k.label}
-                    </p>
-                    <p className="mt-1 font-display text-2xl font-bold tabular-nums truncate">{formatKpiValue(k.value, k.format)}</p>
-                    {canEdit && (
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingKpi(k);
-                          setKpiEditorOpen(true);
-                        }}
-                        className="absolute right-2 top-2 no-print rounded p-1 text-muted-foreground opacity-70 hover:bg-accent hover:text-primary group-hover:opacity-100 transition"
-                        title="Editar card"
-                      >
-                        <Pencil className="size-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+                {kpiCards.map((k) => {
+                  const accentColor = k.accentColor || (k.accent ? `var(--${k.accent})` : "#3b82f6");
+                  const isCurrency = k.format === "currency" || k.format === "currency_compact";
+
+                  return (
+                    <div
+                      key={k.id}
+                      className="panel relative overflow-hidden px-4 py-3.5 group transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 border border-border/70"
+                      style={{
+                        background: `linear-gradient(135deg, ${accentColor}15 0%, rgba(255,255,255,0.01) 65%)`,
+                      }}
+                    >
+                      <div className="absolute inset-y-0 left-0 w-1 rounded-l" style={{ backgroundColor: accentColor }} />
+                      
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="label-eyebrow font-semibold truncate" style={{ color: accentColor }}>
+                          {k.label}
+                        </p>
+                        <div className="p-1 rounded bg-muted/40 border border-border/30">
+                          {isCurrency ? (
+                            <DollarSign className="size-3.5" style={{ color: accentColor }} />
+                          ) : k.agg === "count" ? (
+                            <Hash className="size-3.5" style={{ color: accentColor }} />
+                          ) : (
+                            <TrendingUp className="size-3.5" style={{ color: accentColor }} />
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="mt-2 font-display text-2xl font-extrabold tabular-nums tracking-tight truncate text-foreground">
+                        {formatKpiValue(k.value, k.format, k.decimalPlaces, k.prefix, k.suffix)}
+                      </p>
+
+                      {canEdit && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingKpi(k);
+                            setKpiEditorOpen(true);
+                          }}
+                          className="absolute right-2 top-2 no-print rounded p-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-accent hover:text-primary transition"
+                          title="Editar card"
+                        >
+                          <Pencil className="size-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
 
                 {canEdit && (
                   <button
@@ -1319,7 +1293,7 @@ function Index() {
                       setEditingKpi(newKpi);
                       setKpiEditorOpen(true);
                     }}
-                    className="panel border-dashed border-2 hover:border-primary/50 hover:bg-secondary/15 transition flex items-center justify-center gap-1.5 text-muted-foreground text-xs font-semibold py-3"
+                    className="panel border-dashed border-2 hover:border-primary/60 hover:bg-primary/5 transition flex items-center justify-center gap-1.5 text-muted-foreground hover:text-primary text-xs font-semibold py-3.5"
                   >
                     <Plus className="size-4" /> Adicionar Card
                   </button>
@@ -1369,6 +1343,18 @@ function Index() {
                           {notesOf(c.id).length > 0 && (
                             <span className="text-[10px] tabular-nums">{notesOf(c.id).length}</span>
                           )}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const jsonStr = JSON.stringify(c, null, 2);
+                            navigator.clipboard.writeText(jsonStr);
+                            toast.success("Estrutura do gráfico copiada em JSON!");
+                          }}
+                          className="no-print flex items-center gap-1 rounded-md px-1.5 py-0.5 text-xs text-muted-foreground opacity-70 transition hover:bg-accent hover:text-primary hover:opacity-100"
+                          title="Exportar JSON do gráfico"
+                          aria-label="Exportar JSON do gráfico"
+                        >
+                          <Download className="size-3" />
                         </button>
                         <button
                           onClick={() => setEditing(c)}
@@ -1513,6 +1499,32 @@ function Index() {
         onAdd={handleAddReminder}
         onToggleComplete={handleToggleReminderComplete}
         onDelete={handleDeleteReminder}
+      />
+
+      <ImportChartDialog
+        open={importChartOpen}
+        onOpenChange={setImportChartOpen}
+        fields={dataset?.fields ?? []}
+        pages={pages}
+        activePageId={activeId}
+        onImport={(newCharts) => {
+          if (!page) return;
+          const currentDashboard = page.dashboard;
+          patchPage(page.id, {
+            dashboard: currentDashboard
+              ? {
+                  ...currentDashboard,
+                  charts: [...(currentDashboard.charts || []), ...newCharts],
+                }
+              : {
+                  title: page.name,
+                  subtitle: "",
+                  kpis: [],
+                  charts: newCharts,
+                  insights: [],
+                },
+          });
+        }}
       />
 
       {user && (

@@ -45,7 +45,7 @@ export function ChartEditor({
   const [draft, setDraft] = useState<ChartSpec | null>(spec);
   
   // Rule editor local states
-  const [newOp, setNewOp] = useState<"gt" | "lt" | "eq" | "between">("gt");
+  const [newOp, setNewOp] = useState<"gt" | "gte" | "lt" | "lte" | "eq" | "between">("gt");
   const [newVal1, setNewVal1] = useState("");
   const [newVal2, setNewVal2] = useState("");
   const [newColor, setNewColor] = useState("#ff3232");
@@ -258,10 +258,77 @@ export function ChartEditor({
           </div>
         </div>
 
+        {/* Number Formatting Section */}
+        <div className="mx-6 border-t border-border/60 pt-3 pb-2 space-y-3">
+          <Label className="text-xs font-bold text-foreground block">Formatação de Números do Gráfico</Label>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-muted-foreground">Formato dos Valores</Label>
+              <Select
+                value={draft.format ?? "compact"}
+                onValueChange={(v) => set({ format: v as any })}
+              >
+                <SelectTrigger className="h-8 text-xs bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="compact">Compacto (ex: 1,2M, 15k)</SelectItem>
+                  <SelectItem value="currency">Moeda R$ (ex: R$ 1.250,00)</SelectItem>
+                  <SelectItem value="currency_compact">Moeda R$ Compacto (ex: R$ 1,2k)</SelectItem>
+                  <SelectItem value="percent">Percentual (%)</SelectItem>
+                  <SelectItem value="decimal">Decimal com milhar (ex: 1.250,00)</SelectItem>
+                  <SelectItem value="integer">Inteiro com milhar (ex: 1.250)</SelectItem>
+                  <SelectItem value="none">Sem formatação (1250)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-muted-foreground">Casas Decimais</Label>
+              <Select
+                value={draft.decimalPlaces !== undefined ? String(draft.decimalPlaces) : "auto"}
+                onValueChange={(v) => set({ decimalPlaces: v === "auto" ? undefined : Number(v) })}
+              >
+                <SelectTrigger className="h-8 text-xs bg-background">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="auto">Automático</SelectItem>
+                  <SelectItem value="0">0 (Sem decimais)</SelectItem>
+                  <SelectItem value="1">1 casa (0,0)</SelectItem>
+                  <SelectItem value="2">2 casas (0,00)</SelectItem>
+                  <SelectItem value="3">3 casas (0,000)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-muted-foreground">Prefixo Personalizado</Label>
+              <Input
+                className="h-8 text-xs bg-background"
+                value={draft.prefix ?? ""}
+                onChange={(e) => set({ prefix: e.target.value })}
+                placeholder="ex: R$ "
+              />
+            </div>
+            <div className="grid gap-1">
+              <Label className="text-[11px] text-muted-foreground">Sufixo Personalizado</Label>
+              <Input
+                className="h-8 text-xs bg-background"
+                value={draft.suffix ?? ""}
+                onChange={(e) => set({ suffix: e.target.value })}
+                placeholder="ex: /mês"
+              />
+            </div>
+          </div>
+        </div>
+
         {/* Conditional Formatting Section */}
         <div className="mx-6 border-t border-border/60 pt-3 pb-2 space-y-3">
           <div className="flex items-center justify-between">
-            <Label className="text-sm font-semibold">Formatação Condicional</Label>
+            <Label className="text-xs font-bold text-foreground">Formatação Condicional</Label>
             <select
               value={draft.gradientEnabled ? "gradient" : (draft.colorRules?.length ? "rules" : "none")}
               onChange={(e) => {
@@ -288,7 +355,7 @@ export function ChartEditor({
             >
               <option value="none">Paleta Padrão</option>
               <option value="gradient">Gradiente Dinâmico</option>
-              <option value="rules">Regras de Limite (Treshold)</option>
+              <option value="rules">Regras de Limite (Threshold)</option>
             </select>
           </div>
 
@@ -325,23 +392,33 @@ export function ChartEditor({
                 {!draft.colorRules?.length && (
                   <p className="text-[11px] text-muted-foreground italic py-1">Nenhuma regra definida ainda.</p>
                 )}
-                {draft.colorRules?.map((r) => (
-                  <div key={r.id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
-                    <span>
-                      Valor {r.op === "gt" ? "Maior que" : r.op === "lt" ? "Menor que" : r.op === "eq" ? "Igual a" : "Entre"}{" "}
-                      <strong>{r.value1}</strong> {r.op === "between" ? `e ${r.value2}` : ""}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="size-3.5 rounded-full border border-border" style={{ backgroundColor: r.color }} />
-                      <button
-                        onClick={() => set({ colorRules: draft.colorRules ? draft.colorRules.filter(x => x.id !== r.id) : [] })}
-                        className="text-muted-foreground hover:text-destructive transition p-0.5"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                {draft.colorRules?.map((r) => {
+                  const opLabels: Record<string, string> = {
+                    gt: "Maior que",
+                    gte: "Maior ou igual a",
+                    lt: "Menor que",
+                    lte: "Menor ou igual a",
+                    eq: "Igual a",
+                    between: "Entre",
+                  };
+                  return (
+                    <div key={r.id} className="flex items-center justify-between gap-2 border-b border-border/40 py-1">
+                      <span>
+                        Valor {opLabels[r.op] || r.op}{" "}
+                        <strong>{r.value1}</strong> {r.op === "between" ? `e ${r.value2}` : ""}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="size-3.5 rounded-full border border-border" style={{ backgroundColor: r.color }} />
+                        <button
+                          onClick={() => set({ colorRules: draft.colorRules ? draft.colorRules.filter(x => x.id !== r.id) : [] })}
+                          className="text-muted-foreground hover:text-destructive transition p-0.5"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Add rule form */}
@@ -353,9 +430,11 @@ export function ChartEditor({
                     value={newOp}
                     onChange={(e) => setNewOp(e.target.value as any)}
                   >
-                    <option value="gt">Maior que</option>
-                    <option value="lt">Menor que</option>
-                    <option value="eq">Igual a</option>
+                    <option value="gt">Maior que (&gt;)</option>
+                    <option value="gte">Maior ou igual (&ge;)</option>
+                    <option value="lt">Menor que (&lt;)</option>
+                    <option value="lte">Menor ou igual (&le;)</option>
+                    <option value="eq">Igual a (=)</option>
                     <option value="between">Entre</option>
                   </select>
                 </div>
