@@ -153,17 +153,22 @@ function OKRsPage() {
       return;
     }
 
+    if (!user?.id) {
+      toast.error("Usuário não autenticado");
+      return;
+    }
+
     const { error } = await (supabase.from("okrs" as any)).insert({
       title: newOkr.title,
-      description: newOkr.description,
+      description: newOkr.description || null,
       project_id: newOkr.project_id || null,
-      owner_id: user?.id,
+      owner_id: user.id,
       status: 'em_andamento',
       progress: 0
     } as any);
 
     if (error) {
-      toast.error("Erro ao criar OKR");
+      toast.error("Erro ao criar OKR: " + error.message);
     } else {
       toast.success("OKR criado com sucesso!");
       setOpenOkr(false);
@@ -171,6 +176,7 @@ function OKRsPage() {
       loadData();
     }
   };
+
 
   const handleDeleteOkr = async (id: string) => {
     if (!confirm("Excluir este OKR permanentemente? Todas as sub-metas serão perdidas.")) return;

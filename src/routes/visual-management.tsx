@@ -6,7 +6,7 @@ import {
   Plus, Trash2, Info, ArrowRight, Save, LayoutGrid, Brain,
   HelpCircle, MoreHorizontal, MousePointer2, Square, Diamond,
   Circle, Database, MoveRight, Type, Download, Share2, Sparkles, Loader2,
-  CalendarRange, Users, FolderKanban, Minus
+  CalendarRange, Users, FolderKanban, Minus, FolderOpen
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -998,6 +998,63 @@ function VisualManagementPage() {
   const [suggestedProject, setSuggestedProject] = useState<any>(null);
   const [suggestedOKR, setSuggestedOKR] = useState<any>(null);
 
+  // Saved boards state
+  const [savedBoardsOpen, setSavedBoardsOpen] = useState(false);
+  const [savedBoardsList, setSavedBoardsList] = useState<any[]>([]);
+  const [loadingSavedBoards, setLoadingSavedBoards] = useState(false);
+
+  const loadSavedBoardsList = async () => {
+    setLoadingSavedBoards(true);
+    const { data } = await (supabase.from("visual_boards" as any))
+      .select("id, name, tool_type, project_id, created_at, projects(name)")
+      .order("created_at", { ascending: false });
+    if (data) setSavedBoardsList(data);
+    setLoadingSavedBoards(false);
+  };
+
+  const handleDeleteBoard = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este quadro salvo permanentemente?")) return;
+    const { error } = await (supabase.from("visual_boards" as any)).delete().eq("id", id);
+    if (error) {
+      toast.error("Erro ao excluir quadro: " + error.message);
+    } else {
+      toast.success("Quadro excluído com sucesso!");
+      loadSavedBoardsList();
+    }
+  };
+
+  const handleLoadBoardById = async (boardItem: any) => {
+    const { data, error } = await (supabase.from("visual_boards" as any))
+      .select("data, tool_type, project_id")
+      .eq("id", boardItem.id)
+      .single();
+
+    if (error || !data) {
+      toast.error("Erro ao carregar o quadro.");
+      return;
+    }
+
+    const savedData = (data as any).data;
+    const toolType = (data as any).tool_type;
+    if ((data as any).project_id) setSelectedProjectId((data as any).project_id);
+    if (toolType) setActiveTab(toolType);
+
+    switch (toolType) {
+      case "swot": setSwot(savedData); break;
+      case "eisenhower": setEisenhower(savedData); break;
+      case "5w2h": setFiveW(savedData); break;
+      case "pareto": setPareto(savedData); break;
+      case "smart": setSmart(savedData); break;
+      case "gut": setGut(savedData); break;
+      case "flowchart": 
+        setNodes(savedData.nodes || []); 
+        setEdges(savedData.edges || []); 
+        break;
+    }
+    toast.success("Painel carregado com sucesso!");
+    setSavedBoardsOpen(false);
+  };
+
   const handleCreateProject = async () => {
     if (!suggestedProject) return;
     const { user } = (await supabase.auth.getUser()).data;
@@ -1006,7 +1063,7 @@ function VisualManagementPage() {
     const { error } = await supabase.from("projects").insert({
       name: suggestedProject.name,
       description: suggestedProject.description,
-      status: "planning",
+      status: "ativo",
       owner_id: user.id
     });
 
@@ -1038,15 +1095,19 @@ function VisualManagementPage() {
   const handleCreateOKR = async () => {
     if (!suggestedOKR) return;
     const { user } = (await supabase.auth.getUser()).data;
-    if (!user) return;
+    if (!user) {
+      toast.error("Usuário não autenticado");
+      return;
+    }
 
     const table: any = supabase.from("okrs" as any);
     const { error } = await table.insert({
       title: suggestedOKR.title,
-      description: suggestedOKR.description,
-      target_value: 100,
-      current_value: 0,
-      owner_id: user.id
+      description: suggestedOKR.description || null,
+      project_id: selectedProjectId || null,
+      owner_id: user.id,
+      status: 'em_andamento',
+      progress: 0
     });
 
     if (error) toast.error("Erro ao criar OKR: " + error.message);
@@ -1124,6 +1185,14 @@ function VisualManagementPage() {
             </Button>
             <Button onClick={handleSaveBoard} className="bg-primary gap-2 text-primary-foreground" title="Salvar painel neste projeto">
               <Save className="h-4 w-4" /> Salvar
+            </Button>
+            <Button
+              onClick={() => { setSavedBoardsOpen(true); loadSavedBoardsList(); }}
+              variant="outline"
+              className="gap-2"
+              title="Gerenciar quadros salvos"
+            >
+              <FolderOpen className="h-4 w-4" /> Meus Quadros
             </Button>
           </div>
           <div className="flex gap-2 self-end">
@@ -1218,6 +1287,71 @@ function VisualManagementPage() {
 
           <DialogFooter className="mt-8 border-t border-white/10 pt-4">
             <Button onClick={() => setOpenDialog(false)} className="bg-muted hover:bg-muted/80 text-foreground font-bold">Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Saved Boards Dialog */}
+      <Dialog open={savedBoardsOpen} onOpenChange={setSavedBoardsOpen}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FolderOpen className="h-5 w-5 text-accent" />
+              Meus Quadros Salvos
+            </DialogTitle>
+          </DialogHeader>
+          <div className="mt-2">
+            {loadingSavedBoards ? (
+              <div className="flex items-center justify-center py-10">
+                <Loader2 className="h-6 w-6 animate-spin text-accent" />
+              </div>
+            ) : savedBoardsList.length === 0 ? (
+              <div className="text-center py-10 text-muted-foreground">
+                <FolderOpen className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                Nenhum quadro salvo encontrado.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {savedBoardsList.map((board: any) => (
+                  <div
+                    key={board.id}
+                    className="flex items-center justify-between p-3 rounded-lg border bg-card/60 hover:bg-card/90 transition"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold truncate">{board.name}</p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs text-muted-foreground uppercase tracking-wide">{board.tool_type}</span>
+                        {board.projects?.name && (
+                          <span className="text-xs text-accent">{board.projects.name}</span>
+                        )}
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(board.created_at).toLocaleDateString('pt-BR')}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 ml-2">
+                      <button
+                        onClick={() => handleLoadBoardById(board)}
+                        title="Carregar este quadro"
+                        className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition"
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteBoard(board.id)}
+                        title="Excluir este quadro"
+                        className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setSavedBoardsOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

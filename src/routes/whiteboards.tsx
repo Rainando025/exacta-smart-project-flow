@@ -169,6 +169,17 @@ function WhiteboardsPage() {
     if (data) openBoard(data as Whiteboard);
   };
 
+  // ── Delete board ─────────────────────────────────────────────────────────────
+  const deleteBoard = async (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!confirm("Excluir este quadro permanentemente? Todo o conteúdo será perdido.")) return;
+    const { error } = await supabase.from("documents").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir quadro: " + error.message); return; }
+    toast.success("Quadro excluído!");
+    if (activeBoard?.id === id) setActiveBoard(null);
+    await loadBoards();
+  };
+
   // ── Coordinate helpers ───────────────────────────────────────────────────────
   const svgCoords = (e: React.PointerEvent): Point => {
     const svg = canvasRef.current!;
@@ -485,10 +496,10 @@ function WhiteboardsPage() {
         ) : (
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {boards.map((b) => (
-              <button
+              <div
                 key={b.id}
+                className="group relative text-left p-5 rounded-2xl border border-white/5 bg-card hover:border-accent/30 hover:shadow-elegant transition-all duration-200 space-y-3 cursor-pointer"
                 onClick={() => openBoard(b)}
-                className="group text-left p-5 rounded-2xl border border-white/5 bg-card hover:border-accent/30 hover:shadow-elegant transition-all duration-200 space-y-3"
               >
                 <div className="h-28 rounded-xl bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:16px_16px] border border-white/5 flex items-center justify-center overflow-hidden">
                   {(b.data?.elements?.length || 0) > 0 ? (
@@ -499,13 +510,22 @@ function WhiteboardsPage() {
                     <Presentation className="h-10 w-10 text-muted-foreground/20" />
                   )}
                 </div>
-                <div>
-                  <p className="font-display font-bold group-hover:text-accent transition">{b.title}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {b.data?.elements?.length || 0} elemento(s) • {new Date(b.updated_at).toLocaleDateString("pt-BR")}
-                  </p>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-display font-bold group-hover:text-accent transition truncate">{b.title}</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {b.data?.elements?.length || 0} elemento(s) • {new Date(b.updated_at).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => deleteBoard(b.id, e)}
+                    title="Excluir quadro"
+                    className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition opacity-0 group-hover:opacity-100"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}
@@ -558,8 +578,16 @@ function WhiteboardsPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={clearAll} className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10">
-            <Trash2 className="h-3.5 w-3.5" /> Limpar
+          <Button variant="outline" size="sm" onClick={clearAll} className="gap-1 text-muted-foreground border-muted/30 hover:text-foreground">
+            <Eraser className="h-3.5 w-3.5" /> Limpar
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => deleteBoard(activeBoard.id)}
+            className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Excluir Quadro
           </Button>
           <Button variant="outline" size="sm" onClick={exportSVG} className="gap-1">
             <Download className="h-3.5 w-3.5" /> Exportar
