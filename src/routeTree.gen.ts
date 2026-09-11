@@ -21,6 +21,7 @@ import { Route as OkrsRouteImport } from './routes/okrs'
 import { Route as NotificationsRouteImport } from './routes/notifications'
 import { Route as NotesRouteImport } from './routes/notes'
 import { Route as NeuralMapRouteImport } from './routes/neural-map'
+import { Route as LegalRouteImport } from './routes/legal'
 import { Route as KanbanRouteImport } from './routes/kanban'
 import { Route as GanttRouteImport } from './routes/gantt'
 import { Route as FinancesRouteImport } from './routes/finances'
@@ -94,6 +95,11 @@ const NotesRoute = NotesRouteImport.update({
 const NeuralMapRoute = NeuralMapRouteImport.update({
   id: '/neural-map',
   path: '/neural-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const KanbanRoute = KanbanRouteImport.update({
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/legal': typeof LegalRoute
   '/neural-map': typeof NeuralMapRoute
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
@@ -210,6 +217,7 @@ export interface FileRoutesByTo {
   '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/legal': typeof LegalRoute
   '/neural-map': typeof NeuralMapRoute
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
@@ -239,6 +247,7 @@ export interface FileRoutesById {
   '/finances': typeof FinancesRoute
   '/gantt': typeof GanttRoute
   '/kanban': typeof KanbanRoute
+  '/legal': typeof LegalRoute
   '/neural-map': typeof NeuralMapRoute
   '/notes': typeof NotesRoute
   '/notifications': typeof NotificationsRoute
@@ -269,6 +278,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/gantt'
     | '/kanban'
+    | '/legal'
     | '/neural-map'
     | '/notes'
     | '/notifications'
@@ -297,6 +307,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/gantt'
     | '/kanban'
+    | '/legal'
     | '/neural-map'
     | '/notes'
     | '/notifications'
@@ -325,6 +336,7 @@ export interface FileRouteTypes {
     | '/finances'
     | '/gantt'
     | '/kanban'
+    | '/legal'
     | '/neural-map'
     | '/notes'
     | '/notifications'
@@ -354,6 +366,7 @@ export interface RootRouteChildren {
   FinancesRoute: typeof FinancesRoute
   GanttRoute: typeof GanttRoute
   KanbanRoute: typeof KanbanRoute
+  LegalRoute: typeof LegalRoute
   NeuralMapRoute: typeof NeuralMapRoute
   NotesRoute: typeof NotesRoute
   NotificationsRoute: typeof NotificationsRoute
@@ -452,6 +465,13 @@ declare module '@tanstack/react-router' {
       path: '/neural-map'
       fullPath: '/neural-map'
       preLoaderRoute: typeof NeuralMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/kanban': {
@@ -570,6 +590,7 @@ const rootRouteChildren: RootRouteChildren = {
   FinancesRoute: FinancesRoute,
   GanttRoute: GanttRoute,
   KanbanRoute: KanbanRoute,
+  LegalRoute: LegalRoute,
   NeuralMapRoute: NeuralMapRoute,
   NotesRoute: NotesRoute,
   NotificationsRoute: NotificationsRoute,

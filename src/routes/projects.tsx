@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
 import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 import { RichColorPicker } from "@/components/ui/color-picker";
+import { exportFullProjectDossier, exportProjectJSON, recalculateProjectProgress } from "@/lib/project-ecosystem";
 
 const COLORS = ["#1e3a8a", "#0891b2", "#7c3aed", "#059669", "#dc2626", "#d97706"];
 const STATUSES = [
@@ -233,11 +234,14 @@ function ProjectsPage() {
                 {p.name.slice(0, 2).toUpperCase()}
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setFilesProject(p)} aria-label="Arquivos" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                <button onClick={() => setFilesProject(p)} title="Arquivos do Projeto" aria-label="Arquivos" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
                   <Paperclip className="h-4 w-4" />
                 </button>
-                <button onClick={() => exportProjectPDF(p)} aria-label="Relatório PDF" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
-                  <FileDown className="h-4 w-4" />
+                <button onClick={() => exportFullProjectDossier(p, user)} title="Exportar Dossiê Completo (PDF)" aria-label="Dossiê PDF" className="p-1.5 rounded text-primary hover:bg-muted transition font-medium text-xs flex items-center gap-1">
+                  <FileDown className="h-4 w-4 text-accent" />
+                </button>
+                <button onClick={() => exportProjectJSON(p)} title="Exportar Pacote JSON" aria-label="Pacote JSON" className="p-1.5 rounded text-muted-foreground hover:text-accent hover:bg-muted transition">
+                  <FolderKanban className="h-4 w-4" />
                 </button>
                 {(isAdmin || p.owner_id === user?.id) && (
                   <>

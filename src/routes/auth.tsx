@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useSearch, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -154,6 +154,13 @@ function AuthPage() {
               {submitting ? "Entrando…" : "Entrar"}
             </Button>
           </form>
+
+          <p className="text-xs text-center text-muted-foreground pt-2">
+            Ao acessar, você concorda com nossos{" "}
+            <Link to="/legal" className="underline hover:text-foreground transition-colors">Termos de Uso</Link>
+            {" "}e{" "}
+            <Link to="/legal" className="underline hover:text-foreground transition-colors">Política de Privacidade</Link>.
+          </p>
         </div>
       </div>
     </div>

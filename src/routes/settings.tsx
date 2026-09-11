@@ -869,6 +869,50 @@ function SettingsContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Legal Documents Section */}
+      <div className="mt-10 pt-8 border-t border-border">
+        <h2 className="font-display text-lg font-bold mb-4 flex items-center gap-2">
+          <ScrollText className="h-5 w-5 text-muted-foreground" />
+          Documentos Legais
+        </h2>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <a
+            href="/legal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-muted/50 transition-all group"
+          >
+            <div className="h-10 w-10 rounded-lg bg-blue-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-500/20 transition-colors">
+              <ScrollText className="h-5 w-5 text-blue-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Termos de Uso</p>
+              <p className="text-xs text-muted-foreground">Regras, direitos e responsabilidades</p>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </a>
+          <a
+            href="/legal"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:border-primary/40 hover:bg-muted/50 transition-all group"
+          >
+            <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center flex-shrink-0 group-hover:bg-emerald-500/20 transition-colors">
+              <Shield className="h-5 w-5 text-emerald-500" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-sm">Política de Privacidade</p>
+              <p className="text-xs text-muted-foreground">Como tratamos seus dados (LGPD)</p>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+          </a>
+        </div>
+        <p className="text-xs text-muted-foreground mt-3">
+          Última atualização: 11 de setembro de 2026 · Versão 1.0 · Em conformidade com a LGPD (Lei nº 13.709/2018)
+        </p>
+      </div>
     </div>
   );
 }
+

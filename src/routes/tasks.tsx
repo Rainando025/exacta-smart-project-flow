@@ -1,4 +1,4 @@
-﻿import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,6 +20,7 @@ import { AttachmentsPanel } from "@/components/AttachmentsPanel";
 import { CommentsPanel } from "@/components/CommentsPanel";
 import { notify } from "@/lib/notify";
 import { generateStructuredTasks } from "@/lib/ai";
+import { recalculateProjectProgress, autoSyncItemToCalendarAndGantt } from "@/lib/project-ecosystem";
 
 interface SubtaskCount { task_id: string; total: number; done: number; }
 
@@ -135,6 +136,21 @@ function TasksPage() {
     });
     setCreating(false);
     if (error) return toast.error(error.message);
+    
+    // Auto-sync calendar & recalculate project progress
+    if (form.due_date) {
+      await autoSyncItemToCalendarAndGantt({
+        title: form.title,
+        description: form.description,
+        dueDate: form.due_date,
+        projectId: form.project_id,
+        type: "task"
+      }, user.id);
+    }
+    if (form.project_id) {
+      await recalculateProjectProgress(form.project_id);
+    }
+
     toast.success("Tarefa criada");
     setOpen(false);
     setForm({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
@@ -144,14 +160,24 @@ function TasksPage() {
   const toggle = async (t: any) => {
     const next = t.status === "done" ? "todo" : "done";
     await supabase.from("tasks").update({ status: next, completed_at: next === "done" ? new Date().toISOString() : null }).eq("id", t.id);
+    if (t.project_id) {
+      await recalculateProjectProgress(t.project_id);
+    }
     load();
   };
 
   const remove = async (id: string) => {
     if (!confirm("Excluir esta tarefa?")) return;
+    const taskToDelete = tasks.find(t => t.id === id);
     const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (error) toast.error(error.message);
-    else { toast.success("Tarefa excluída"); load(); }
+    else {
+      if (taskToDelete?.project_id) {
+        await recalculateProjectProgress(taskToDelete.project_id);
+      }
+      toast.success("Tarefa excluída");
+      load();
+    }
   };
 
   const saveEdit = async () => {

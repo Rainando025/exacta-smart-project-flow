@@ -12,11 +12,18 @@ export default defineConfig({
     plugins: [
       nitro({
         preset: "vercel",
+        sourcemap: false,
       }),
     ],
+    server: {
+      watch: {
+        ignored: ["**/.vercel/**", "**/.output/**", "**/dist/**", "**/.tanstack/**"],
+      },
+    },
     build: {
       target: "es2022",
       chunkSizeWarningLimit: 2000,
+      sourcemap: false,
     },
     esbuild: {
       target: "es2022",
