@@ -21,6 +21,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { AIChat } from "@/components/AIChat";
+import { SplashScreen } from "@/components/SplashScreen";
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 import { cn } from "@/lib/utils";
 import {
@@ -161,12 +162,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   if (loading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="flex flex-col items-center gap-3">
-          <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-          <p className="text-sm text-muted-foreground">Carregando EXACTA...</p>
-        </div>
-      </div>
+      <SplashScreen message="Inicializando EXACTA..." durationMs={0} active={true} />
     );
   }
 

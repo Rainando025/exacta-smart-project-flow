@@ -32,6 +32,8 @@ import { cn } from "@/lib/utils";
 
 const ACTUAL_LOGO = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/gen_3CpSPBsmWgKcVvejbF3BGqkl98C%20(2).png";
 
+import { SplashScreen } from "@/components/SplashScreen";
+
 export const Route = createFileRoute("/")({
   component: Index,
 });
@@ -40,11 +42,7 @@ function Index() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-accent border-t-transparent" />
-      </div>
-    );
+    return <SplashScreen message="Inicializando EXACTA..." durationMs={0} active={true} />;
   }
 
   if (user) {

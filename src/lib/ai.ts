@@ -12,7 +12,6 @@ const STORAGE_KEY = "exacta_ai_config";
 
 // Fallback chains — tried in order until one succeeds
 const GEMINI_MODELS = [
-  "gemini-2.5-flash",
   "gemini-2.0-flash",
   "gemini-2.0-flash-lite",
   "gemini-1.5-flash",
@@ -70,20 +69,28 @@ async function tryGeminiWithFallback(key: string, prompt: string): Promise<strin
     } catch (e: any) {
       lastError = e;
       const msg: string = (e?.message || "").toLowerCase();
-      // Continue fallback if model is missing, deprecated, 404 or 400
+      // Continue fallback if model is missing, capacity limited (503), rate limited (429), or deprecated
       if (
         msg.includes("404") ||
         msg.includes("400") ||
+        msg.includes("503") ||
+        msg.includes("429") ||
+        msg.includes("500") ||
+        msg.includes("unavailable") ||
+        msg.includes("capacity") ||
+        msg.includes("quota") ||
+        msg.includes("exhausted") ||
+        msg.includes("overloaded") ||
         msg.includes("not found") ||
         msg.includes("not exist") ||
         msg.includes("decommissioned") ||
         msg.includes("deprecated") ||
         msg.includes("invalid")
       ) {
-        console.warn(`Gemini model ${modelName} not available (${msg}), trying next...`);
+        console.warn(`Gemini model ${modelName} unavailable/failed (${msg}), trying next model...`);
         continue;
       }
-      throw e; // For auth key invalid, fail immediately
+      throw e; // For auth key invalid or fatal client errors
     }
   }
   throw lastError;
@@ -107,6 +114,12 @@ async function tryGroqWithFallback(key: string, prompt: string): Promise<string>
       if (
         msg.includes("404") ||
         msg.includes("400") ||
+        msg.includes("503") ||
+        msg.includes("429") ||
+        msg.includes("500") ||
+        msg.includes("unavailable") ||
+        msg.includes("capacity") ||
+        msg.includes("rate_limit") ||
         msg.includes("not found") ||
         msg.includes("not exist") ||
         msg.includes("model_not_found") ||
@@ -114,7 +127,7 @@ async function tryGroqWithFallback(key: string, prompt: string): Promise<string>
         msg.includes("deprecated") ||
         msg.includes("invalid")
       ) {
-        console.warn(`Groq model ${modelName} not available (${msg}), trying next...`);
+        console.warn(`Groq model ${modelName} unavailable (${msg}), trying next...`);
         continue;
       }
       throw e;
