@@ -1,6 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
+import { sanitizeString, sanitizeObject } from "@/lib/security/sanitizer";
+import { filterAllowedFields } from "@/lib/security/mass-assignment";
 
 export interface SystemItem {
   id?: string;
@@ -12,6 +14,7 @@ export interface SystemItem {
   completed?: boolean;
   type?: "task" | "okr" | "kpi" | "event" | "doc" | "schedule";
 }
+
 
 /**
  * Recalculates and updates the overall completion percentage of a project based on its linked tasks & activities.
@@ -56,14 +59,13 @@ export async function recalculateProjectProgress(projectId: string): Promise<num
 export async function recalculateOkrProgress(okrId: string): Promise<number> {
   if (!okrId) return 0;
   try {
-    const { data: krs } = await supabase
-      .from("key_results")
+    const { data: krs } = await (supabase.from as any)("key_results")
       .select("current_value, target_value")
       .eq("okr_id", okrId);
 
     if (!krs || krs.length === 0) return 0;
 
-    const totalProgress = krs.reduce((acc, kr) => {
+    const totalProgress = krs.reduce((acc: number, kr: any) => {
       if (!kr.target_value || kr.target_value === 0) return acc;
       const krPct = Math.min(100, Math.max(0, (kr.current_value / kr.target_value) * 100));
       return acc + krPct;
@@ -71,8 +73,7 @@ export async function recalculateOkrProgress(okrId: string): Promise<number> {
 
     const okrProgress = Math.round(totalProgress / krs.length);
 
-    await supabase
-      .from("okrs")
+    await (supabase.from as any)("okrs")
       .update({ progress: okrProgress })
       .eq("id", okrId);
 
@@ -95,17 +96,17 @@ export async function autoSyncItemToCalendarAndGantt(item: SystemItem, userId?: 
 
   try {
     // Check if reminder / calendar event already exists for this title & date
-    const { data: existing } = await supabase
-      .from("reminders")
+    const { data: existing } = await (supabase.from as any)("reminders")
       .select("id")
       .eq("title", eventTitle)
       .eq("date", eventDate)
       .maybeSingle();
 
     if (!existing && userId) {
-      await supabase.from("reminders").insert({
+      await (supabase.from as any)("reminders").insert({
         title: `[${(item.type || "Tarefa").toUpperCase()}] ${eventTitle}`,
         description: item.description || null,
+        remind_at: eventDate,
         date: eventDate,
         user_id: userId,
         project_id: projectId,
@@ -135,11 +136,11 @@ export async function exportFullProjectDossier(project: any, user: any) {
       { data: docs },
       { data: reminders }
     ] = await Promise.all([
-      supabase.from("tasks").select("*").eq("project_id", project.id),
-      supabase.from("okrs").select("*, key_results(*)").eq("project_id", project.id),
-      supabase.from("kpis").select("*").eq("project_id", project.id),
-      supabase.from("documents").select("*").eq("project_id", project.id),
-      supabase.from("reminders").select("*").eq("project_id", project.id),
+      supabase.from("tasks").select("id, title, status, priority, due_date, project_id").eq("project_id", project.id),
+      (supabase.from as any)("okrs").select("id, title, progress, quarter, project_id, key_results(id, title, current_value, target_value, unit)").eq("project_id", project.id),
+      (supabase.from as any)("kpis").select("id, title, current_value, target_value, unit, project_id").eq("project_id", project.id),
+      (supabase.from as any)("documents").select("id, title, category, type, updated_at, project_id").eq("project_id", project.id),
+      (supabase.from as any)("reminders").select("id, title, description, remind_at, date, completed, project_id").eq("project_id", project.id),
     ]);
 
     const doc = new jsPDF();
@@ -257,7 +258,7 @@ export async function exportFullProjectDossier(project: any, user: any) {
         head: [["Atividade", "Data", "Status"]],
         body: reminders.map((r: any) => [
           r.title,
-          r.date ? new Date(r.date).toLocaleDateString("pt-BR") : "-",
+          (r.date || r.remind_at) ? new Date(r.date || r.remind_at).toLocaleDateString("pt-BR") : "-",
           r.completed ? "CONCLUÍDO" : "PENDENTE",
         ]),
         theme: "striped",
@@ -312,11 +313,11 @@ export async function exportProjectJSON(project: any) {
       { data: docs },
       { data: reminders }
     ] = await Promise.all([
-      supabase.from("tasks").select("*").eq("project_id", project.id),
-      supabase.from("okrs").select("*, key_results(*)").eq("project_id", project.id),
-      supabase.from("kpis").select("*").eq("project_id", project.id),
-      supabase.from("documents").select("*").eq("project_id", project.id),
-      supabase.from("reminders").select("*").eq("project_id", project.id),
+      supabase.from("tasks").select("id, title, description, status, priority, due_date, start_date, project_id, position, created_at").eq("project_id", project.id),
+      (supabase.from as any)("okrs").select("id, title, progress, quarter, project_id, key_results(id, title, current_value, target_value, unit)").eq("project_id", project.id),
+      (supabase.from as any)("kpis").select("id, title, current_value, target_value, unit, project_id").eq("project_id", project.id),
+      (supabase.from as any)("documents").select("id, title, type, category, owner_id, created_at, updated_at, project_id").eq("project_id", project.id),
+      (supabase.from as any)("reminders").select("id, title, description, remind_at, date, priority, completed, user_id, project_id").eq("project_id", project.id),
     ]);
 
     const exportBundle = {
@@ -342,3 +343,4 @@ export async function exportProjectJSON(project: any) {
     toast.error("Erro ao exportar pacote JSON.");
   }
 }
+

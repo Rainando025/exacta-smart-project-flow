@@ -43,7 +43,10 @@ function ProjectsPage() {
   const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
 
   const load = async () => {
-    const { data } = await supabase.from("projects").select("*").order("created_at", { ascending: false });
+    const { data } = await supabase
+      .from("projects")
+      .select("id, name, description, owner_id, status, color, progress, due_date, start_date, created_at, updated_at")
+      .order("created_at", { ascending: false });
     if (data) setProjects(data);
   };
   useEffect(() => { load(); }, []);
@@ -133,7 +136,10 @@ function ProjectsPage() {
     }
 
     // Task Summary
-    const { data: projectTasks } = await supabase.from("tasks").select("*").eq("project_id", project.id);
+    const { data: projectTasks } = await supabase
+      .from("tasks")
+      .select("id, title, priority, status, due_date")
+      .eq("project_id", project.id);
     if (projectTasks && projectTasks.length > 0) {
       doc.setTextColor(30, 58, 138);
       doc.setFontSize(14);

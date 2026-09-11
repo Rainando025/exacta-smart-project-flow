@@ -9,157 +9,37 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as WhiteboardsRouteImport } from './routes/whiteboards'
-import { Route as VisualManagementRouteImport } from './routes/visual-management'
-import { Route as TimeTrackingRouteImport } from './routes/time-tracking'
-import { Route as TeamRouteImport } from './routes/team'
-import { Route as TasksRouteImport } from './routes/tasks'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as RemindersRouteImport } from './routes/reminders'
-import { Route as ProjectsRouteImport } from './routes/projects'
-import { Route as OkrsRouteImport } from './routes/okrs'
-import { Route as NotificationsRouteImport } from './routes/notifications'
-import { Route as NotesRouteImport } from './routes/notes'
-import { Route as NeuralMapRouteImport } from './routes/neural-map'
-import { Route as LegalRouteImport } from './routes/legal'
-import { Route as KanbanRouteImport } from './routes/kanban'
-import { Route as GanttRouteImport } from './routes/gantt'
-import { Route as FinancesRouteImport } from './routes/finances'
-import { Route as FeedbackRouteImport } from './routes/feedback'
-import { Route as DocsRouteImport } from './routes/docs'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as ChatRouteImport } from './routes/chat'
-import { Route as CalendarRouteImport } from './routes/calendar'
-import { Route as BrainstormingRouteImport } from './routes/brainstorming'
-import { Route as AutomationsRouteImport } from './routes/automations'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AnnouncementsRouteImport } from './routes/announcements'
-import { Route as AnalyzeRouteImport } from './routes/analyze'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AnalyzeRouteImport } from './routes/analyze'
+import { Route as AnnouncementsRouteImport } from './routes/announcements'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AutomationsRouteImport } from './routes/automations'
+import { Route as BrainstormingRouteImport } from './routes/brainstorming'
+import { Route as CalendarRouteImport } from './routes/calendar'
+import { Route as ChatRouteImport } from './routes/chat'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DocsRouteImport } from './routes/docs'
+import { Route as FeedbackRouteImport } from './routes/feedback'
+import { Route as FinancesRouteImport } from './routes/finances'
+import { Route as GanttRouteImport } from './routes/gantt'
+import { Route as KanbanRouteImport } from './routes/kanban'
+import { Route as LegalRouteImport } from './routes/legal'
+import { Route as NeuralMapRouteImport } from './routes/neural-map'
+import { Route as NotesRouteImport } from './routes/notes'
+import { Route as NotificationsRouteImport } from './routes/notifications'
+import { Route as OkrsRouteImport } from './routes/okrs'
+import { Route as ProjectsRouteImport } from './routes/projects'
+import { Route as RemindersRouteImport } from './routes/reminders'
+import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as TasksRouteImport } from './routes/tasks'
+import { Route as TeamRouteImport } from './routes/team'
+import { Route as TimeTrackingRouteImport } from './routes/time-tracking'
+import { Route as VisualManagementRouteImport } from './routes/visual-management'
+import { Route as WhiteboardsRouteImport } from './routes/whiteboards'
 
-const WhiteboardsRoute = WhiteboardsRouteImport.update({
-  id: '/whiteboards',
-  path: '/whiteboards',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const VisualManagementRoute = VisualManagementRouteImport.update({
-  id: '/visual-management',
-  path: '/visual-management',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TimeTrackingRoute = TimeTrackingRouteImport.update({
-  id: '/time-tracking',
-  path: '/time-tracking',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TeamRoute = TeamRouteImport.update({
-  id: '/team',
-  path: '/team',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TasksRoute = TasksRouteImport.update({
-  id: '/tasks',
-  path: '/tasks',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const RemindersRoute = RemindersRouteImport.update({
-  id: '/reminders',
-  path: '/reminders',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsRoute = ProjectsRouteImport.update({
-  id: '/projects',
-  path: '/projects',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const OkrsRoute = OkrsRouteImport.update({
-  id: '/okrs',
-  path: '/okrs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotificationsRoute = NotificationsRouteImport.update({
-  id: '/notifications',
-  path: '/notifications',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotesRoute = NotesRouteImport.update({
-  id: '/notes',
-  path: '/notes',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NeuralMapRoute = NeuralMapRouteImport.update({
-  id: '/neural-map',
-  path: '/neural-map',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LegalRoute = LegalRouteImport.update({
-  id: '/legal',
-  path: '/legal',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const KanbanRoute = KanbanRouteImport.update({
-  id: '/kanban',
-  path: '/kanban',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GanttRoute = GanttRouteImport.update({
-  id: '/gantt',
-  path: '/gantt',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FinancesRoute = FinancesRouteImport.update({
-  id: '/finances',
-  path: '/finances',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FeedbackRoute = FeedbackRouteImport.update({
-  id: '/feedback',
-  path: '/feedback',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocsRoute = DocsRouteImport.update({
-  id: '/docs',
-  path: '/docs',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatRoute = ChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CalendarRoute = CalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const BrainstormingRoute = BrainstormingRouteImport.update({
-  id: '/brainstorming',
-  path: '/brainstorming',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AutomationsRoute = AutomationsRouteImport.update({
-  id: '/automations',
-  path: '/automations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnnouncementsRoute = AnnouncementsRouteImport.update({
-  id: '/announcements',
-  path: '/announcements',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AnalyzeRoute = AnalyzeRouteImport.update({
@@ -167,9 +47,129 @@ const AnalyzeRoute = AnalyzeRouteImport.update({
   path: '/analyze',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AnnouncementsRoute = AnnouncementsRouteImport.update({
+  id: '/announcements',
+  path: '/announcements',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationsRoute = AutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrainstormingRoute = BrainstormingRouteImport.update({
+  id: '/brainstorming',
+  path: '/brainstorming',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CalendarRoute = CalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocsRoute = DocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedbackRoute = FeedbackRouteImport.update({
+  id: '/feedback',
+  path: '/feedback',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FinancesRoute = FinancesRouteImport.update({
+  id: '/finances',
+  path: '/finances',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GanttRoute = GanttRouteImport.update({
+  id: '/gantt',
+  path: '/gantt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KanbanRoute = KanbanRouteImport.update({
+  id: '/kanban',
+  path: '/kanban',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LegalRoute = LegalRouteImport.update({
+  id: '/legal',
+  path: '/legal',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NeuralMapRoute = NeuralMapRouteImport.update({
+  id: '/neural-map',
+  path: '/neural-map',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotesRoute = NotesRouteImport.update({
+  id: '/notes',
+  path: '/notes',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const NotificationsRoute = NotificationsRouteImport.update({
+  id: '/notifications',
+  path: '/notifications',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OkrsRoute = OkrsRouteImport.update({
+  id: '/okrs',
+  path: '/okrs',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RemindersRoute = RemindersRouteImport.update({
+  id: '/reminders',
+  path: '/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TasksRoute = TasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TimeTrackingRoute = TimeTrackingRouteImport.update({
+  id: '/time-tracking',
+  path: '/time-tracking',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VisualManagementRoute = VisualManagementRouteImport.update({
+  id: '/visual-management',
+  path: '/visual-management',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WhiteboardsRoute = WhiteboardsRouteImport.update({
+  id: '/whiteboards',
+  path: '/whiteboards',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -383,179 +383,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/whiteboards': {
-      id: '/whiteboards'
-      path: '/whiteboards'
-      fullPath: '/whiteboards'
-      preLoaderRoute: typeof WhiteboardsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/visual-management': {
-      id: '/visual-management'
-      path: '/visual-management'
-      fullPath: '/visual-management'
-      preLoaderRoute: typeof VisualManagementRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/time-tracking': {
-      id: '/time-tracking'
-      path: '/time-tracking'
-      fullPath: '/time-tracking'
-      preLoaderRoute: typeof TimeTrackingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/team': {
-      id: '/team'
-      path: '/team'
-      fullPath: '/team'
-      preLoaderRoute: typeof TeamRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/tasks': {
-      id: '/tasks'
-      path: '/tasks'
-      fullPath: '/tasks'
-      preLoaderRoute: typeof TasksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reminders': {
-      id: '/reminders'
-      path: '/reminders'
-      fullPath: '/reminders'
-      preLoaderRoute: typeof RemindersRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects': {
-      id: '/projects'
-      path: '/projects'
-      fullPath: '/projects'
-      preLoaderRoute: typeof ProjectsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/okrs': {
-      id: '/okrs'
-      path: '/okrs'
-      fullPath: '/okrs'
-      preLoaderRoute: typeof OkrsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notifications': {
-      id: '/notifications'
-      path: '/notifications'
-      fullPath: '/notifications'
-      preLoaderRoute: typeof NotificationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notes': {
-      id: '/notes'
-      path: '/notes'
-      fullPath: '/notes'
-      preLoaderRoute: typeof NotesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/neural-map': {
-      id: '/neural-map'
-      path: '/neural-map'
-      fullPath: '/neural-map'
-      preLoaderRoute: typeof NeuralMapRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/legal': {
-      id: '/legal'
-      path: '/legal'
-      fullPath: '/legal'
-      preLoaderRoute: typeof LegalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/kanban': {
-      id: '/kanban'
-      path: '/kanban'
-      fullPath: '/kanban'
-      preLoaderRoute: typeof KanbanRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gantt': {
-      id: '/gantt'
-      path: '/gantt'
-      fullPath: '/gantt'
-      preLoaderRoute: typeof GanttRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/finances': {
-      id: '/finances'
-      path: '/finances'
-      fullPath: '/finances'
-      preLoaderRoute: typeof FinancesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/feedback': {
-      id: '/feedback'
-      path: '/feedback'
-      fullPath: '/feedback'
-      preLoaderRoute: typeof FeedbackRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/docs': {
-      id: '/docs'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof DocsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/chat': {
-      id: '/chat'
-      path: '/chat'
-      fullPath: '/chat'
-      preLoaderRoute: typeof ChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/calendar': {
-      id: '/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof CalendarRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/brainstorming': {
-      id: '/brainstorming'
-      path: '/brainstorming'
-      fullPath: '/brainstorming'
-      preLoaderRoute: typeof BrainstormingRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/automations': {
-      id: '/automations'
-      path: '/automations'
-      fullPath: '/automations'
-      preLoaderRoute: typeof AutomationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/announcements': {
-      id: '/announcements'
-      path: '/announcements'
-      fullPath: '/announcements'
-      preLoaderRoute: typeof AnnouncementsRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/analyze': {
@@ -565,11 +397,179 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AnalyzeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/announcements': {
+      id: '/announcements'
+      path: '/announcements'
+      fullPath: '/announcements'
+      preLoaderRoute: typeof AnnouncementsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automations': {
+      id: '/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/brainstorming': {
+      id: '/brainstorming'
+      path: '/brainstorming'
+      fullPath: '/brainstorming'
+      preLoaderRoute: typeof BrainstormingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/calendar': {
+      id: '/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof CalendarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/docs': {
+      id: '/docs'
+      path: '/docs'
+      fullPath: '/docs'
+      preLoaderRoute: typeof DocsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feedback': {
+      id: '/feedback'
+      path: '/feedback'
+      fullPath: '/feedback'
+      preLoaderRoute: typeof FeedbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/finances': {
+      id: '/finances'
+      path: '/finances'
+      fullPath: '/finances'
+      preLoaderRoute: typeof FinancesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gantt': {
+      id: '/gantt'
+      path: '/gantt'
+      fullPath: '/gantt'
+      preLoaderRoute: typeof GanttRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kanban': {
+      id: '/kanban'
+      path: '/kanban'
+      fullPath: '/kanban'
+      preLoaderRoute: typeof KanbanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/legal': {
+      id: '/legal'
+      path: '/legal'
+      fullPath: '/legal'
+      preLoaderRoute: typeof LegalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/neural-map': {
+      id: '/neural-map'
+      path: '/neural-map'
+      fullPath: '/neural-map'
+      preLoaderRoute: typeof NeuralMapRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notes': {
+      id: '/notes'
+      path: '/notes'
+      fullPath: '/notes'
+      preLoaderRoute: typeof NotesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/notifications': {
+      id: '/notifications'
+      path: '/notifications'
+      fullPath: '/notifications'
+      preLoaderRoute: typeof NotificationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/okrs': {
+      id: '/okrs'
+      path: '/okrs'
+      fullPath: '/okrs'
+      preLoaderRoute: typeof OkrsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reminders': {
+      id: '/reminders'
+      path: '/reminders'
+      fullPath: '/reminders'
+      preLoaderRoute: typeof RemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tasks': {
+      id: '/tasks'
+      path: '/tasks'
+      fullPath: '/tasks'
+      preLoaderRoute: typeof TasksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/time-tracking': {
+      id: '/time-tracking'
+      path: '/time-tracking'
+      fullPath: '/time-tracking'
+      preLoaderRoute: typeof TimeTrackingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/visual-management': {
+      id: '/visual-management'
+      path: '/visual-management'
+      fullPath: '/visual-management'
+      preLoaderRoute: typeof VisualManagementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/whiteboards': {
+      id: '/whiteboards'
+      path: '/whiteboards'
+      fullPath: '/whiteboards'
+      preLoaderRoute: typeof WhiteboardsRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

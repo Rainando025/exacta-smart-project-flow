@@ -76,9 +76,20 @@ function Dashboard() {
       const mode = localStorage.getItem("exacta-mode") || "team";
       const isPersonal = mode === "personal";
       const [t, p, m, r] = await Promise.all([
-        supabase.from("tasks").select("*").eq("is_personal", isPersonal).order("due_date", { ascending: true, nullsFirst: false }).limit(500),
-        supabase.from("projects").select("*").order("created_at", { ascending: false }).limit(50),
-        supabase.from("profiles").select("*"),
+        supabase
+          .from("tasks")
+          .select("id, title, status, priority, due_date, start_date, creator_id, assignee_id, project_id, created_at, completed_at, is_personal")
+          .eq("is_personal", isPersonal)
+          .order("due_date", { ascending: true, nullsFirst: false })
+          .limit(100),
+        supabase
+          .from("projects")
+          .select("id, name, status, color, progress, due_date, created_at")
+          .order("created_at", { ascending: false })
+          .limit(25),
+        supabase
+          .from("profiles")
+          .select("id, full_name, avatar_url, job_title"),
         supabase.from("user_roles").select("user_id,role"),
       ]);
       if (t.data) setAllTasks(t.data);

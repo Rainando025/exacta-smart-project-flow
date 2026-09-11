@@ -48,7 +48,10 @@ function TasksPage() {
 
   const load = async () => {
     const mode = localStorage.getItem("exacta-mode") || "team";
-    let query = supabase.from("tasks").select("*");
+    let query = supabase
+      .from("tasks")
+      .select("id, title, description, status, priority, due_date, start_date, creator_id, assignee_id, project_id, position, tags, completed_at, is_personal, created_at, updated_at")
+      .limit(150);
 
     if (mode === "personal") {
       query = query.eq("is_personal", true);

@@ -5,9 +5,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Sparkles, Target, Zap } from "lucide-react";
+import { Sparkles, Target, Zap, ShieldAlert } from "lucide-react";
+import { getLockoutStatus, recordFailedLogin, clearFailedLogins } from "@/lib/security/rate-limiter";
+import { sanitizeString } from "@/lib/security/sanitizer";
+
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 
 export const Route = createFileRoute("/auth")({
@@ -25,15 +27,17 @@ function AuthPage() {
   const [fullName, setFullName] = useState("");
   const [inviteRole, setInviteRole] = useState<string | null>(null);
   const [inviteId, setInviteId] = useState<string | null>(null);
+  const [lockoutMsg, setLockoutMsg] = useState<string | null>(null);
 
   // Resolve invite token → prefill email + remember role
   useEffect(() => {
     if (!invite) return;
     (async () => {
+      const sanitizedToken = sanitizeString(invite);
       const { data } = await supabase
         .from("invitations")
         .select("id,email,role,status,expires_at")
-        .eq("token", invite)
+        .eq("token", sanitizedToken)
         .maybeSingle();
       if (data && data.status === "pending" && new Date(data.expires_at) > new Date()) {
         setEmail(data.email);
@@ -50,6 +54,21 @@ function AuthPage() {
     if (!loading && user) navigate({ to: "/dashboard" });
   }, [user, loading, navigate]);
 
+  // Check lockout status whenever email changes
+  useEffect(() => {
+    if (!email) {
+      setLockoutMsg(null);
+      return;
+    }
+    const status = getLockoutStatus(email);
+    if (status.isLocked) {
+      const mins = Math.ceil(status.remainingSeconds / 60);
+      setLockoutMsg(`Conta temporariamente bloqueada por segurança. Tente novamente em ~${mins} minutos.`);
+    } else {
+      setLockoutMsg(null);
+    }
+  }, [email]);
+
   const acceptInviteIfNeeded = async (newUserId?: string) => {
     if (!inviteId) return;
     await supabase.from("invitations").update({ status: "accepted", accepted_at: new Date().toISOString() }).eq("id", inviteId);
@@ -60,21 +79,53 @@ function AuthPage() {
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = sanitizeString(email).toLowerCase();
+
+    // 1. Check account lockout (5 failed attempts limit)
+    const lockoutStatus = getLockoutStatus(cleanEmail);
+    if (lockoutStatus.isLocked) {
+      const mins = Math.ceil(lockoutStatus.remainingSeconds / 60);
+      const msg = `Muitas tentativas de login incorretas. Acesso bloqueado por segurança. Tente novamente em ~${mins} minutos.`;
+      setLockoutMsg(msg);
+      toast.error(msg);
+      return;
+    }
+
     setSubmitting(true);
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password });
     setSubmitting(false);
-    if (error) toast.error(error.message);
-    else { await acceptInviteIfNeeded(data.user?.id); toast.success("Bem-vindo de volta!"); }
+
+    if (error) {
+      // Record failed attempt
+      const result = recordFailedLogin(cleanEmail);
+      if (result.isLocked) {
+        const mins = Math.ceil(result.remainingSeconds / 60);
+        const msg = `Acesso bloqueado após 5 tentativas incorretas. Tente novamente em ~${mins} min.`;
+        setLockoutMsg(msg);
+        toast.error(msg);
+      } else {
+        toast.error(`Credenciais inválidas. Você possui mais ${result.attemptsLeft} tentativa(s) antes do bloqueio.`);
+      }
+    } else {
+      clearFailedLogins(cleanEmail);
+      await acceptInviteIfNeeded(data.user?.id);
+      toast.success("Bem-vindo de volta!");
+    }
   };
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanEmail = sanitizeString(email).toLowerCase();
+    const cleanName = sanitizeString(fullName);
+
     setSubmitting(true);
     const { data, error } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: { full_name: fullName } },
+      email: cleanEmail,
+      password,
+      options: { emailRedirectTo: `${window.location.origin}/dashboard`, data: { full_name: cleanName } },
     });
     setSubmitting(false);
+
     if (error) toast.error(error.message);
     else { await acceptInviteIfNeeded(data.user?.id); toast.success("Conta criada! Verifique seu email."); }
   };
@@ -141,6 +192,13 @@ function AuthPage() {
             <p className="text-muted-foreground mt-2">Informe suas credenciais para entrar na plataforma.</p>
           </div>
 
+          {lockoutMsg && (
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-destructive/10 border border-destructive/30 text-destructive text-sm font-medium">
+              <ShieldAlert className="h-5 w-5 shrink-0" />
+              <span>{lockoutMsg}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSignIn} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -150,7 +208,7 @@ function AuthPage() {
               <Label htmlFor="password">Senha</Label>
               <Input id="password" type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             </div>
-            <Button type="submit" disabled={submitting} className="w-full bg-gradient-primary text-primary-foreground shadow-elegant hover:opacity-90">
+            <Button type="submit" disabled={submitting || !!lockoutMsg} className="w-full bg-gradient-primary text-primary-foreground shadow-elegant hover:opacity-90">
               {submitting ? "Entrando…" : "Entrar"}
             </Button>
           </form>
@@ -166,3 +224,4 @@ function AuthPage() {
     </div>
   );
 }
+
