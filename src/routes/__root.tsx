@@ -70,16 +70,20 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
+import { SplashProvider } from "@/components/SplashScreen";
+
 function RootComponent() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <NotificationsProvider>
-          <Outlet />
-          <ReminderPopup />
-          <Toaster richColors position="top-right" />
-        </NotificationsProvider>
-      </AuthProvider>
+      <SplashProvider>
+        <AuthProvider>
+          <NotificationsProvider>
+            <Outlet />
+            <ReminderPopup />
+            <Toaster richColors position="top-right" />
+          </NotificationsProvider>
+        </AuthProvider>
+      </SplashProvider>
     </ThemeProvider>
   );
 }

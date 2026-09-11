@@ -161,9 +161,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [mode]);
 
   if (loading || !user) {
-    return (
-      <SplashScreen message="Inicializando EXACTA..." durationMs={0} active={true} />
-    );
+    return null;
   }
 
   const NAV = mode === "personal" ? PERSONAL_NAV : TEAM_NAV;

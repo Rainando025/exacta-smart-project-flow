@@ -42,7 +42,7 @@ function Index() {
   const { user, loading } = useAuth();
 
   if (loading) {
-    return <SplashScreen message="Inicializando EXACTA..." durationMs={0} active={true} />;
+    return null;
   }
 
   if (user) {

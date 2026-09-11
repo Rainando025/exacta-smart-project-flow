@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Sparkles, Target, Zap, ShieldAlert } from "lucide-react";
 import { getLockoutStatus, recordFailedLogin, clearFailedLogins } from "@/lib/security/rate-limiter";
 import { sanitizeString } from "@/lib/security/sanitizer";
-import { SplashScreen, DIGITAL_TARGET_GIF } from "@/components/SplashScreen";
+import { useSplash } from "@/components/SplashScreen";
 
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 
@@ -21,6 +21,7 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const { user, loading } = useAuth();
   const navigate = useNavigate();
+  const { showSplash } = useSplash();
   const { invite } = useSearch({ from: "/auth" });
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState("");
@@ -29,13 +30,6 @@ function AuthPage() {
   const [inviteRole, setInviteRole] = useState<string | null>(null);
   const [inviteId, setInviteId] = useState<string | null>(null);
   const [lockoutMsg, setLockoutMsg] = useState<string | null>(null);
-  const [showLoginSplash, setShowLoginSplash] = useState(false);
-
-  // Preload splash GIF so it displays instantly without lag
-  useEffect(() => {
-    const img = new Image();
-    img.src = DIGITAL_TARGET_GIF;
-  }, []);
 
   // Resolve invite token → prefill email + remember role
   useEffect(() => {
@@ -59,8 +53,8 @@ function AuthPage() {
   }, [invite]);
 
   useEffect(() => {
-    if (!loading && user && !showLoginSplash) navigate({ to: "/dashboard" });
-  }, [user, loading, showLoginSplash, navigate]);
+    if (!loading && user) navigate({ to: "/dashboard" });
+  }, [user, loading, navigate]);
 
   // Check lockout status whenever email changes
   useEffect(() => {
@@ -118,7 +112,8 @@ function AuthPage() {
       clearFailedLogins(cleanEmail);
       await acceptInviteIfNeeded(data.user?.id);
       toast.success("Bem-vindo de volta!");
-      setShowLoginSplash(true);
+      showSplash("Autenticando e preparando seu painel...", 2400);
+      navigate({ to: "/dashboard" });
     }
   };
 
@@ -140,15 +135,7 @@ function AuthPage() {
   };
 
   return (
-    <>
-      {showLoginSplash && (
-        <SplashScreen
-          message="Autenticando e preparando seu painel..."
-          durationMs={1800}
-          onFinish={() => navigate({ to: "/dashboard" })}
-        />
-      )}
-      <div className="min-h-screen grid lg:grid-cols-2">
+    <div className="min-h-screen grid lg:grid-cols-2">
       {/* Hero side */}
       <div className="relative hidden lg:flex flex-col justify-between bg-gradient-hero p-12 text-white overflow-hidden">
         <div className="absolute inset-0 opacity-30 mix-blend-overlay" style={{
@@ -239,7 +226,6 @@ function AuthPage() {
         </div>
       </div>
     </div>
-    </>
   );
 }
 
