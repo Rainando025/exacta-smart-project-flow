@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Sparkles, Target, Zap, ShieldAlert } from "lucide-react";
 import { getLockoutStatus, recordFailedLogin, clearFailedLogins } from "@/lib/security/rate-limiter";
 import { sanitizeString } from "@/lib/security/sanitizer";
-import { useSplash } from "@/components/SplashScreen";
+import { useSplash, DIGITAL_TARGET_GIF } from "@/components/SplashScreen";
 
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 
@@ -138,38 +138,57 @@ function AuthPage() {
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Hero side */}
       <div className="relative hidden lg:flex flex-col justify-between bg-gradient-hero p-12 text-white overflow-hidden">
-        <div className="absolute inset-0 opacity-30 mix-blend-overlay" style={{
+        {/* Imagem de fundo com overlay */}
+        <div className="absolute inset-0 opacity-25 mix-blend-overlay" style={{
           backgroundImage: "url('https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/exactaback.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }} />
 
-        <div className="relative flex items-center gap-3">
-          <img src={logo} alt="EXACTA" className="h-16 w-16 rounded-xl object-contain" />
-          <div>
-            <h1 className="font-display text-2xl font-bold">EXACTA</h1>
-            <p className="text-xs uppercase tracking-[0.2em] text-accent">Precisão em gestão</p>
+        {/* Fundo cibernético e iluminação azul */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.18)_0%,rgba(6,9,19,0.85)_75%)] pointer-events-none" />
+
+        <div className="relative flex items-center justify-between z-10">
+          <div className="flex items-center gap-3">
+            <img src={logo} alt="EXACTA" className="h-14 w-14 rounded-xl object-contain drop-shadow-md" />
+            <div>
+              <h1 className="font-display text-2xl font-bold tracking-wide">EXACTA</h1>
+              <p className="text-xs uppercase tracking-[0.2em] text-accent">Precisão em gestão</p>
+            </div>
           </div>
         </div>
 
-        <div className="relative space-y-8">
-          <h2 className="font-display text-5xl font-bold leading-tight">
+        {/* GIF de Mira Digital em Destaque no Painel Principal */}
+        <div className="relative z-10 flex flex-col items-center justify-center my-4">
+          <div className="relative flex items-center justify-center">
+            <div className="absolute w-64 h-64 rounded-full bg-sky-500/25 blur-3xl animate-pulse pointer-events-none" />
+            <div className="absolute w-[260px] h-[260px] rounded-full border border-sky-400/20 pointer-events-none" />
+            <img
+              src={DIGITAL_TARGET_GIF}
+              alt="Mira Digital EXACTA"
+              className="w-56 h-56 sm:w-64 sm:h-64 object-contain relative z-10 drop-shadow-[0_0_35px_rgba(14,165,233,0.7)]"
+            />
+          </div>
+        </div>
+
+        <div className="relative z-10 space-y-6">
+          <h2 className="font-display text-4xl font-bold leading-tight">
             Gestão inteligente.<br />
             <span className="text-gradient-accent">Resultados precisos.</span>
           </h2>
-          <p className="text-lg text-white/80 max-w-md">
+          <p className="text-base text-white/80 max-w-md">
             Tarefas, projetos, kanban, cronogramas e equipes — tudo em um único lugar, potencializado por IA.
           </p>
 
-          <div className="grid gap-4 max-w-md">
+          <div className="grid gap-3 max-w-md">
             {[
               { icon: Target, title: "Cronograma com IA", desc: "Gere planejamentos otimizados automaticamente" },
               { icon: Zap, title: "Tempo real", desc: "Colaboração instantânea com toda a equipe" },
               { icon: Sparkles, title: "Insights preditivos", desc: "Identifique gargalos antes que aconteçam" },
             ].map((f) => (
-              <div key={f.title} className="flex items-start gap-4 rounded-xl bg-white/5 backdrop-blur p-4 border border-white/10">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
-                  <f.icon className="h-5 w-5" />
+              <div key={f.title} className="flex items-start gap-4 rounded-xl bg-white/5 backdrop-blur-md p-3.5 border border-white/10">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
+                  <f.icon className="h-4 w-4" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-sm">{f.title}</h3>
@@ -180,15 +199,18 @@ function AuthPage() {
           </div>
         </div>
 
-        <p className="relative text-xs text-white/50">© 2026 EXACTA. Construído para equipes de alta performance.</p>
+        <p className="relative z-10 text-xs text-white/50">© 2026 EXACTA. Construído para equipes de alta performance.</p>
       </div>
 
       {/* Form side */}
       <div className="flex items-center justify-center p-6 lg:p-12 bg-background">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex items-center gap-3">
-            <img src={logo} alt="EXACTA" className="h-12 w-12" />
-            <h1 className="font-display text-xl font-bold">EXACTA</h1>
+            <img src={DIGITAL_TARGET_GIF} alt="EXACTA Mira Digital" className="h-12 w-12 object-contain drop-shadow-[0_0_12px_rgba(14,165,233,0.5)]" />
+            <div>
+              <h1 className="font-display text-xl font-bold">EXACTA</h1>
+              <p className="text-[10px] uppercase tracking-widest text-accent">Precisão em gestão</p>
+            </div>
           </div>
 
           <div>
