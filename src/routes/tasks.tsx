@@ -71,12 +71,12 @@ function TasksPage() {
           const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
           const deptMemberIds = deptProfiles?.map((p) => p.id) || [];
           if (deptMemberIds.length > 0) {
-            query = query.or(`assignee_id.in.(${deptMemberIds.map((id) => `"${id}"`).join(",")}),creator_id.eq.${user.id}`);
+            query = query.or(`assignee_id.in.(${deptMemberIds.map((id) => `"${id}"`).join(",")}),creator_id.eq.${user.id},project_id.not.is.null`);
           } else {
-            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
           }
         } else {
-          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
         }
       }
       // Se for admin/gestor, não filtra (vê tudo)

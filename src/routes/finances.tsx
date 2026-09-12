@@ -217,7 +217,9 @@ function FinancesContent() {
   };
 
   const togglePaid = async (f: Finance) => {
-    await supabase.from("personal_finances").update({ paid: !f.paid }).eq("id", f.id);
+    if (!user) return;
+    const { error } = await supabase.from("personal_finances").update({ paid: !f.paid }).eq("id", f.id).eq("user_id", user.id);
+    if (error) { toast.error(error.message); return; }
     load();
   };
 
@@ -238,10 +240,11 @@ function FinancesContent() {
   };
 
   const saveInlineEdit = async (id: string) => {
+    if (!user) return;
     const { error } = await supabase.from("personal_finances").update({
       title: inlineTitle.trim(), amount: parseFloat(inlineAmount),
       category: inlineCategory, date: inlineDate,
-    }).eq("id", id);
+    }).eq("id", id).eq("user_id", user.id);
     if (error) { toast.error(error.message); return; }
     setEditingInlineId(null);
     load();
