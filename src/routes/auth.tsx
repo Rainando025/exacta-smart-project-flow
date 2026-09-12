@@ -158,20 +158,7 @@ function AuthPage() {
           </div>
         </div>
 
-        {/* GIF de Mira Digital em Destaque no Painel Principal */}
-        <div className="relative z-10 flex flex-col items-center justify-center my-4">
-          <div className="relative flex items-center justify-center">
-            <div className="absolute w-64 h-64 rounded-full bg-sky-500/25 blur-3xl animate-pulse pointer-events-none" />
-            <div className="absolute w-[260px] h-[260px] rounded-full border border-sky-400/20 pointer-events-none" />
-            <img
-              src={DIGITAL_TARGET_GIF}
-              alt="Mira Digital EXACTA"
-              className="w-56 h-56 sm:w-64 sm:h-64 object-contain relative z-10 drop-shadow-[0_0_35px_rgba(14,165,233,0.7)]"
-            />
-          </div>
-        </div>
-
-        <div className="relative z-10 space-y-6">
+        <div className="relative z-10 space-y-6 my-auto">
           <h2 className="font-display text-4xl font-bold leading-tight">
             Gestão inteligente.<br />
             <span className="text-gradient-accent">Resultados precisos.</span>
@@ -206,7 +193,7 @@ function AuthPage() {
       <div className="flex items-center justify-center p-6 lg:p-12 bg-background">
         <div className="w-full max-w-md space-y-8">
           <div className="lg:hidden flex items-center gap-3">
-            <img src={DIGITAL_TARGET_GIF} alt="EXACTA Mira Digital" className="h-12 w-12 object-contain drop-shadow-[0_0_12px_rgba(14,165,233,0.5)]" />
+            <img src={logo} alt="EXACTA" className="h-10 w-10 object-contain drop-shadow-md" />
             <div>
               <h1 className="font-display text-xl font-bold">EXACTA</h1>
               <p className="text-[10px] uppercase tracking-widest text-accent">Precisão em gestão</p>

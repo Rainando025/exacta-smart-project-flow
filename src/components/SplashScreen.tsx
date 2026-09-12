@@ -1,8 +1,11 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export const DIGITAL_TARGET_GIF =
-  "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/main/%C3%8Dcone_azul_com_mira_digital_202609091043.gif";
+export const DIGITAL_TARGET_VIDEO =
+  "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/main/%C3%8Dcone_azul_com_mira_digital_202609091043.mp4";
+
+// Manter constante legada para evitar quebras se importada em outro lugar
+export const DIGITAL_TARGET_GIF = DIGITAL_TARGET_VIDEO;
 
 const EXACTA_LOGO =
   "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
@@ -18,12 +21,6 @@ export function SplashProvider({ children }: { children: ReactNode }) {
   const [active, setActive] = useState(true);
   const [message, setMessage] = useState("Inicializando sistema EXACTA...");
   const [durationMs, setDurationMs] = useState(2200);
-
-  // Preload GIF image on provider mount
-  useEffect(() => {
-    const img = new Image();
-    img.src = DIGITAL_TARGET_GIF;
-  }, []);
 
   const showSplash = (msg = "Carregando EXACTA...", duration = 2200) => {
     setMessage(msg);
@@ -112,47 +109,37 @@ export function SplashScreenOverlay({
         fadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
       )}
     >
-      {/* Fundo com iluminação azul cibernética e grade futurista */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.22)_0%,rgba(6,9,19,0.98)_70%)] pointer-events-none" />
-      <div
-        className="absolute inset-0 opacity-20 pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, #38bdf81a 1px, transparent 1px), linear-gradient(to bottom, #38bdf81a 1px, transparent 1px)",
-          backgroundSize: "3rem 3rem",
-        }}
-      />
+      {/* Vídeo em Tela Cheia */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-85"
+      >
+        <source src={DIGITAL_TARGET_VIDEO} type="video/mp4" />
+      </video>
 
-      {/* Círculos concêntricos decorativos de radar/mira */}
-      <div className="absolute w-[500px] h-[500px] rounded-full border border-sky-500/15 animate-ping opacity-20 pointer-events-none" />
-      <div className="absolute w-[320px] h-[320px] rounded-full border border-sky-400/25 pointer-events-none" />
+      {/* Overlay de gradiente escuro para legibilidade da mensagem e logo */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#060913] via-[#060913]/40 to-[#060913]/70 pointer-events-none" />
 
-      {/* Conteúdo Central */}
+      {/* Conteúdo Central com a Mensagem */}
       <div className="relative z-10 flex flex-col items-center justify-center p-6 text-center max-w-lg">
-        {/* GIF de Mira Digital em Destaque */}
-        <div className="relative flex items-center justify-center mb-6">
-          <div className="absolute inset-0 rounded-full bg-sky-500/30 blur-2xl animate-pulse" />
-          <img
-            src={DIGITAL_TARGET_GIF}
-            alt="Mira Digital EXACTA"
-            className="w-48 h-48 sm:w-64 sm:h-64 object-contain relative z-10 drop-shadow-[0_0_35px_rgba(14,165,233,0.75)]"
-          />
-        </div>
-
-        {/* Branding e Texto */}
-        <div className="flex items-center gap-2 mb-3">
-          <img src={EXACTA_LOGO} alt="EXACTA" className="w-8 h-8 object-contain drop-shadow-md" />
-          <span className="font-display text-2xl font-bold tracking-wider text-white">
+        {/* Logo EXACTA */}
+        <div className="flex items-center gap-2.5 mb-4">
+          <img src={EXACTA_LOGO} alt="EXACTA" className="w-10 h-10 object-contain drop-shadow-[0_0_12px_rgba(56,189,248,0.6)]" />
+          <span className="font-display text-3xl font-extrabold tracking-wider text-white drop-shadow-md">
             EXACTA
           </span>
         </div>
 
-        <p className="text-sm font-semibold tracking-wide text-sky-200/90 uppercase animate-pulse">
+        {/* Mensagem da Splash */}
+        <p className="text-base font-semibold tracking-wide text-sky-200 uppercase drop-shadow-[0_2px_8px_rgba(0,0,0,0.8)] animate-pulse">
           {message}
         </p>
 
         {/* Linha de Progresso Futurista */}
-        <div className="w-52 h-1.5 bg-slate-800/80 rounded-full mt-6 overflow-hidden border border-sky-500/30 shadow-[0_0_10px_rgba(14,165,233,0.3)]">
+        <div className="w-56 h-1.5 bg-slate-900/80 rounded-full mt-6 overflow-hidden border border-sky-500/40 shadow-[0_0_15px_rgba(14,165,233,0.5)]">
           <div className="h-full bg-gradient-to-r from-sky-500 via-cyan-400 to-blue-600 rounded-full animate-[progress_1.8s_ease-in-out_infinite]" />
         </div>
       </div>
