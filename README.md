@@ -19,3 +19,4 @@ coloque a opção de sininho e de alternar o modo escuro ou claro perto da busca
 falta o botao de criar o grafico de Gantt, adicione tambem um botao de recolher o menu
 
 e adicione total responsividade para todos os tipos de telas e resoluções
+isso é apenas um teste
