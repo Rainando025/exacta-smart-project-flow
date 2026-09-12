@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { Sparkles, Target, Zap, ShieldAlert } from "lucide-react";
 import { getLockoutStatus, recordFailedLogin, clearFailedLogins } from "@/lib/security/rate-limiter";
 import { sanitizeString } from "@/lib/security/sanitizer";
-import { useSplash, DIGITAL_TARGET_GIF } from "@/components/SplashScreen";
+import { useSplash, DIGITAL_TARGET_VIDEO } from "@/components/SplashScreen";
 
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 
@@ -138,15 +138,26 @@ function AuthPage() {
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Hero side */}
       <div className="relative hidden lg:flex flex-col justify-between bg-gradient-hero p-12 text-white overflow-hidden">
+        {/* Vídeo de fundo sutil com baixa opacidade */}
+        <video
+          autoPlay
+          loop
+          muted
+          playsInline
+          className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-20 mix-blend-screen"
+        >
+          <source src={DIGITAL_TARGET_VIDEO} type="video/mp4" />
+        </video>
+
         {/* Imagem de fundo com overlay */}
-        <div className="absolute inset-0 opacity-25 mix-blend-overlay" style={{
+        <div className="absolute inset-0 opacity-20 mix-blend-overlay pointer-events-none" style={{
           backgroundImage: "url('https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/exactaback.png')",
           backgroundSize: "cover",
           backgroundPosition: "center",
         }} />
 
         {/* Fundo cibernético e iluminação azul */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.18)_0%,rgba(6,9,19,0.85)_75%)] pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(14,165,233,0.15)_0%,rgba(6,9,19,0.9)_80%)] pointer-events-none" />
 
         <div className="relative flex items-center justify-between z-10">
           <div className="flex items-center gap-3">
