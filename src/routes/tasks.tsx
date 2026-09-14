@@ -47,6 +47,7 @@ function TasksPage() {
   const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
 
   const load = async () => {
+    if (!user?.id) return;
     const mode = localStorage.getItem("exacta-mode") || "team";
     let query = supabase
       .from("tasks")
@@ -54,36 +55,43 @@ function TasksPage() {
       .limit(150);
 
     if (mode === "personal") {
-      query = query.eq("is_personal", true);
-      if (user?.id) {
-        query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
-      }
+      query = query.eq("is_personal", true).or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
     } else {
       query = query.eq("is_personal", false);
       // No modo equipe, gestores veem tudo. Colaboradores veem o que lhes pertence ou ao seu setor.
-      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user?.id || "").maybeSingle();
+      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
       const role = roleData?.role || "colaborador";
       
-      if (role === "colaborador" && user?.id) {
+      if (role === "colaborador") {
         // Obter setor do usuário para compartilhar tarefas da equipe no mesmo setor
         const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
         if (userProfile?.department_id) {
           const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
-          const deptMemberIds = deptProfiles?.map((p) => p.id) || [];
+          const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
           if (deptMemberIds.length > 0) {
-            query = query.or(`assignee_id.in.(${deptMemberIds.map((id) => `"${id}"`).join(",")}),creator_id.eq.${user.id},project_id.not.is.null`);
+            query = query.or(`assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id},not.project_id.is.null`);
           } else {
-            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
+            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},not.project_id.is.null`);
           }
         } else {
-          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
+          // Colaborador sem setor: vê tarefas atribuídas a ele, criadas por ele, ou vinculadas a projetos
+          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},not.project_id.is.null`);
         }
       }
       // Se for admin/gestor, não filtra (vê tudo)
     }
 
-    const { data } = await query.order("created_at", { ascending: false });
-    if (data) {
+    const { data, error } = await query.order("created_at", { ascending: false });
+    if (error) {
+      console.error("Error loading tasks:", error);
+      const { data: fallbackData } = await supabase
+        .from("tasks")
+        .select("id, title, description, status, priority, due_date, start_date, creator_id, assignee_id, project_id, position, tags, completed_at, is_personal, created_at, updated_at")
+        .eq("is_personal", mode === "personal")
+        .order("created_at", { ascending: false })
+        .limit(150);
+      if (fallbackData) setTasks(fallbackData);
+    } else if (data) {
       setTasks(data);
       // Carrega contagens de subtarefas e anexos
       const ids = data.map((t: any) => t.id);
@@ -111,7 +119,9 @@ function TasksPage() {
   };
 
   useEffect(() => {
-    load();
+    if (user) {
+      load();
+    }
     // Realtime: recarrega ao mudar subtasks/attachments
     const ch = supabase
       .channel("tasks-related")
@@ -119,7 +129,7 @@ function TasksPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "attachments" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [user]);
 
   const [creating, setCreating] = useState(false);
   const create = async () => {

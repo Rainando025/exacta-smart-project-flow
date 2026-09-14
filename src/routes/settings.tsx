@@ -73,24 +73,27 @@ function SettingsContent() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const [{ data: p }, { data: r }, { data: inv }, { data: depts }] = await Promise.all([
-      supabase.from("profiles").select("*").order("created_at", { ascending: false }),
-      supabase.from("user_roles").select("*"),
-      supabase.from("invitations").select("*").order("created_at", { ascending: false }),
-      supabase.from("departments").select("*").order("name"),
-    ]);
-    setProfiles((p || []) as Profile[]);
+    const { data: r } = await supabase.from("user_roles").select("*");
     setRoles((r || []) as UserRole[]);
-    setInvites((inv || []) as Invitation[]);
-    setDepartments((depts || []) as Department[]);
     const myRole = (r || []).find((ro: any) => ro.user_id === user.id);
     const admin = myRole?.role === "admin";
     const gestor = myRole?.role === "gestor" || admin;
     setIsAdmin(admin);
     setIsGestor(gestor);
-    if (admin) {
-      const { data: a } = await supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100);
-      setAudits((a || []) as AuditLog[]);
+
+    if (gestor) {
+      const [{ data: p }, { data: inv }, { data: depts }] = await Promise.all([
+        supabase.from("profiles").select("*").order("created_at", { ascending: false }),
+        supabase.from("invitations").select("*").order("created_at", { ascending: false }),
+        supabase.from("departments").select("*").order("name"),
+      ]);
+      setProfiles((p || []) as Profile[]);
+      setInvites((inv || []) as Invitation[]);
+      setDepartments((depts || []) as Department[]);
+      if (admin) {
+        const { data: a } = await supabase.from("audit_logs").select("*").order("created_at", { ascending: false }).limit(100);
+        setAudits((a || []) as AuditLog[]);
+      }
     }
   }, [user]);
 
@@ -307,20 +310,24 @@ function SettingsContent() {
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-5xl mx-auto">
       <header>
-        <p className="text-sm text-accent font-medium uppercase tracking-wider">Sistema</p>
-        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Configurações</h1>
-        <p className="text-muted-foreground mt-1">Gerencie usuários, setores, convites e auditoria.</p>
+        <p className="text-sm text-accent font-medium uppercase tracking-wider">{isGestor ? "Sistema" : "Conta"}</p>
+        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">{isGestor ? "Configurações" : "Meu Perfil"}</h1>
+        <p className="text-muted-foreground mt-1">
+          {isGestor ? "Gerencie usuários, setores, convites e auditoria." : "Gerencie suas informações pessoais e foto de perfil."}
+        </p>
       </header>
 
-      <Tabs defaultValue="users" className="space-y-6">
-        <TabsList className="flex-wrap h-auto gap-1">
-          <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
-          <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
-          <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Inteligência Artificial</TabsTrigger>
-          <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
-          {isGestor && <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
-        </TabsList>
+      <Tabs defaultValue={isGestor ? "users" : "profile"} className="space-y-6">
+        {isGestor && (
+          <TabsList className="flex-wrap h-auto gap-1">
+            <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
+            <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
+            <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Inteligência Artificial</TabsTrigger>
+            <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
+            <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>
+            {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
+          </TabsList>
+        )}
 
         {/* ÔöÇÔöÇ MEU PERFIL TAB ÔöÇÔöÇ */}
         <TabsContent value="profile" className="space-y-6">
@@ -381,7 +388,9 @@ function SettingsContent() {
           </Card>
         </TabsContent>
 
-        {/* ÔöÇÔöÇ USERS TAB ÔöÇÔöÇ */}
+        {isGestor && (
+          <>
+        {/* USERS TAB */}
         <TabsContent value="users" className="space-y-6">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-xl font-bold">Usuários do Sistema</h2>
@@ -841,6 +850,8 @@ function SettingsContent() {
             </Card>
           </div>
         </TabsContent>
+          </>
+        )}
       </Tabs>
 
       {/* Dept dialog */}

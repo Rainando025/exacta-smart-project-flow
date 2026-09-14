@@ -18,6 +18,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/contexts/AuthContext";
+import { useRole } from "@/hooks/useRole";
 import { useTheme } from "@/contexts/ThemeContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { AIChat } from "@/components/AIChat";
@@ -117,6 +118,7 @@ type AppMode = "personal" | "team";
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { user, profile, loading, signOut } = useAuth();
+  const { isGestor } = useRole();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
@@ -292,7 +294,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           {/* Settings moved here to balance space */}
           <Link
             to="/settings"
-            title={sidebarCollapsed ? "Ajustes" : undefined}
+            title={sidebarCollapsed ? (isGestor ? "Configurações" : "Meu Perfil") : undefined}
             className={cn(
               "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-all",
               sidebarCollapsed ? "justify-center px-2" : "",
@@ -301,8 +303,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
             )}
           >
-            <Settings className="h-4 w-4 shrink-0" />
-            {!sidebarCollapsed && "Ajustes"}
+            {isGestor ? <Settings className="h-4 w-4 shrink-0" /> : <UserCircle className="h-4 w-4 shrink-0" />}
+            {!sidebarCollapsed && (isGestor ? "Configurações" : "Meu Perfil")}
           </Link>
 
           <div className="h-px bg-sidebar-border/40 my-1" />

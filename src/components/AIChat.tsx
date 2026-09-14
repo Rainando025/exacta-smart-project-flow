@@ -15,6 +15,7 @@ import { askAI, getAIConfig, saveAIConfig, testAIConnection, type AIConfig } fro
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useRole } from "@/hooks/useRole";
 
 interface Message {
   id: string;
@@ -41,6 +42,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
     ];
   });
 
+  const { isGestor } = useRole();
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
@@ -234,15 +236,17 @@ export function AIChat({ contextData }: { contextData?: any }) {
             </div>
 
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
-                title="Configurar Chaves de IA"
-                onClick={openSettings}
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
+              {isGestor && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded-lg"
+                  title="Configurar Chaves de IA"
+                  onClick={openSettings}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="icon"
