@@ -49,45 +49,88 @@ function TasksPage() {
   const load = async () => {
     if (!user?.id) return;
     const mode = localStorage.getItem("exacta-mode") || "team";
+
+    // Obtém role do usuário uma vez para usar nas regras de visibilidade
+    const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+    const role = roleData?.role || "colaborador";
+
     let query = supabase
       .from("tasks")
       .select("*")
       .limit(150);
 
     if (mode === "personal") {
-      query = query.eq("is_personal", true).or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+      // Modo pessoal: apenas as próprias tarefas pessoais — nunca vaza para outros
+      query = query
+        .eq("is_personal", true)
+        .or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
     } else {
+      // Modo equipe: NUNCA inclui tarefas pessoais (is_personal=false garante isso)
       query = query.eq("is_personal", false);
-      // No modo equipe, gestores veem tudo. Colaboradores veem o que lhes pertence ou ao seu setor.
-      const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-      const role = roleData?.role || "colaborador";
-      
-      if (role === "colaborador") {
-        // Obter setor do usuário para compartilhar tarefas da equipe no mesmo setor
-        const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
+
+      if (role === "admin") {
+        // Admin: vê todas as tarefas de equipe de todos os setores
+        // Nenhum filtro adicional necessário — is_personal=false já impede ver tarefas pessoais
+      } else if (role === "gestor") {
+        // Gestor: vê tarefas de equipe apenas do próprio setor
+        const { data: userProfile } = await supabase
+          .from("profiles")
+          .select("department_id")
+          .eq("id", user.id)
+          .maybeSingle();
         if (userProfile?.department_id) {
-          const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
+          const { data: deptProfiles } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("department_id", userProfile.department_id);
           const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
           if (deptMemberIds.length > 0) {
-            query = query.or(`assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id},project_id.not.is.null`);
+            query = query.or(
+              `creator_id.in.(${deptMemberIds.join(",")}),assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`
+            );
           } else {
-            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
+            query = query.or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`);
           }
         } else {
-          // Colaborador sem setor: vê tarefas atribuídas a ele, criadas por ele, ou vinculadas a projetos
-          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
+          // Gestor sem setor definido: vê apenas as suas próprias tarefas de equipe
+          query = query.or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`);
+        }
+      } else {
+        // Colaborador: vê tarefas atribuídas a ele, criadas por ele, ou de membros do mesmo setor
+        const { data: userProfile } = await supabase
+          .from("profiles")
+          .select("department_id")
+          .eq("id", user.id)
+          .maybeSingle();
+        if (userProfile?.department_id) {
+          const { data: deptProfiles } = await supabase
+            .from("profiles")
+            .select("id")
+            .eq("department_id", userProfile.department_id);
+          const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
+          if (deptMemberIds.length > 0) {
+            query = query.or(
+              `assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`
+            );
+          } else {
+            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+          }
+        } else {
+          // Colaborador sem setor: apenas as suas próprias
+          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
         }
       }
-      // Se for admin/gestor, não filtra (vê tudo)
     }
 
     const { data, error } = await query.order("created_at", { ascending: false });
     if (error) {
       console.error("Error loading tasks:", error);
+      // Fallback seguro: filtra apenas as tarefas do próprio usuário no modo correto
       const { data: fallbackData } = await supabase
         .from("tasks")
         .select("*")
         .eq("is_personal", mode === "personal")
+        .or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`)
         .order("created_at", { ascending: false })
         .limit(150);
       if (fallbackData) setTasks(fallbackData);
@@ -244,6 +287,7 @@ function TasksPage() {
         return;
       }
 
+      const mode = localStorage.getItem("exacta-mode") || "team";
       const inserts = generated.map((t) => ({
         title: t.title,
         description: t.description || null,
@@ -252,12 +296,25 @@ function TasksPage() {
         due_date: t.due_date || null,
         creator_id: user.id,
         assignee_id: user.id,
+        is_personal: mode === "personal",
       }));
 
       const { error } = await supabase.from("tasks").insert(inserts);
       if (error) throw error;
 
-      toast.success(`${inserts.length} tarefas geradas e criadas pela IA Ô£¿`);
+      // Auto-sync calendar for generated tasks with due dates
+      for (const t of inserts) {
+        if (t.due_date) {
+          await autoSyncItemToCalendarAndGantt({
+            title: t.title,
+            description: t.description || undefined,
+            dueDate: t.due_date,
+            type: "task"
+          }, user.id);
+        }
+      }
+
+      toast.success(`${inserts.length} tarefas geradas e criadas pela IA ✓`);
       setAiOpen(false);
       setAiPrompt("");
       load();
@@ -410,17 +467,17 @@ function TasksPage() {
                 <p className={`font-medium text-sm ${t.status === "done" ? "line-through text-muted-foreground" : ""}`}>{t.title}</p>
                 <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
                   <span>{priorityLabel(t.priority)}</span>
-                  <span>ÔÇó</span>
+                  <span>•</span>
                   <span className={overdue ? "text-destructive font-medium" : ""}>{formatDate(t.due_date)}</span>
                   {c && c.total > 0 && (
                     <>
-                      <span>ÔÇó</span>
+                      <span>•</span>
                       <span className="inline-flex items-center gap-1"><ListChecks className="h-3 w-3" />{c.done}/{c.total}</span>
                     </>
                   )}
                   {c && c.files > 0 && (
                     <>
-                      <span>ÔÇó</span>
+                      <span>•</span>
                       <span className="inline-flex items-center gap-1"><Paperclip className="h-3 w-3" />{c.files}</span>
                     </>
                   )}

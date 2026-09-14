@@ -72,16 +72,47 @@ function Dashboard() {
   }, []);
 
   useEffect(() => {
+    if (!user) return;
     (async () => {
       const mode = localStorage.getItem("exacta-mode") || "team";
       const isPersonal = mode === "personal";
+
+      let tasksQuery = supabase
+        .from("tasks")
+        .select("id, title, status, priority, due_date, start_date, creator_id, assignee_id, project_id, created_at, completed_at, is_personal")
+        .eq("is_personal", isPersonal);
+
+      if (isPersonal) {
+        tasksQuery = tasksQuery.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+      } else {
+        const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
+        const role = roleData?.role || "colaborador";
+
+        if (role === "gestor") {
+          const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
+          if (userProfile?.department_id) {
+            const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
+            const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
+            if (deptMemberIds.length > 0) {
+              tasksQuery = tasksQuery.or(`creator_id.in.(${deptMemberIds.join(",")}),assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`);
+            }
+          }
+        } else if (role === "colaborador") {
+          const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
+          if (userProfile?.department_id) {
+            const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
+            const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
+            if (deptMemberIds.length > 0) {
+              tasksQuery = tasksQuery.or(`assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`);
+            }
+          } else {
+            tasksQuery = tasksQuery.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
+          }
+        }
+      }
+
       const [t, p, m, r] = await Promise.all([
-        supabase
-          .from("tasks")
-          .select("id, title, status, priority, due_date, start_date, creator_id, assignee_id, project_id, created_at, completed_at, is_personal")
-          .eq("is_personal", isPersonal)
-          .order("due_date", { ascending: true, nullsFirst: false })
-          .limit(100),
+        tasksQuery.order("due_date", { ascending: true, nullsFirst: false }).limit(100),
         supabase
           .from("projects")
           .select("id, name, status, color, progress, due_date, created_at")
@@ -89,7 +120,7 @@ function Dashboard() {
           .limit(25),
         supabase
           .from("profiles")
-          .select("id, full_name, avatar_url, job_title"),
+          .select("id, full_name, avatar_url, job_title, department_id"),
         supabase.from("user_roles").select("user_id,role"),
       ]);
       if (t.data) setAllTasks(t.data);
@@ -97,7 +128,7 @@ function Dashboard() {
       if (m.data) setMembers(m.data);
       if (r.data) setRoles(Object.fromEntries(r.data.map((x: any) => [x.user_id, x.role])));
     })();
-  }, []);
+  }, [user]);
 
   const tasks = useMemo(() => {
     return allTasks.filter((t) => {

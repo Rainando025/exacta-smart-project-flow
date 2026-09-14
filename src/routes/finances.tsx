@@ -109,9 +109,14 @@ function FinancesContent() {
 
   const load = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("personal_finances").select("*").eq("user_id", user.id)
       .order("date", { ascending: false });
+    if (error) {
+      console.error("Erro ao carregar finanças:", error);
+      toast.error("Erro ao carregar registros de finanças: " + error.message);
+      return;
+    }
     setItems((data || []) as Finance[]);
   }, [user]);
 
@@ -123,9 +128,19 @@ function FinancesContent() {
     setRecurring("none"); setDueDate(""); setIsCreditCard(false); setInstallments("1");
   };
 
+  const parseAmount = (val: string): number => {
+    if (!val) return NaN;
+    const cleaned = String(val).replace(/R\$\s?/gi, "").replace(/\./g, "").replace(",", ".");
+    return parseFloat(cleaned);
+  };
+
   const handleSave = async () => {
     if (!user || !title.trim() || !amount) return;
-    const amountNum = parseFloat(amount);
+    const amountNum = parseAmount(amount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Por favor, informe um valor numérico válido.");
+      return;
+    }
 
     if (editing) {
       const payload = {
@@ -241,8 +256,13 @@ function FinancesContent() {
 
   const saveInlineEdit = async (id: string) => {
     if (!user) return;
+    const amountNum = parseAmount(inlineAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Por favor, informe um valor numérico válido.");
+      return;
+    }
     const { error } = await supabase.from("personal_finances").update({
-      title: inlineTitle.trim(), amount: parseFloat(inlineAmount),
+      title: inlineTitle.trim(), amount: amountNum,
       category: inlineCategory, date: inlineDate,
     }).eq("id", id).eq("user_id", user.id);
     if (error) { toast.error(error.message); return; }
