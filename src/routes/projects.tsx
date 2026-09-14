@@ -43,13 +43,14 @@ function ProjectsPage() {
   const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
 
   const load = async () => {
+    if (!user) return;
     const { data } = await supabase
       .from("projects")
       .select("id, name, description, owner_id, status, color, progress, due_date, start_date, created_at, updated_at")
       .order("created_at", { ascending: false });
     if (data) setProjects(data);
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [user?.id]);
 
   const [creating, setCreating] = useState(false);
   const create = async () => {

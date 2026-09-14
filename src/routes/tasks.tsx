@@ -69,13 +69,13 @@ function TasksPage() {
           const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
           const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
           if (deptMemberIds.length > 0) {
-            query = query.or(`assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id},not.project_id.is.null`);
+            query = query.or(`assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id},project_id.not.is.null`);
           } else {
-            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},not.project_id.is.null`);
+            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
           }
         } else {
           // Colaborador sem setor: vê tarefas atribuídas a ele, criadas por ele, ou vinculadas a projetos
-          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},not.project_id.is.null`);
+          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id},project_id.not.is.null`);
         }
       }
       // Se for admin/gestor, não filtra (vê tudo)
@@ -182,9 +182,12 @@ function TasksPage() {
   const remove = async (id: string) => {
     if (!confirm("Excluir esta tarefa?")) return;
     const taskToDelete = tasks.find(t => t.id === id);
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
+    const { data, error } = await supabase.from("tasks").delete().eq("id", id).select();
+    if (error) {
+      toast.error(error.message);
+    } else if (!data || data.length === 0) {
+      toast.error("Não foi possível excluir a tarefa.");
+    } else {
       if (taskToDelete?.project_id) {
         await recalculateProjectProgress(taskToDelete.project_id);
       }
@@ -429,7 +432,7 @@ function TasksPage() {
                     <Pencil className="h-4 w-4" />
                   </button>
                 )}
-                {canDeleteTask(t.creator_id) && (
+                {canDeleteTask(t.creator_id, t.assignee_id, t.is_personal) && (
                   <button onClick={() => remove(t.id)} aria-label="Excluir" className="p-1.5 rounded text-muted-foreground hover:text-destructive hover:bg-muted transition">
                     <Trash2 className="h-4 w-4" />
                   </button>

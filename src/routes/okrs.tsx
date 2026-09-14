@@ -57,33 +57,25 @@ function OKRsPage() {
   });
 
   const loadData = async () => {
+    if (!user) return;
     setLoading(true);
-    const { data: kpiData } = await (supabase
-      .from("kpis" as any))
-      .select("*, departments(name), projects(name)");
+    const [kpiRes, okrRes, deptRes, projRes] = await Promise.all([
+      (supabase.from("kpis" as any)).select("*, departments(name)"),
+      (supabase.from("okrs" as any)).select("*, projects(name)"),
+      (supabase.from("departments" as any)).select("*"),
+      (supabase.from("projects" as any)).select("*"),
+    ]);
       
-    const { data: okrData } = await (supabase
-      .from("okrs" as any))
-      .select("*, projects(name)");
-    
-    const { data: deptData } = await (supabase
-      .from("departments" as any))
-      .select("*");
-      
-    const { data: projData } = await (supabase
-      .from("projects" as any))
-      .select("*");
-
-    if (kpiData) setKpis(kpiData);
-    if (okrData) setOkrs(okrData);
-    if (deptData) setDepartments(deptData);
-    if (projData) setProjects(projData);
+    if (kpiRes.data) setKpis(kpiRes.data);
+    if (okrRes.data) setOkrs(okrRes.data);
+    if (deptRes.data) setDepartments(deptRes.data);
+    if (projRes.data) setProjects(projRes.data);
     setLoading(false);
   };
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [user?.id]);
 
   const handleCreateKpi = async () => {
     if (!newKpi.name || !newKpi.department_id) {
@@ -92,11 +84,13 @@ function OKRsPage() {
     }
 
     const { error } = await (supabase.from("kpis" as any)).insert({
-      ...newKpi,
+      name: newKpi.name,
       department_id: newKpi.department_id || null,
-      project_id: newKpi.project_id || null,
       goal: Number(newKpi.goal),
       current_value: Number(newKpi.current_value),
+      unit: newKpi.unit,
+      period_month: newKpi.period_month,
+      period_year: newKpi.period_year,
       created_by: user?.id
     } as any);
 
@@ -118,7 +112,6 @@ function OKRsPage() {
       current_value: Number(editingKpi.current_value),
       unit: editingKpi.unit,
       department_id: editingKpi.department_id || null,
-      project_id: editingKpi.project_id || null
     } as any).eq("id", editingKpi.id);
 
     if (error) {

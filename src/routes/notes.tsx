@@ -75,8 +75,15 @@ function NotesContent() {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("notes").delete().eq("id", id);
-    toast.success("Removida!"); load();
+    const { data, error } = await supabase.from("notes").delete().eq("id", id).select();
+    if (error) {
+      toast.error(error.message);
+    } else if (!data || data.length === 0) {
+      toast.error("Não foi possível excluir a anotação.");
+    } else {
+      toast.success("Removida!");
+      load();
+    }
   };
 
   const togglePin = async (note: Note) => {
