@@ -51,7 +51,7 @@ function TasksPage() {
     const mode = localStorage.getItem("exacta-mode") || "team";
     let query = supabase
       .from("tasks")
-      .select("id, title, description, status, priority, due_date, start_date, creator_id, assignee_id, project_id, position, tags, completed_at, is_personal, created_at, updated_at")
+      .select("*")
       .limit(150);
 
     if (mode === "personal") {
@@ -86,7 +86,7 @@ function TasksPage() {
       console.error("Error loading tasks:", error);
       const { data: fallbackData } = await supabase
         .from("tasks")
-        .select("id, title, description, status, priority, due_date, start_date, creator_id, assignee_id, project_id, position, tags, completed_at, is_personal, created_at, updated_at")
+        .select("*")
         .eq("is_personal", mode === "personal")
         .order("created_at", { ascending: false })
         .limit(150);
