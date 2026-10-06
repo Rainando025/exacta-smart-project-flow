@@ -916,7 +916,7 @@ function VisualManagementPage() {
 
   const printRef = useRef<HTMLDivElement>(null);
   const [exportingPDF, setExportingPDF] = useState(false);
-  
+
   const handleSaveBoard = async () => {
     if (!selectedProjectId) {
       toast.error("Selecione um projeto para salvar.");
@@ -976,9 +976,9 @@ function VisualManagementPage() {
       case "pareto": setPareto(savedData); break;
       case "smart": setSmart(savedData); break;
       case "gut": setGut(savedData); break;
-      case "flowchart": 
-        setNodes(savedData.nodes || []); 
-        setEdges(savedData.edges || []); 
+      case "flowchart":
+        setNodes(savedData.nodes || []);
+        setEdges(savedData.edges || []);
         break;
     }
     toast.success("Painel carregado com sucesso!");
@@ -1038,9 +1038,9 @@ function VisualManagementPage() {
       case "pareto": setPareto(savedData); break;
       case "smart": setSmart(savedData); break;
       case "gut": setGut(savedData); break;
-      case "flowchart": 
-        setNodes(savedData.nodes || []); 
-        setEdges(savedData.edges || []); 
+      case "flowchart":
+        setNodes(savedData.nodes || []);
+        setEdges(savedData.edges || []);
         break;
     }
     toast.success("Painel carregado com sucesso!");
@@ -1202,7 +1202,7 @@ function VisualManagementPage() {
               disabled={exportingPDF}
               className="bg-gradient-primary gap-2 shadow-glow"
             >
-              {exportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />} 
+              {exportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {exportingPDF ? "Exportando..." : "Exportar para PDF"}
             </Button>
           </div>
