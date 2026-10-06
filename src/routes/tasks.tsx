@@ -38,6 +38,7 @@ function TasksPage() {
   const [projects, setProjects] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
+  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -338,6 +339,8 @@ function TasksPage() {
     if (filter === "overdue" && !isOverdue(t.due_date, t.status)) return false;
     if (["todo", "doing", "review", "done"].includes(filter) && t.status !== filter) return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+    if (projectFilter === "none" && t.project_id) return false;
+    if (projectFilter !== "all" && projectFilter !== "none" && t.project_id !== projectFilter) return false;
     if (selectedProjectId !== "all" && t.project_id !== selectedProjectId) return false;
     if (search.trim() && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
