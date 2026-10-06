@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProject } from "@/contexts/ProjectContext";
 import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +13,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
-import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip, FileDown } from "lucide-react";
+import { Plus, FolderKanban, Calendar, Trash2, Pencil, Filter, Paperclip, FileDown, ArrowRight, Check } from "lucide-react";
 import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
 import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
@@ -33,6 +34,8 @@ export const Route = createFileRoute("/projects")({
 
 function ProjectsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const { selectedProjectId, setSelectedProjectId, reloadProjects } = useProject();
   const { isAdmin, canCreateProject } = useRole();
   const [projects, setProjects] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
@@ -43,13 +46,19 @@ function ProjectsPage() {
   const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
 
   const load = async () => {
-    if (!user) return;
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("projects")
-      .select("id, name, description, owner_id, status, color, progress, due_date, start_date, created_at, updated_at")
+      .select("*")
       .order("created_at", { ascending: false });
-    if (data) setProjects(data);
+    if (error) {
+      console.error("Error loading projects:", error);
+    }
+    if (data) {
+      setProjects(data);
+    }
+    reloadProjects();
   };
+
   useEffect(() => { load(); }, [user?.id]);
 
   const [creating, setCreating] = useState(false);
@@ -57,15 +66,20 @@ function ProjectsPage() {
     if (!form.name.trim() || !user) return;
     setCreating(true);
     const { error } = await supabase.from("projects").insert({
-      name: form.name, description: form.description || null,
-      due_date: form.due_date || null, color: form.color, owner_id: user.id,
+      name: form.name.trim(),
+      description: form.description || null,
+      due_date: form.due_date || null,
+      color: form.color || COLORS[0],
+      status: "ativo",
+      progress: 0,
+      owner_id: user.id,
     });
     setCreating(false);
     if (error) return toast.error(error.message);
-    toast.success("Projeto criado");
+    toast.success("Projeto criado com sucesso!");
     setOpen(false);
     setForm({ name: "", description: "", due_date: "", color: COLORS[0] });
-    load();
+    await load();
   };
 
   const saveEdit = async () => {
@@ -75,13 +89,13 @@ function ProjectsPage() {
       description: editing.description || null,
       due_date: editing.due_date || null,
       color: editing.color,
-      status: editing.status,
-      progress: editing.progress,
+      status: editing.status || "ativo",
+      progress: editing.progress || 0,
     }).eq("id", editing.id);
     if (error) return toast.error(error.message);
     toast.success("Projeto atualizado");
     setEditing(null);
-    load();
+    await load();
   };
 
   const remove = async (id: string) => {
@@ -168,7 +182,7 @@ function ProjectsPage() {
   };
 
   const filtered = projects.filter((p) => {
-    if (statusFilter !== "all" && p.status !== statusFilter) return false;
+    if (statusFilter !== "all" && (p.status || "ativo") !== statusFilter) return false;
     if (search.trim() && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });
@@ -271,8 +285,34 @@ function ProjectsPage() {
               <div className="h-1.5 rounded-full bg-muted overflow-hidden">
                 <div className="h-full bg-gradient-accent" style={{ width: `${p.progress}%` }} />
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-muted-foreground pt-1">
-                <Calendar className="h-3 w-3" /> {formatDate(p.due_date)}
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <span className="flex items-center gap-1">
+                  <Calendar className="h-3 w-3" /> {formatDate(p.due_date)}
+                </span>
+                <Button
+                  size="sm"
+                  variant={selectedProjectId === p.id ? "default" : "outline"}
+                  onClick={() => {
+                    setSelectedProjectId(p.id);
+                    navigate({ to: "/kanban" });
+                    toast.success(`Projeto "${p.name}" selecionado!`);
+                  }}
+                  className={`h-7 px-2.5 text-xs font-bold gap-1 ${
+                    selectedProjectId === p.id
+                      ? "bg-accent text-accent-foreground shadow-sm"
+                      : "hover:border-accent hover:text-accent"
+                  }`}
+                >
+                  {selectedProjectId === p.id ? (
+                    <>
+                      <Check className="h-3 w-3" /> Selecionado
+                    </>
+                  ) : (
+                    <>
+                      Acessar <ArrowRight className="h-3 w-3" />
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
           </Card>

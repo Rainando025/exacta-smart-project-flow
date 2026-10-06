@@ -2,18 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProject } from "@/contexts/ProjectContext";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Presentation, Plus, Eraser, MousePointer2, Type, Square, Circle,
   Diamond, Minus, Download, Share2, Trash2, Pencil, ArrowRight, Wifi, WifiOff,
-  Paintbrush, PenTool, Sparkles, Feather
+  Paintbrush, PenTool, Sparkles, Feather, Layers, Check, X
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RichColorPicker } from "@/components/ui/color-picker";
+import { ProjectSelector } from "@/components/ProjectSelector";
 
 export const Route = createFileRoute("/whiteboards")({
   component: () => <AppShell><WhiteboardsPage /></AppShell>,
@@ -38,13 +41,20 @@ interface WBElement {
   opacity: number;
 }
 
-interface Whiteboard { id: string; title: string; data: any; updated_at: string; }
+interface Whiteboard {
+  id: string;
+  title: string;
+  data: any;
+  project_id?: string | null;
+  updated_at: string;
+}
 
 const STROKE_WIDTHS = [2, 4, 8, 14];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 function WhiteboardsPage() {
   const { user } = useAuth();
+  const { selectedProjectId, selectedProject } = useProject();
   const [boards, setBoards] = useState<Whiteboard[]>([]);
   const [activeBoard, setActiveBoard] = useState<Whiteboard | null>(null);
   const [listOpen, setListOpen] = useState(false);
@@ -60,13 +70,36 @@ function WhiteboardsPage() {
   const [strokeWidth, setStrokeWidth] = useState(3);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
+  // Inline text editing state (no prompt window)
+  const [inlineText, setInlineText] = useState<{
+    id?: string;
+    x: number;
+    y: number;
+    text: string;
+    isNew: boolean;
+  } | null>(null);
+  const inlineInputRef = useRef<HTMLTextAreaElement>(null);
+
   // Camera (pan & zoom)
   const [cam, setCam] = useState({ x: 0, y: 0, scale: 1 });
   const isPanning = useRef(false);
   const lastPan = useRef<Point>({ x: 0, y: 0 });
   const canvasContainerRef = useRef<HTMLDivElement>(null);
 
-  // Wheel listener attached with passive: false to prevent background window scroll
+  // Dragging elements state
+  const draggingRef = useRef<{
+    id: string;
+    startPoint: Point;
+    initialX: number;
+    initialY: number;
+    initialPoints?: Point[];
+    initialSprayDots?: SprayDot[];
+  } | null>(null);
+
+  const isEraserActive = tool === "eraser";
+  const isEraserRubbing = useRef(false);
+
+  // Wheel listener
   useEffect(() => {
     const el = canvasContainerRef.current;
     if (!el) return;
@@ -98,15 +131,28 @@ function WhiteboardsPage() {
 
   // ── Load boards ──────────────────────────────────────────────────────────────
   const loadBoards = useCallback(async () => {
-    const { data } = await supabase
+    let query = supabase
       .from("documents")
-      .select("id,title,data,updated_at")
+      .select("id,title,data,project_id,updated_at")
       .eq("type", "whiteboard")
       .order("updated_at", { ascending: false });
+
+    if (selectedProjectId !== "all") {
+      query = query.eq("project_id", selectedProjectId);
+    }
+
+    const { data } = await query;
     if (data) setBoards(data as Whiteboard[]);
-  }, []);
+  }, [selectedProjectId]);
 
   useEffect(() => { loadBoards(); }, [loadBoards]);
+
+  // Auto select first board if active is null or not in list
+  useEffect(() => {
+    if (boards.length > 0 && (!activeBoard || !boards.some(b => b.id === activeBoard.id))) {
+      openBoard(boards[0]);
+    }
+  }, [boards]);
 
   // ── Open board ───────────────────────────────────────────────────────────────
   const openBoard = useCallback(async (board: Whiteboard) => {
@@ -161,7 +207,8 @@ function WhiteboardsPage() {
       content: "",
       data: { elements: [] },
       owner_id: user.id,
-    }).select("id,title,data,updated_at").single();
+      project_id: selectedProjectId !== "all" ? selectedProjectId : null,
+    }).select("id,title,data,project_id,updated_at").single();
     setCreating(false);
     if (error) { toast.error(error.message); return; }
     setNewBoardName("");
@@ -190,11 +237,17 @@ function WhiteboardsPage() {
     };
   };
 
+  // ── Erase element helper ─────────────────────────────────────────────────────
+  const eraseElement = (id: string) => {
+    commitElements(elements.filter((e) => e.id !== id));
+    if (selectedId === id) setSelectedId(null);
+  };
+
   // ── Pan handlers ─────────────────────────────────────────────────────────────
   const onPanStart = (e: React.PointerEvent) => {
     if (tool !== "select" || e.button !== 0) return;
     const target = e.target as SVGElement;
-    if (target.dataset.elId) return;
+    if (target.dataset.elId) return; // Clicking an element starts dragging element instead of pan
     isPanning.current = true;
     lastPan.current = { x: e.clientX, y: e.clientY };
     (e.currentTarget as SVGSVGElement).setPointerCapture(e.pointerId);
@@ -211,18 +264,121 @@ function WhiteboardsPage() {
 
   const onPanEnd = () => { isPanning.current = false; };
 
-  // ── Drawing handlers ─────────────────────────────────────────────────────────
-  const onDrawStart = (e: React.PointerEvent) => {
-    if (tool === "select") { onPanStart(e); return; }
-    if (tool === "eraser") return;
-    if (tool === "text") {
-      const p = svgCoords(e);
-      const text = prompt("Texto:");
-      if (!text) return;
-      const el: WBElement = { id: crypto.randomUUID(), type: "text", x: p.x, y: p.y, text, color, strokeWidth: 1, opacity: 1 };
-      commitElements([...elements, el]);
+  // ── Element Dragging Handlers ────────────────────────────────────────────────
+  const onElementPointerDown = (el: WBElement, e: React.PointerEvent) => {
+    e.stopPropagation();
+    
+    // If Eraser tool is active -> erase immediately
+    if (tool === "eraser") {
+      eraseElement(el.id);
+      isEraserRubbing.current = true;
       return;
     }
+
+    // If Text tool active and clicked text -> edit text directly inline
+    if (tool === "text" || (tool === "select" && e.detail === 2 && el.type === "text")) {
+      startInlineTextEdit(el);
+      return;
+    }
+
+    if (tool === "select") {
+      setSelectedId(el.id);
+      const p = svgCoords(e);
+      draggingRef.current = {
+        id: el.id,
+        startPoint: p,
+        initialX: el.x || 0,
+        initialY: el.y || 0,
+        initialPoints: el.points ? [...el.points.map(pt => ({ ...pt }))] : undefined,
+        initialSprayDots: el.sprayDots ? [...el.sprayDots.map(s => ({ ...s }))] : undefined,
+      };
+      (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
+    }
+  };
+
+  const onElementPointerMove = (el: WBElement, e: React.PointerEvent) => {
+    if (tool === "eraser" && isEraserRubbing.current) {
+      eraseElement(el.id);
+    }
+  };
+
+  // ── Inline Text Editor Helper ────────────────────────────────────────────────
+  const startInlineTextEdit = (el?: WBElement, point?: Point) => {
+    if (el) {
+      setInlineText({
+        id: el.id,
+        x: el.x || 0,
+        y: el.y || 0,
+        text: el.text || "",
+        isNew: false,
+      });
+    } else if (point) {
+      setInlineText({
+        x: point.x,
+        y: point.y,
+        text: "",
+        isNew: true,
+      });
+    }
+    setTimeout(() => {
+      inlineInputRef.current?.focus();
+    }, 50);
+  };
+
+  const commitInlineText = () => {
+    if (!inlineText) return;
+    const trimmed = inlineText.text.trim();
+
+    if (inlineText.isNew) {
+      if (trimmed) {
+        const newEl: WBElement = {
+          id: crypto.randomUUID(),
+          type: "text",
+          x: inlineText.x,
+          y: inlineText.y,
+          text: trimmed,
+          color,
+          strokeWidth,
+          opacity: 1,
+        };
+        commitElements([...elements, newEl]);
+      }
+    } else if (inlineText.id) {
+      if (!trimmed) {
+        // Empty text -> delete element
+        commitElements(elements.filter((e) => e.id !== inlineText.id));
+      } else {
+        // Update text
+        commitElements(
+          elements.map((e) => (e.id === inlineText.id ? { ...e, text: trimmed } : e))
+        );
+      }
+    }
+    setInlineText(null);
+  };
+
+  // ── Drawing handlers ─────────────────────────────────────────────────────────
+  const onDrawStart = (e: React.PointerEvent) => {
+    if (tool === "select") {
+      const target = e.target as SVGElement;
+      if (!target.dataset.elId) {
+        setSelectedId(null);
+        onPanStart(e);
+      }
+      return;
+    }
+
+    if (tool === "eraser") {
+      isEraserRubbing.current = true;
+      return;
+    }
+
+    if (tool === "text") {
+      const p = svgCoords(e);
+      startInlineTextEdit(undefined, p);
+      return;
+    }
+
     drawing.current = true;
     const p = svgCoords(e);
     let initialDots: SprayDot[] = [];
@@ -253,6 +409,35 @@ function WhiteboardsPage() {
 
   const onDrawMove = (e: React.PointerEvent) => {
     onPanMove(e);
+
+    // Handle element dragging in Select mode
+    if (tool === "select" && draggingRef.current) {
+      const p = svgCoords(e);
+      const drag = draggingRef.current;
+      const dx = p.x - drag.startPoint.x;
+      const dy = p.y - drag.startPoint.y;
+
+      setElements((prev) =>
+        prev.map((el) => {
+          if (el.id !== drag.id) return el;
+
+          if (["text", "rect", "circle", "diamond"].includes(el.type)) {
+            return { ...el, x: drag.initialX + dx, y: drag.initialY + dy };
+          }
+          if (drag.initialPoints && el.points) {
+            const newPts = drag.initialPoints.map((pt) => ({ x: pt.x + dx, y: pt.y + dy }));
+            return { ...el, points: newPts };
+          }
+          if (drag.initialSprayDots && el.sprayDots) {
+            const newDots = drag.initialSprayDots.map((d) => ({ ...d, x: d.x + dx, y: d.y + dy }));
+            return { ...el, sprayDots: newDots };
+          }
+          return el;
+        })
+      );
+      return;
+    }
+
     if (!drawing.current || !currentEl.current) return;
     const p = svgCoords(e);
     const el = currentEl.current;
@@ -285,17 +470,19 @@ function WhiteboardsPage() {
 
   const onDrawEnd = () => {
     onPanEnd();
+    isEraserRubbing.current = false;
+
+    if (draggingRef.current) {
+      draggingRef.current = null;
+      commitElements([...elements]);
+      return;
+    }
+
     if (!drawing.current || !currentEl.current) return;
     drawing.current = false;
     const el = currentEl.current;
     currentEl.current = null;
     commitElements([...elements.filter((e) => e.id !== el.id), el]);
-  };
-
-  const onEraserClick = (id: string) => {
-    if (tool === "eraser") {
-      commitElements(elements.filter((e) => e.id !== id));
-    }
   };
 
   const clearAll = () => {
@@ -319,25 +506,47 @@ function WhiteboardsPage() {
     toast.success("SVG exportado!");
   };
 
-  // ── Render element ───────────────────────────────────────────────────────────
+  // ── Render SVG Element ───────────────────────────────────────────────────────
   const renderEl = (el: WBElement) => {
     const isSelected = selectedId === el.id;
-    const sel = isSelected ? { filter: "drop-shadow(0 0 5px #6366f1)" } : {};
+    const isEraserHover = tool === "eraser";
+
+    const baseStyle: React.CSSProperties = {
+      cursor: tool === "eraser" ? "crosshair" : tool === "select" ? "move" : "crosshair",
+      filter: isSelected
+        ? "drop-shadow(0 0 8px #6366f1)"
+        : isEraserHover
+        ? "drop-shadow(0 0 6px #ef4444)"
+        : undefined,
+    };
+
     const clickProps = {
       "data-el-id": el.id,
-      onClick: () => { if (tool === "select") setSelectedId(el.id); if (tool === "eraser") onEraserClick(el.id); },
-      style: sel,
+      onPointerDown: (e: React.PointerEvent) => onElementPointerDown(el, e),
+      onPointerOver: (e: React.PointerEvent) => onElementPointerMove(el, e),
+      style: baseStyle,
     };
 
     const { style: clickStyle, ...otherClickProps } = clickProps;
 
     if (el.type === "pencil" && el.points && el.points.length > 1) {
       const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-      return <path key={el.id} d={d} stroke={el.color} strokeWidth={Math.max(1, Math.round(el.strokeWidth / 2))} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 0.5" opacity={el.opacity || 0.85} {...clickProps} />;
+      return (
+        <g key={el.id} {...clickProps}>
+          {/* Invisible padding stroke for easy clicking/erasing */}
+          <path d={d} stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth * 3)} fill="none" strokeLinecap="round" />
+          <path d={d} stroke={el.color} strokeWidth={Math.max(1, Math.round(el.strokeWidth / 2))} fill="none" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 0.5" opacity={el.opacity || 0.85} />
+        </g>
+      );
     }
     if (el.type === "pen" && el.points && el.points.length > 1) {
       const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
-      return <path key={el.id} d={d} stroke={el.color} strokeWidth={el.strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={el.opacity || 0.9} {...clickProps} />;
+      return (
+        <g key={el.id} {...clickProps}>
+          <path d={d} stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth * 3)} fill="none" strokeLinecap="round" />
+          <path d={d} stroke={el.color} strokeWidth={el.strokeWidth} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={el.opacity || 0.9} />
+        </g>
+      );
     }
     if (el.type === "calligraphy" && el.points && el.points.length > 1) {
       const d1 = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
@@ -346,6 +555,7 @@ function WhiteboardsPage() {
       const d2 = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x + dx} ${p.y + dy}`).join(" ");
       return (
         <g key={el.id} {...clickProps}>
+          <path d={d1} stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth * 3)} fill="none" />
           <path d={d1} stroke={el.color} strokeWidth={el.strokeWidth} fill="none" strokeLinecap="square" strokeLinejoin="miter" opacity={el.opacity || 0.9} />
           <path d={d2} stroke={el.color} strokeWidth={Math.max(1, el.strokeWidth * 0.5)} fill="none" strokeLinecap="square" strokeLinejoin="miter" opacity={(el.opacity || 0.9) * 0.7} />
         </g>
@@ -354,18 +564,10 @@ function WhiteboardsPage() {
     if (el.type === "brush" && el.points && el.points.length > 1) {
       const d = el.points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
       return (
-        <path
-          key={el.id}
-          d={d}
-          stroke={el.color}
-          strokeWidth={el.strokeWidth * 2.2}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          opacity={el.opacity || 0.65}
-          style={{ ...clickStyle, filter: `drop-shadow(0 0 3px ${el.color}88)` }}
-          {...otherClickProps}
-        />
+        <g key={el.id} {...otherClickProps} style={clickStyle}>
+          <path d={d} stroke="transparent" strokeWidth={Math.max(20, el.strokeWidth * 3)} fill="none" />
+          <path d={d} stroke={el.color} strokeWidth={el.strokeWidth * 2.2} fill="none" strokeLinecap="round" strokeLinejoin="round" opacity={el.opacity || 0.65} />
+        </g>
       );
     }
     if (el.type === "spray" && el.sprayDots && el.sprayDots.length > 0) {
@@ -382,6 +584,7 @@ function WhiteboardsPage() {
       const p2 = el.points[el.points.length - 1];
       return (
         <g key={el.id} {...clickProps}>
+          <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent" strokeWidth={Math.max(16, el.strokeWidth * 3)} />
           <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke={el.color} strokeWidth={el.strokeWidth} opacity={el.opacity} strokeLinecap="round" />
           {el.type === "arrow" && (() => {
             const dx = p2.x - p1.x; const dy = p2.y - p1.y;
@@ -418,10 +621,36 @@ function WhiteboardsPage() {
       return <polygon key={el.id} points={pts} stroke={el.color} strokeWidth={el.strokeWidth} fill={el.color + "22"} opacity={el.opacity} {...clickProps} />;
     }
     if (el.type === "text") {
+      const fontSize = 16 + (el.strokeWidth || 3) * 2;
       return (
-        <text key={el.id} x={el.x} y={el.y} fill={el.color} fontSize={16 + el.strokeWidth * 2} fontFamily="Inter, sans-serif" opacity={el.opacity} {...clickProps}>
-          {el.text}
-        </text>
+        <g key={el.id} {...clickProps}>
+          {/* Bounding box visual highlight when selected */}
+          {isSelected && (
+            <rect
+              x={(el.x || 0) - 4}
+              y={(el.y || 0) - fontSize}
+              width={(el.text?.length || 4) * (fontSize * 0.6) + 8}
+              height={fontSize + 10}
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth="1.5"
+              strokeDasharray="4 2"
+              rx="4"
+            />
+          )}
+          <text
+            x={el.x}
+            y={el.y}
+            fill={el.color}
+            fontSize={fontSize}
+            fontWeight="600"
+            fontFamily="Inter, sans-serif"
+            opacity={el.opacity}
+            className="select-none"
+          >
+            {el.text}
+          </text>
+        </g>
       );
     }
     return null;
@@ -429,18 +658,18 @@ function WhiteboardsPage() {
 
   // ── Toolbar tools config ─────────────────────────────────────────────────────
   const tools: { id: ToolType; icon: any; label: string }[] = [
-    { id: "select", icon: MousePointer2, label: "Selecionar / Mover (V)" },
-    { id: "pencil", icon: Pencil, label: "Lápis fino (N)" },
-    { id: "pen", icon: PenTool, label: "Caneta livre (P)" },
+    { id: "select", icon: MousePointer2, label: "Selecionar e Mover (V)" },
+    { id: "pencil", icon: Pencil, label: "Lápis Fino (N)" },
+    { id: "pen", icon: PenTool, label: "Caneta Livre (P)" },
     { id: "calligraphy", icon: Feather, label: "Caligrafia (K)" },
-    { id: "brush", icon: Paintbrush, label: "Pincel macio (B)" },
+    { id: "brush", icon: Paintbrush, label: "Pincel Macio (B)" },
     { id: "spray", icon: Sparkles, label: "Spray / Aerógrafo (S)" },
-    { id: "line", icon: Minus, label: "Linha reta (L)" },
+    { id: "line", icon: Minus, label: "Linha Reta (L)" },
     { id: "arrow", icon: ArrowRight, label: "Seta (A)" },
     { id: "rect", icon: Square, label: "Retângulo (R)" },
     { id: "circle", icon: Circle, label: "Elipse / Círculo (C)" },
-    { id: "diamond", icon: Diamond, label: "Losango / Decisão (D)" },
-    { id: "text", icon: Type, label: "Texto (T)" },
+    { id: "diamond", icon: Diamond, label: "Losango (D)" },
+    { id: "text", icon: Type, label: "Caixa de Texto Direto (T)" },
     { id: "eraser", icon: Eraser, label: "Borracha (E)" },
   ];
 
@@ -448,241 +677,206 @@ function WhiteboardsPage() {
   useEffect(() => {
     const map: Record<string, ToolType> = {
       v: "select", n: "pencil", p: "pen", k: "calligraphy", b: "brush",
-      s: "spray", l: "line", a: "arrow", r: "rect", c: "circle", d: "diamond", t: "text", e: "eraser"
+      s: "spray", l: "line", a: "arrow", r: "rect", c: "circle", d: "diamond",
+      t: "text", e: "eraser",
     };
-    const handler = (ev: KeyboardEvent) => {
-      if (ev.target instanceof HTMLInputElement || ev.target instanceof HTMLTextAreaElement) return;
-      if (map[ev.key.toLowerCase()]) setTool(map[ev.key.toLowerCase()]);
-      if (ev.key === "Delete" || ev.key === "Backspace") {
-        if (selectedId) {
-          commitElements(elements.filter((e) => e.id !== selectedId));
-          setSelectedId(null);
-        }
-      }
-      if ((ev.ctrlKey || ev.metaKey) && ev.key === "z") {
-        commitElements(elements.slice(0, -1));
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (["INPUT", "TEXTAREA"].includes((e.target as HTMLElement).tagName)) return;
+      if (map[e.key.toLowerCase()]) { setTool(map[e.key.toLowerCase()]); }
+      if (e.key === "Delete" || e.key === "Backspace") {
+        if (selectedId) { commitElements(elements.filter((el) => el.id !== selectedId)); setSelectedId(null); }
       }
     };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [elements, selectedId, commitElements]);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, elements, commitElements]);
 
-  // ── Board list screen ────────────────────────────────────────────────────────
-  if (!activeBoard) {
-    return (
-      <div className="p-6 lg:p-10 max-w-5xl mx-auto space-y-6 animate-in fade-in duration-500">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-sm text-accent font-medium uppercase tracking-wider">Colaboração</p>
-            <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Quadros Brancos</h1>
-            <p className="text-muted-foreground mt-2">Crie e edite quadros colaborativos em tempo real.</p>
-          </div>
-          <Button onClick={() => setListOpen(true)} className="bg-gradient-primary text-primary-foreground shadow-elegant gap-2">
-            <Plus className="h-4 w-4" /> Novo Quadro
-          </Button>
-        </header>
-
-        {boards.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
-            <div className="h-20 w-20 rounded-2xl bg-accent/10 flex items-center justify-center">
-              <Presentation className="h-10 w-10 text-accent" />
-            </div>
-            <h2 className="text-xl font-display font-bold">Nenhum quadro ainda</h2>
-            <p className="text-muted-foreground max-w-xs">Crie seu primeiro quadro branco para brainstorming visual e colaboração em equipe.</p>
-            <Button onClick={() => setListOpen(true)} className="bg-gradient-primary text-primary-foreground gap-2 mt-2">
-              <Plus className="h-4 w-4" /> Criar Quadro
-            </Button>
-          </div>
-        ) : (
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {boards.map((b) => (
-              <div
-                key={b.id}
-                className="group relative text-left p-5 rounded-2xl border border-white/5 bg-card hover:border-accent/30 hover:shadow-elegant transition-all duration-200 space-y-3 cursor-pointer"
-                onClick={() => openBoard(b)}
-              >
-                <div className="h-28 rounded-xl bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:16px_16px] border border-white/5 flex items-center justify-center overflow-hidden">
-                  {(b.data?.elements?.length || 0) > 0 ? (
-                    <svg viewBox="-200 -200 400 400" className="w-full h-full opacity-50 group-hover:opacity-70 transition">
-                      {(b.data.elements as WBElement[]).slice(0, 20).map(renderEl)}
-                    </svg>
-                  ) : (
-                    <Presentation className="h-10 w-10 text-muted-foreground/20" />
-                  )}
-                </div>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="font-display font-bold group-hover:text-accent transition truncate">{b.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {b.data?.elements?.length || 0} elemento(s) • {new Date(b.updated_at).toLocaleDateString("pt-BR")}
-                    </p>
-                  </div>
-                  <button
-                    onClick={(e) => deleteBoard(b.id, e)}
-                    title="Excluir quadro"
-                    className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        <Dialog open={listOpen} onOpenChange={setListOpen}>
-          <DialogContent>
-            <DialogHeader><DialogTitle className="flex items-center gap-2"><Presentation className="h-5 w-5 text-accent" />Novo Quadro Branco</DialogTitle></DialogHeader>
-            <div className="space-y-3">
-              <Input
-                placeholder="Nome do quadro, ex: Brainstorming Sprint 4"
-                value={newBoardName}
-                onChange={(e) => setNewBoardName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && createBoard()}
-              />
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setListOpen(false)}>Cancelar</Button>
-              <Button onClick={createBoard} disabled={creating || !newBoardName.trim()} className="bg-gradient-primary text-primary-foreground">
-                {creating ? "Criando…" : "Criar Quadro"}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      </div>
-    );
-  }
-
-  // ── Active whiteboard canvas ─────────────────────────────────────────────────
   return (
-    <div className="h-[calc(100vh-theme(spacing.16))] flex flex-col overflow-hidden select-none">
-      {/* Header */}
-      <header className="flex items-center justify-between px-5 py-3 border-b border-white/5 bg-background/90 backdrop-blur-md z-20 shrink-0">
+    <div className="flex flex-col h-[calc(100vh-64px)] overflow-hidden bg-background">
+      {/* Top Header */}
+      <header className="flex flex-wrap items-center justify-between px-6 py-3 border-b border-border/40 bg-card/40 backdrop-blur-md gap-4 z-10">
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setActiveBoard(null)}
-            className="text-muted-foreground hover:text-foreground transition text-xs underline underline-offset-2"
-          >
-            ← Quadros
-          </button>
-          <div className="h-4 w-px bg-border" />
-          <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-500">
-            <Presentation className="h-4 w-4" />
-          </div>
+          <Presentation className="h-6 w-6 text-accent" />
           <div>
-            <h1 className="text-base font-bold leading-tight">{activeBoard.title}</h1>
-            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-              {connected ? <><Wifi className="h-3 w-3 text-success" /><span className="text-success">Ao vivo</span></> : <><WifiOff className="h-3 w-3" />Conectando…</>}
-              {" · "}{elements.length} elemento(s)
+            <div className="flex items-center gap-2">
+              <h1 className="font-display font-bold text-lg leading-none">
+                {activeBoard ? activeBoard.title : "Carregando Quadro..."}
+              </h1>
+              {connected ? (
+                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <Wifi className="h-3 w-3 animate-pulse" /> Ao vivo
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                  <WifiOff className="h-3 w-3" /> Offline
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Quadros e mapas conceituais vinculados ao projeto.
             </p>
           </div>
         </div>
+
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={clearAll} className="gap-1 text-muted-foreground border-muted/30 hover:text-foreground">
-            <Eraser className="h-3.5 w-3.5" /> Limpar
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => deleteBoard(activeBoard.id)}
-            className="gap-1 text-destructive border-destructive/30 hover:bg-destructive/10"
-          >
-            <Trash2 className="h-3.5 w-3.5" /> Excluir Quadro
-          </Button>
-          <Button variant="outline" size="sm" onClick={exportSVG} className="gap-1">
-            <Download className="h-3.5 w-3.5" /> Exportar
-          </Button>
-          <span className="text-xs text-muted-foreground font-mono bg-muted px-2 py-1 rounded">
-            {Math.round(cam.scale * 100)}%
-          </span>
-          <Button size="sm" onClick={() => setCam({ x: 0, y: 0, scale: 1 })} variant="ghost" className="text-xs">Reset</Button>
+          {/* Integrated Project Selector */}
+          <ProjectSelector />
+
+          {/* List boards */}
+          <Dialog open={listOpen} onOpenChange={setListOpen}>
+            <Button variant="outline" size="sm" onClick={() => setListOpen(true)} className="gap-2 text-xs">
+              <Presentation className="h-3.5 w-3.5" /> Meus Quadros ({boards.length})
+            </Button>
+            <DialogContent className="max-w-md">
+              <DialogHeader><DialogTitle>Quadros do Projeto</DialogTitle></DialogHeader>
+              <div className="space-y-2 max-h-60 overflow-y-auto py-2">
+                {boards.map((b) => (
+                  <div
+                    key={b.id}
+                    onClick={() => openBoard(b)}
+                    className={cn(
+                      "flex items-center justify-between p-3 rounded-lg border cursor-pointer transition",
+                      activeBoard?.id === b.id ? "bg-accent/10 border-accent" : "hover:bg-muted/50"
+                    )}
+                  >
+                    <div>
+                      <p className="font-semibold text-sm">{b.title}</p>
+                      <p className="text-[10px] text-muted-foreground">{new Date(b.updated_at).toLocaleString("pt-BR")}</p>
+                    </div>
+                    <button onClick={(e) => deleteBoard(b.id, e)} className="text-muted-foreground hover:text-destructive p-1 rounded">
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 border-t flex gap-2">
+                <Input placeholder="Nome do novo quadro..." value={newBoardName} onChange={(e) => setNewBoardName(e.target.value)} onKeyDown={(e) => e.key === "Enter" && createBoard()} />
+                <Button onClick={createBoard} disabled={creating} className="bg-gradient-primary text-primary-foreground">
+                  <Plus className="h-4 w-4 mr-1" /> Criar
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Button variant="outline" size="sm" onClick={exportSVG} className="gap-1.5 text-xs"><Download className="h-3.5 w-3.5" /> Exportar SVG</Button>
+          <Button variant="destructive" size="sm" onClick={clearAll} className="gap-1.5 text-xs"><Trash2 className="h-3.5 w-3.5" /> Apagar Tudo</Button>
         </div>
       </header>
 
-      {/* Canvas area */}
-      <div ref={canvasContainerRef} className="flex flex-1 overflow-hidden relative">
-        {/* Side toolbar */}
-        <aside className="absolute left-4 top-1/2 -translate-y-1/2 z-20 flex flex-col gap-1 p-2 rounded-2xl border border-white/10 bg-card/85 backdrop-blur-xl shadow-elegant max-h-[90vh] overflow-y-auto no-scrollbar">
+      {/* Main Canvas Area */}
+      <div ref={canvasContainerRef} className="relative flex-1 overflow-hidden select-none bg-radial-grid">
+        {/* Floating Toolbar */}
+        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1 p-1.5 rounded-2xl bg-card/90 backdrop-blur-xl border border-white/10 shadow-[0_12px_32px_rgba(0,0,0,0.3)]">
           {tools.map((t) => (
             <button
               key={t.id}
-              title={t.label}
               onClick={() => setTool(t.id)}
+              title={t.label}
               className={cn(
-                "h-9 w-9 rounded-xl flex items-center justify-center transition-all",
+                "p-2 rounded-xl text-xs font-semibold transition-all duration-150 flex items-center gap-1",
                 tool === t.id
-                  ? "bg-accent/20 text-accent shadow-inner"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-accent text-accent-foreground shadow-md shadow-accent/20 scale-105"
+                  : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
               )}
             >
               <t.icon className="h-4 w-4" />
             </button>
           ))}
 
-          <div className="h-px bg-white/10 my-1 w-7 mx-auto" />
+          <div className="h-5 w-px bg-border mx-1" />
 
-          {/* Color Picker with multiple palettes */}
-          <div className="flex justify-center py-1">
-            <RichColorPicker
-              value={color}
-              onChange={setColor}
-              compact
-            />
+          {/* Color picker */}
+          <div className="flex items-center gap-1.5 px-2">
+            <RichColorPicker color={color} onChange={setColor} className="h-7 w-7 rounded-lg" />
           </div>
 
-          <div className="h-px bg-white/10 my-1 w-7 mx-auto" />
+          <div className="h-5 w-px bg-border mx-1" />
 
-          {/* Stroke widths */}
-          {STROKE_WIDTHS.map((sw) => (
-            <button
-              key={sw}
-              onClick={() => setStrokeWidth(sw)}
-              title={`Espessura ${sw}px`}
-              className={cn(
-                "h-7 w-9 flex items-center justify-center rounded-lg transition",
-                strokeWidth === sw ? "bg-accent/20 text-accent" : "text-muted-foreground hover:bg-muted"
-              )}
-            >
-              <div className="rounded-full bg-current" style={{ width: "80%", height: Math.max(1, sw / 2) }} />
-            </button>
-          ))}
-        </aside>
+          {/* Stroke width */}
+          <div className="flex items-center gap-1 px-1">
+            {STROKE_WIDTHS.map((w) => (
+              <button
+                key={w}
+                onClick={() => setStrokeWidth(w)}
+                className={cn(
+                  "h-6 w-6 rounded-lg flex items-center justify-center transition",
+                  strokeWidth === w ? "bg-accent/20 text-accent font-bold" : "text-muted-foreground hover:bg-muted"
+                )}
+              >
+                <span className="rounded-full bg-current" style={{ width: Math.max(3, w * 0.6), height: Math.max(3, w * 0.6) }} />
+              </button>
+            ))}
+          </div>
+        </div>
 
-        {/* SVG canvas */}
+        {/* Floating Camera Controls */}
+        <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2 p-1.5 rounded-xl bg-card/90 backdrop-blur-xl border border-white/10 shadow-lg text-xs font-bold">
+          <button onClick={() => setCam((c) => ({ ...c, scale: Math.max(0.15, c.scale * 0.85) }))} className="px-2 py-1 rounded hover:bg-muted">-</button>
+          <span>{Math.round(cam.scale * 100)}%</span>
+          <button onClick={() => setCam((c) => ({ ...c, scale: Math.min(5, c.scale * 1.15) }))} className="px-2 py-1 rounded hover:bg-muted">+</button>
+          <button onClick={() => setCam({ x: 0, y: 0, scale: 1 })} className="px-2 py-1 rounded hover:bg-muted text-[10px] uppercase">Reset</button>
+        </div>
+
+        {/* Eraser active notification banner */}
+        {isEraserActive && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-20 bg-destructive text-destructive-foreground px-4 py-1.5 rounded-full text-xs font-bold shadow-lg animate-pulse flex items-center gap-2">
+            <Eraser className="h-4 w-4" />
+            Modo Borracha Ativo: Clique ou passe sobre elementos para apagar!
+          </div>
+        )}
+
+        {/* SVG Canvas */}
         <svg
           ref={canvasRef}
-          className={cn(
-            "flex-1 w-full h-full",
-            ["pencil", "pen", "calligraphy", "brush", "spray", "line", "arrow", "rect", "circle", "diamond"].includes(tool) ? "cursor-crosshair" :
-            tool === "eraser" ? "cursor-cell" :
-            tool === "text" ? "cursor-text" :
-            "cursor-grab active:cursor-grabbing"
-          )}
-          style={{
-            background: "radial-gradient(circle, hsl(var(--muted) / 0.3) 1px, transparent 1px)",
-            backgroundSize: "24px 24px",
-          }}
+          className="w-full h-full touch-none cursor-crosshair"
           onPointerDown={onDrawStart}
           onPointerMove={onDrawMove}
           onPointerUp={onDrawEnd}
-          onPointerLeave={onDrawEnd}
         >
-          <defs>
-            <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">
-              <circle cx="0" cy="0" r="0.5" fill="hsl(var(--muted-foreground) / 0.2)" />
-            </pattern>
-          </defs>
           <g transform={`translate(${cam.x}, ${cam.y}) scale(${cam.scale})`}>
             {elements.map(renderEl)}
           </g>
         </svg>
 
-        {/* Zoom controls */}
-        <div className="absolute bottom-5 right-5 flex items-center gap-1 p-1.5 rounded-xl border border-white/10 bg-card/80 backdrop-blur-xl shadow-elegant z-20">
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-sm" onClick={() => setCam((c) => ({ ...c, scale: Math.max(0.15, c.scale * 0.85) }))}>−</Button>
-          <button onClick={() => setCam({ x: 0, y: 0, scale: 1 })} className="text-xs font-mono px-2 py-1 hover:bg-muted rounded transition">{Math.round(cam.scale * 100)}%</button>
-          <Button variant="ghost" size="icon" className="h-8 w-8 text-sm" onClick={() => setCam((c) => ({ ...c, scale: Math.min(5, c.scale * 1.15) }))}>+</Button>
-        </div>
+        {/* INLINE CANVAS TEXT EDITOR (No native browser prompt pop-up) */}
+        {inlineText && (
+          <div
+            className="absolute z-30"
+            style={{
+              left: `${cam.x + inlineText.x * cam.scale}px`,
+              top: `${cam.y + inlineText.y * cam.scale - 20}px`,
+            }}
+          >
+            <div className="relative bg-card p-2 rounded-xl border-2 border-accent shadow-2xl min-w-[200px] flex flex-col gap-2 animate-in zoom-in-95 duration-150">
+              <Textarea
+                ref={inlineInputRef}
+                value={inlineText.text}
+                onChange={(e) => setInlineText({ ...inlineText, text: e.target.value })}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    commitInlineText();
+                  }
+                  if (e.key === "Escape") {
+                    setInlineText(null);
+                  }
+                }}
+                placeholder="Escreva seu texto aqui..."
+                rows={2}
+                className="text-sm font-semibold border-none focus-visible:ring-0 bg-transparent resize-none p-1"
+                autoFocus
+              />
+              <div className="flex items-center justify-end gap-1 border-t pt-1">
+                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground" onClick={() => setInlineText(null)}>
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+                <Button size="sm" className="h-6 px-2 text-xs bg-accent text-accent-foreground font-bold gap-1" onClick={commitInlineText}>
+                  <Check className="h-3 w-3" /> OK
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -71,19 +71,23 @@ function RootShell({ children }: { children: React.ReactNode }) {
 }
 
 import { SplashProvider } from "@/components/SplashScreen";
+import { ProjectProvider } from "@/contexts/ProjectContext";
 
 function RootComponent() {
   return (
     <ThemeProvider>
       <SplashProvider>
         <AuthProvider>
-          <NotificationsProvider>
-            <Outlet />
-            <ReminderPopup />
-            <Toaster richColors position="top-right" />
-          </NotificationsProvider>
+          <ProjectProvider>
+            <NotificationsProvider>
+              <Outlet />
+              <ReminderPopup />
+              <Toaster richColors position="top-right" />
+            </NotificationsProvider>
+          </ProjectProvider>
         </AuthProvider>
       </SplashProvider>
     </ThemeProvider>
   );
 }
+

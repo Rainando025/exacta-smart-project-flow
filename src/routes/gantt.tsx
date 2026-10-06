@@ -3,6 +3,8 @@ import { AppShell } from "@/components/AppShell";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProject } from "@/contexts/ProjectContext";
+import { ProjectSelector } from "@/components/ProjectSelector";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { priorityColor, STATUSES, PRIORITIES } from "@/lib/exacta";
@@ -35,6 +37,7 @@ const LABEL_WIDTH = 256;
 
 function GanttPage() {
   const { user } = useAuth();
+  const { selectedProjectId } = useProject();
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [profiles, setProfiles] = useState<any[]>([]);
@@ -87,10 +90,15 @@ function GanttPage() {
     };
   }, []);
 
+  const filteredTasks = useMemo(() => {
+    if (selectedProjectId === "all") return tasks;
+    return tasks.filter((t) => t.project_id === selectedProjectId);
+  }, [tasks, selectedProjectId]);
+
   const { rangeStart, totalDays, items } = useMemo(() => {
-    if (tasks.length === 0)
+    if (filteredTasks.length === 0)
       return { rangeStart: new Date(), totalDays: 30, items: [] as any[] };
-    const dates = tasks.flatMap((t) => [new Date(t.due_date).getTime(), t.start_date ? new Date(t.start_date).getTime() : new Date(t.due_date).getTime() - 3 * 86400000]);
+    const dates = filteredTasks.flatMap((t) => [new Date(t.due_date).getTime(), t.start_date ? new Date(t.start_date).getTime() : new Date(t.due_date).getTime() - 3 * 86400000]);
     const min = Math.min(...dates, Date.now());
     const max = Math.max(...dates, Date.now() + 14 * 86400000);
     const start = new Date(min);
@@ -99,7 +107,7 @@ function GanttPage() {
     const extraDays = viewMode === "months" ? 180 : 5;
     const total = Math.ceil((max - start.getTime()) / 86400000) + extraDays;
     
-    const items = tasks.map((t, idx) => {
+    const items = filteredTasks.map((t, idx) => {
       const taskStart = t.start_date
         ? new Date(t.start_date)
         : new Date(new Date(t.due_date).getTime() - 3 * 86400000);

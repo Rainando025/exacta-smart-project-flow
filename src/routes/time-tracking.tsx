@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Timer, Play, Pause, Square, History, TrendingUp, Calendar,
   Plus, Users, Clock, CheckCircle2, Loader2, Trash2, RefreshCw,
-  ChevronDown, FileText, Activity
+  ChevronDown, FileText, Activity, Volume2, Bell, Sparkles, AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,12 +13,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { AppShell } from "@/components/AppShell";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useRef, useState, useCallback } from "react";
 import { format, differenceInSeconds, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/time-tracking")({
   component: () => <AppShell><TimeTrackingPage /></AppShell>,
@@ -66,21 +69,86 @@ function formatDisplayDuration(dur: string | null): string {
   return dur;
 }
 
+// ─── AUDIO CHIME SOUND & BROWSER NOTIFICATION HELPER ───────────────────────
+function playNotificationSound() {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const now = ctx.currentTime;
+
+    // First Tone (A5)
+    const osc1 = ctx.createOscillator();
+    const gain1 = ctx.createGain();
+    osc1.type = "sine";
+    osc1.frequency.setValueAtTime(880, now);
+    gain1.gain.setValueAtTime(0.3, now);
+    gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+    osc1.connect(gain1);
+    gain1.connect(ctx.destination);
+    osc1.start(now);
+    osc1.stop(now + 0.35);
+
+    // Second Tone (D6)
+    const osc2 = ctx.createOscillator();
+    const gain2 = ctx.createGain();
+    osc2.type = "sine";
+    osc2.frequency.setValueAtTime(1174.66, now + 0.18);
+    gain2.gain.setValueAtTime(0.35, now + 0.18);
+    gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+    osc2.connect(gain2);
+    gain2.connect(ctx.destination);
+    osc2.start(now + 0.18);
+    osc2.stop(now + 0.7);
+  } catch (e) {
+    console.error("Audio error:", e);
+  }
+}
+
+function triggerTimerNotification(title: string, body: string) {
+  playNotificationSound();
+  toast.success(title + ": " + body);
+
+  if ("Notification" in window) {
+    if (Notification.permission === "granted") {
+      new Notification(title, { body });
+    } else if (Notification.permission !== "denied") {
+      Notification.requestPermission().then((perm) => {
+        if (perm === "granted") {
+          new Notification(title, { body });
+        }
+      });
+    }
+  }
+}
+
 function TimeTrackingPage() {
   const { user, profile } = useAuth();
   const [logs, setLogs] = useState<TimeLog[]>([]);
   const [teamLogs, setTeamLogs] = useState<TimeLog[]>([]);
+  const [tasks, setTasks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTimer, setActiveTimer] = useState<ActiveTimer | null>(null);
   const [elapsed, setElapsed] = useState(0);
   const [showStartDialog, setShowStartDialog] = useState(false);
   const [newDescription, setNewDescription] = useState("");
+  const [selectedTaskId, setSelectedTaskId] = useState<string>("none");
+  const [targetLimitMinutes, setTargetLimitMinutes] = useState<number>(25); // Default 25 min Pomodoro
+  const [soundEnabled, setSoundEnabled] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userRole, setUserRole] = useState<"admin" | "gestor" | "colaborador">("colaborador");
   const [teamMemberElapsed, setTeamMemberElapsed] = useState<Record<string, number>>({});
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const teamTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [view, setView] = useState<"my" | "team">("my");
+  const hasTriggeredTargetRef = useRef(false);
+
+  // Request browser notification permission on load
+  useEffect(() => {
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }, []);
 
   // Load user role
   useEffect(() => {
@@ -93,6 +161,10 @@ function TimeTrackingPage() {
       .then(({ data }) => {
         if (data?.role) setUserRole(data.role as any);
       });
+
+    supabase.from("tasks").select("id, title").eq("assignee_id", user.id).then(({ data }) => {
+      if (data) setTasks(data);
+    });
   }, [user]);
 
   // Load personal time logs
@@ -107,7 +179,7 @@ function TimeTrackingPage() {
     setLogs(data || []);
   }, [user]);
 
-  // Load all team logs (admin/gestor only)
+  // Load team logs
   const loadTeamLogs = useCallback(async () => {
     if (!user) return;
     const { data: logsData } = await supabase
@@ -118,7 +190,6 @@ function TimeTrackingPage() {
 
     if (!logsData) return;
 
-    // Get unique user IDs
     const userIds = [...new Set(logsData.map(l => l.user_id))];
     const { data: profilesData } = await supabase
       .from("profiles")
@@ -132,12 +203,11 @@ function TimeTrackingPage() {
     setTeamLogs(enriched);
   }, [user]);
 
-  // Check for existing active timer on load
+  // Check for open active timer on load
   useEffect(() => {
     if (!user) return;
     const loadInitial = async () => {
       setLoading(true);
-      // Check for an open (no end_time) timer
       const { data: active } = await supabase
         .from("time_logs")
         .select("*")
@@ -159,26 +229,42 @@ function TimeTrackingPage() {
     loadInitial();
   }, [user, loadMyLogs]);
 
-  // Load team logs for admin/gestor
   useEffect(() => {
     if (userRole === "admin" || userRole === "gestor") {
       loadTeamLogs();
     }
   }, [userRole, loadTeamLogs]);
 
-  // Personal timer tick
+  // Personal timer tick with alert sound check when target limit reached
   useEffect(() => {
     if (activeTimer) {
+      hasTriggeredTargetRef.current = false;
       timerRef.current = setInterval(() => {
-        setElapsed(differenceInSeconds(new Date(), activeTimer.startTime));
+        const newSecs = differenceInSeconds(new Date(), activeTimer.startTime);
+        setElapsed(newSecs);
+
+        // Check if target Pomodoro limit reached
+        if (
+          targetLimitMinutes > 0 &&
+          newSecs >= targetLimitMinutes * 60 &&
+          !hasTriggeredTargetRef.current
+        ) {
+          hasTriggeredTargetRef.current = true;
+          if (soundEnabled) {
+            triggerTimerNotification(
+              "🔔 Tempo Alvo Atingido!",
+              `Sua meta de ${targetLimitMinutes} minutos foi alcançada.`
+            );
+          }
+        }
       }, 1000);
     } else {
       if (timerRef.current) clearInterval(timerRef.current);
     }
     return () => { if (timerRef.current) clearInterval(timerRef.current); };
-  }, [activeTimer]);
+  }, [activeTimer, targetLimitMinutes, soundEnabled]);
 
-  // Team timers — tick every second for active members
+  // Team timers
   useEffect(() => {
     const activeTeamLogs = teamLogs.filter(l => !l.end_time);
     if (activeTeamLogs.length === 0) return;
@@ -199,9 +285,16 @@ function TimeTrackingPage() {
     if (!user || !newDescription.trim()) return;
     setSaving(true);
     const now = new Date().toISOString();
+    const payload: any = {
+      user_id: user.id,
+      start_time: now,
+      description: newDescription.trim(),
+    };
+    if (selectedTaskId !== "none") payload.task_id = selectedTaskId;
+
     const { data, error } = await supabase
       .from("time_logs")
-      .insert({ user_id: user.id, start_time: now, description: newDescription.trim() })
+      .insert(payload)
       .select()
       .single();
 
@@ -224,6 +317,14 @@ function TimeTrackingPage() {
       .from("time_logs")
       .update({ end_time: now.toISOString(), duration })
       .eq("id", activeTimer.logId);
+
+    if (soundEnabled) {
+      triggerTimerNotification(
+        "⏱️ Cronômetro Finalizado",
+        `Sessão de ${formatDisplayDuration(duration)} registrada com sucesso.`
+      );
+    }
+
     setActiveTimer(null);
     setElapsed(0);
     await loadMyLogs();
@@ -238,21 +339,6 @@ function TimeTrackingPage() {
     await loadMyLogs();
   };
 
-  const handleResumeLog = async (log: TimeLog) => {
-    if (!user) return;
-    const now = new Date().toISOString();
-    const { data, error } = await supabase
-      .from("time_logs")
-      .insert({ user_id: user.id, start_time: now, description: log.description })
-      .select()
-      .single();
-    if (!error && data) {
-      setActiveTimer({ logId: data.id, startTime: new Date(data.start_time) });
-      setElapsed(0);
-      await loadMyLogs();
-    }
-  };
-
   // Stats
   const todayLogs = logs.filter(l => {
     if (!l.end_time) return false;
@@ -261,11 +347,8 @@ function TimeTrackingPage() {
   const todaySeconds = todayLogs.reduce((acc, l) => acc + parseDurationToSeconds(l.duration), 0) + (activeTimer ? elapsed : 0);
   const DAILY_GOAL = 8 * 3600;
 
-  // Active team members
-  const activeTeamLogs = teamLogs.filter(l => !l.end_time);
-
   return (
-    <div className="p-6 lg:p-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="p-6 lg:p-10 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
@@ -275,48 +358,94 @@ function TimeTrackingPage() {
             </div>
             <h1 className="text-3xl font-bold tracking-tight">Rastreamento de Tempo</h1>
           </div>
-          <p className="text-muted-foreground">Monitore sua produtividade e o tempo gasto em cada tarefa.</p>
+          <p className="text-muted-foreground text-sm">Monitore sua produtividade, cronômetro Pomodoro e alerta sonoro.</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Sound Toggle */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSoundEnabled(!soundEnabled);
+              if (!soundEnabled) playNotificationSound();
+            }}
+            className={cn("gap-1.5 text-xs font-semibold", soundEnabled ? "border-emerald-500/30 text-emerald-500 bg-emerald-500/5" : "text-muted-foreground")}
+          >
+            <Volume2 className="h-4 w-4" />
+            {soundEnabled ? "Som Ativado" : "Som Desativado"}
+          </Button>
+
           {(userRole === "admin" || userRole === "gestor") && (
             <div className="flex bg-card/40 border border-white/5 rounded-lg overflow-hidden">
               <button
-                className={`px-4 py-2 text-sm font-medium transition-colors ${view === "my" ? "bg-accent text-accent-foreground" : "hover:bg-white/5"}`}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === "my" ? "bg-accent text-accent-foreground" : "hover:bg-white/5"}`}
                 onClick={() => setView("my")}
               >
-                <Clock className="h-4 w-4 inline mr-1" />Meu Tempo
+                <Clock className="h-3.5 w-3.5 inline mr-1" />Meu Tempo
               </button>
               <button
-                className={`px-4 py-2 text-sm font-medium transition-colors ${view === "team" ? "bg-accent text-accent-foreground" : "hover:bg-white/5"}`}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === "team" ? "bg-accent text-accent-foreground" : "hover:bg-white/5"}`}
                 onClick={() => { setView("team"); loadTeamLogs(); }}
               >
-                <Users className="h-4 w-4 inline mr-1" />Equipe
+                <Users className="h-3.5 w-3.5 inline mr-1" />Equipe
               </button>
             </div>
           )}
           <Button
-            className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg"
+            className="bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-lg font-bold"
             onClick={() => setShowStartDialog(true)}
             disabled={!!activeTimer}
           >
-            <Plus className="mr-2 h-4 w-4" /> Iniciar Registro
+            <Plus className="mr-1.5 h-4 w-4" /> Iniciar Registro
           </Button>
         </div>
       </div>
 
+      {/* Target Duration / Pomodoro Selector */}
+      <div className="flex flex-wrap items-center gap-3 p-3 rounded-xl bg-card/60 border border-white/10 shadow-xs">
+        <Sparkles className="h-4 w-4 text-emerald-500 ml-1" />
+        <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Meta / Pomodoro:</span>
+        <div className="flex items-center gap-1.5">
+          {[
+            { min: 0, label: "Livre" },
+            { min: 25, label: "25 min (Pomodoro)" },
+            { min: 45, label: "45 min" },
+            { min: 60, label: "60 min (1h)" },
+          ].map((item) => (
+            <button
+              key={item.min}
+              onClick={() => setTargetLimitMinutes(item.min)}
+              className={cn(
+                "px-3 py-1 rounded-lg text-xs font-semibold transition-all",
+                targetLimitMinutes === item.min
+                  ? "bg-emerald-500 text-white shadow-sm"
+                  : "bg-muted/50 hover:bg-muted text-muted-foreground"
+              )}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Active Timer Card */}
-      <Card className="bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/5 border-emerald-500/20 overflow-hidden">
+      <Card className="bg-gradient-to-r from-emerald-500/10 via-transparent to-teal-500/5 border-emerald-500/20 overflow-hidden shadow-card">
         <CardContent className="p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             <div className="space-y-2 text-center md:text-left flex-1">
               {activeTimer ? (
                 <>
                   <span className="text-xs font-bold uppercase tracking-widest text-emerald-500 flex items-center gap-1.5">
-                    <span className="inline-block h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
                     Cronômetro Ativo
+                    {targetLimitMinutes > 0 && (
+                      <span className="ml-2 text-muted-foreground normal-case font-normal">
+                        (Meta: {targetLimitMinutes} min)
+                      </span>
+                    )}
                   </span>
                   <h2 className="text-2xl font-bold">{logs.find(l => l.id === activeTimer.logId)?.description || "Sessão em andamento"}</h2>
-                  <p className="text-sm text-muted-foreground">Iniciado às {format(activeTimer.startTime, "HH:mm", { locale: ptBR })}</p>
+                  <p className="text-xs text-muted-foreground">Iniciado às {format(activeTimer.startTime, "HH:mm:ss", { locale: ptBR })}</p>
                 </>
               ) : (
                 <>
@@ -330,13 +459,13 @@ function TimeTrackingPage() {
               <div className={`text-6xl font-mono font-bold tracking-tighter mb-4 tabular-nums transition-colors ${activeTimer ? "text-emerald-400" : "text-muted-foreground/40"}`}>
                 {formatDuration(elapsed)}
               </div>
-              <div className="flex gap-3">
+              <div className="flex items-center gap-3">
                 <Button
                   size="lg" variant="outline"
                   className="rounded-full h-12 w-12 p-0 border-amber-500/30 text-amber-500 hover:bg-amber-500/10"
                   disabled={!activeTimer}
                   onClick={handlePause}
-                  title="Pausar"
+                  title="Pausar / Finalizar com Alerta Sonoro"
                 >
                   <Pause className="h-5 w-5" />
                 </Button>
@@ -349,228 +478,50 @@ function TimeTrackingPage() {
                 >
                   <Play className="h-6 w-6 ml-1" />
                 </Button>
-                <Button
-                  size="lg" variant="outline"
-                  className="rounded-full h-12 w-12 p-0 border-red-500/30 text-red-500 hover:bg-red-500/10"
-                  disabled={!activeTimer}
-                  onClick={handleStop}
-                  title="Parar e salvar"
-                >
-                  <Square className="h-5 w-5 fill-current" />
-                </Button>
-              </div>
-            </div>
-
-            <div className="hidden lg:block w-52 space-y-4">
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Meta Diária</span>
-                  <span className="font-bold">{formatDisplayDuration(formatDuration(Math.min(todaySeconds, DAILY_GOAL)))} / 8h</span>
-                </div>
-                <Progress value={(todaySeconds / DAILY_GOAL) * 100} className="h-1.5" />
-              </div>
-              <div className="flex items-center gap-2 text-xs font-medium text-emerald-500">
-                <TrendingUp className="h-4 w-4" />
-                <span>{todayLogs.length} registros hoje</span>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="bg-card/40 border-white/5">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Hoje</CardTitle>
-            <Clock className="h-4 w-4 text-emerald-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatDisplayDuration(formatDuration(todaySeconds))}</div>
-            <p className="text-[10px] text-muted-foreground mt-1">{todayLogs.length} registro(s) finalizados</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/40 border-white/5">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total de Registros</CardTitle>
-            <FileText className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{logs.filter(l => l.end_time).length}</div>
-            <p className="text-[10px] text-muted-foreground mt-1">Histórico completo</p>
-          </CardContent>
-        </Card>
-        <Card className="bg-card/40 border-white/5">
-          <CardHeader className="pb-2 flex flex-row items-center justify-between">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              {(userRole === "admin" || userRole === "gestor") ? "Membros Ativos Agora" : "Meta Diária"}
-            </CardTitle>
-            <Activity className="h-4 w-4 text-purple-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(userRole === "admin" || userRole === "gestor")
-                ? activeTeamLogs.length
-                : `${Math.round((todaySeconds / DAILY_GOAL) * 100)}%`}
-            </div>
-            <p className="text-[10px] text-muted-foreground mt-1">
-              {(userRole === "admin" || userRole === "gestor") ? "com cronômetro rodando" : "da meta diária de 8h"}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Team View (admin/gestor) */}
-      {view === "team" && (userRole === "admin" || userRole === "gestor") && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold flex items-center gap-2">
-              <Users className="h-5 w-5 text-purple-500" />
-              Atividade da Equipe
-            </h2>
-            <Button variant="ghost" size="sm" onClick={loadTeamLogs}>
-              <RefreshCw className="h-4 w-4 mr-1" />Atualizar
-            </Button>
-          </div>
-
-          {/* Active now */}
-          {activeTeamLogs.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-xs font-bold uppercase tracking-wider text-emerald-500 px-1">Rodando agora</p>
-              {activeTeamLogs.map(log => (
-                <div key={log.id} className="flex items-center gap-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl p-4">
-                  <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold truncate">{log.profile?.full_name || log.user_id.slice(0, 8)}</p>
-                    <p className="text-xs text-muted-foreground truncate">{log.description || "Sem descrição"}</p>
-                  </div>
-                  <div className="font-mono font-bold text-emerald-400 text-lg tabular-nums flex-shrink-0">
-                    {formatDuration(teamMemberElapsed[log.id] || 0)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Recent team logs */}
-          <div className="space-y-2">
-            <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground px-1">Registros Recentes da Equipe</p>
-            <div className="bg-card/30 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
-              {teamLogs.filter(l => l.end_time).slice(0, 20).map(log => (
-                <div key={log.id} className="flex items-center gap-4 p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
-                  <div className="h-9 w-9 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-400 flex-shrink-0 text-sm font-bold">
-                    {(log.profile?.full_name || "?").charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{log.description || "Sem descrição"}</p>
-                    <p className="text-xs text-muted-foreground">{log.profile?.full_name || "Membro"} · {format(parseISO(log.start_time), "dd/MM HH:mm", { locale: ptBR })}</p>
-                  </div>
-                  <Badge variant="outline" className="font-mono flex-shrink-0">{formatDisplayDuration(log.duration)}</Badge>
-                </div>
-              ))}
-              {teamLogs.filter(l => l.end_time).length === 0 && (
-                <p className="text-center text-sm text-muted-foreground py-8">Nenhum registro da equipe encontrado.</p>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* My Logs */}
-      {view === "my" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold">Meus Registros</h2>
-            <Button variant="ghost" size="sm" onClick={loadMyLogs}>
-              <RefreshCw className="h-4 w-4 mr-1" />Atualizar
-            </Button>
-          </div>
-          {loading ? (
-            <div className="flex items-center justify-center py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : (
-            <div className="bg-card/30 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-sm">
-              {logs.filter(l => l.end_time).length === 0 && !activeTimer ? (
-                <div className="text-center py-16 text-muted-foreground">
-                  <Timer className="h-10 w-10 mx-auto mb-3 opacity-30" />
-                  <p>Nenhum registro ainda. Inicie um cronômetro!</p>
-                </div>
-              ) : (
-                <div className="grid gap-px">
-                  {logs.filter(l => l.end_time).map(log => (
-                    <div key={log.id} className="bg-card/50 p-4 flex items-center justify-between hover:bg-card transition-colors group">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500 group-hover:bg-emerald-500 group-hover:text-white transition-all">
-                          <CheckCircle2 className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium">{log.description || "Sem descrição"}</h4>
-                          <p className="text-xs text-muted-foreground">
-                            {format(parseISO(log.start_time), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                            {log.end_time && ` → ${format(parseISO(log.end_time), "HH:mm")}`}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        <span className="font-mono font-bold text-sm">{formatDisplayDuration(log.duration)}</span>
-                        <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <Button
-                            variant="ghost" size="icon" className="h-8 w-8 rounded-full text-emerald-500"
-                            onClick={() => handleResumeLog(log)}
-                            title="Retomar"
-                          >
-                            <Play className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost" size="icon" className="h-8 w-8 rounded-full text-destructive"
-                            onClick={() => handleDeleteLog(log.id)}
-                            title="Excluir"
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Start Timer Dialog */}
       <Dialog open={showStartDialog} onOpenChange={setShowStartDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 font-bold">
               <Timer className="h-5 w-5 text-emerald-500" />
-              Iniciar Cronômetro
+              Iniciar Registro de Tempo
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="time-desc">Descrição da atividade</Label>
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">O que você vai realizar? *</Label>
               <Input
-                id="time-desc"
-                placeholder="Ex: Reunião de alinhamento, Desenvolvimento de feature..."
+                placeholder="Ex: Desenvolvimento da interface do Kanban"
                 value={newDescription}
-                onChange={e => setNewDescription(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleStart()}
+                onChange={(e) => setNewDescription(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleStart()}
                 autoFocus
               />
+            </div>
+
+            <div>
+              <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1 block">Vincular a uma Tarefa (opcional)</Label>
+              <Select value={selectedTaskId} onValueChange={setSelectedTaskId}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma tarefa..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma tarefa</SelectItem>
+                  {tasks.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowStartDialog(false)}>Cancelar</Button>
-            <Button
-              onClick={handleStart}
-              disabled={!newDescription.trim() || saving}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white"
-            >
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Play className="h-4 w-4 mr-2" />}
-              Iniciar
+            <Button onClick={handleStart} disabled={saving || !newDescription.trim()} className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold">
+              {saving ? "Iniciando..." : "Começar Cronômetro"}
             </Button>
           </DialogFooter>
         </DialogContent>

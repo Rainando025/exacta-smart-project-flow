@@ -3,6 +3,8 @@ import { AppShell } from "@/components/AppShell";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProject } from "@/contexts/ProjectContext";
+import { ProjectSelector } from "@/components/ProjectSelector";
 import { useRole } from "@/hooks/useRole";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,12 +32,12 @@ export const Route = createFileRoute("/tasks")({
 
 function TasksPage() {
   const { user } = useAuth();
+  const { selectedProjectId } = useProject();
   const { canDeleteTask, canEditTask } = useRole();
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [filter, setFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
-  const [projectFilter, setProjectFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState(false);
   const [aiOpen, setAiOpen] = useState(false);
@@ -44,7 +46,13 @@ function TasksPage() {
   const [editing, setEditing] = useState<any | null>(null);
   const [detail, setDetail] = useState<any | null>(null);
   const [counts, setCounts] = useState<Record<string, { total: number; done: number; files: number }>>({});
-  const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: "" });
+  const [form, setForm] = useState({ title: "", description: "", priority: "media", status: "todo", due_date: "", project_id: selectedProjectId !== "all" ? selectedProjectId : "" });
+
+  useEffect(() => {
+    if (selectedProjectId !== "all") {
+      setForm((prev) => ({ ...prev, project_id: selectedProjectId }));
+    }
+  }, [selectedProjectId]);
 
   const load = async () => {
     if (!user?.id) return;
@@ -330,7 +338,7 @@ function TasksPage() {
     if (filter === "overdue" && !isOverdue(t.due_date, t.status)) return false;
     if (["todo", "doing", "review", "done"].includes(filter) && t.status !== filter) return false;
     if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
-    if (projectFilter !== "all" && (projectFilter === "none" ? t.project_id : t.project_id !== projectFilter)) return false;
+    if (selectedProjectId !== "all" && t.project_id !== selectedProjectId) return false;
     if (search.trim() && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
     return true;
   });

@@ -23,6 +23,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { NotificationsBell } from "@/components/NotificationsBell";
 import { AIChat } from "@/components/AIChat";
 import { SplashScreen } from "@/components/SplashScreen";
+import { ProjectSelector } from "@/components/ProjectSelector";
 const logo = "https://raw.githubusercontent.com/Rainando025/ASSETS-FOTOS/refs/heads/main/icone_exacta.png";
 import { cn } from "@/lib/utils";
 import {
@@ -75,6 +76,7 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/projects", label: "Projetos", icon: FolderKanban },
       { to: "/okrs", label: "Metas e OKRs", icon: Target },
       { to: "/calendar", label: "Calendário", icon: CalendarPlus },
+      { to: "/reminders", label: "Lembretes", icon: BellRing },
     ]
   },
   {
@@ -455,6 +457,8 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Button>
             )}
             <h2 className="text-sm font-bold capitalize truncate">{currentPageLabel}</h2>
+            <div className="hidden sm:block border-l h-4 mx-1 opacity-40" />
+            <ProjectSelector />
           </div>
 
           <div className="flex items-center gap-1.5">

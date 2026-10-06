@@ -22,6 +22,7 @@ import { askGroq, askGemini } from "@/lib/ai";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useProject } from "@/contexts/ProjectContext";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useEffect } from "react";
@@ -911,16 +912,7 @@ function VisualManagementPage() {
   const [edges, setEdges] = useState<any[]>([]);
 
   const [activeTab, setActiveTab] = useState("swot");
-  const [projects, setProjects] = useState<any[]>([]);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
-
-  useEffect(() => {
-    const loadProjects = async () => {
-      const { data } = await supabase.from("projects").select("id, name").order("name");
-      if (data) setProjects(data);
-    };
-    loadProjects();
-  }, []);
+  const { selectedProjectId, setSelectedProjectId, projects } = useProject();
 
   const printRef = useRef<HTMLDivElement>(null);
   const [exportingPDF, setExportingPDF] = useState(false);
