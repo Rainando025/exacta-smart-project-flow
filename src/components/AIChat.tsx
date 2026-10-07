@@ -189,7 +189,7 @@ export function AIChat({ contextData }: { contextData?: any }) {
   return (
     <>
       {/* Floating Action Button */}
-      <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2">
+      <div className="fixed bottom-6 left-6 z-40 flex items-center gap-2">
         {!isOpen && (
           <Button
             onClick={() => setIsOpen(true)}
@@ -215,8 +215,8 @@ export function AIChat({ contextData }: { contextData?: any }) {
         <Card className={cn(
           "fixed z-50 shadow-2xl border-white/15 bg-card/95 backdrop-blur-2xl transition-all duration-300 flex flex-col overflow-hidden animate-in slide-in-from-bottom-5 fade-in",
           isExpanded
-            ? "bottom-4 right-4 left-4 top-16 sm:left-auto sm:w-[680px] sm:h-[85vh] sm:top-auto sm:bottom-4"
-            : "bottom-6 right-6 w-[92vw] sm:w-[440px] h-[580px] max-h-[90vh] rounded-2xl"
+            ? "bottom-4 left-4 right-4 top-16 sm:right-auto sm:w-[680px] sm:h-[85vh] sm:top-auto sm:bottom-4"
+            : "bottom-6 left-6 w-[92vw] sm:w-[440px] h-[580px] max-h-[90vh] rounded-2xl"
         )}>
           {/* Header */}
           <div className="p-3.5 bg-gradient-to-r from-primary/20 via-accent/15 to-transparent border-b border-white/10 flex items-center justify-between">

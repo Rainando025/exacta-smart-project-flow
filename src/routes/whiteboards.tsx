@@ -57,10 +57,12 @@ function WhiteboardsPage() {
   const { selectedProjectId, selectedProject } = useProject();
   const [boards, setBoards] = useState<Whiteboard[]>([]);
   const [activeBoard, setActiveBoard] = useState<Whiteboard | null>(null);
+  const activeBoardRef = useRef<Whiteboard | null>(null);
   const [listOpen, setListOpen] = useState(false);
   const [newBoardName, setNewBoardName] = useState("");
   const [creating, setCreating] = useState(false);
   const [connected, setConnected] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"saved" | "saving" | "unsaved">("saved");
 
   // Canvas state
   const canvasRef = useRef<SVGSVGElement>(null);
@@ -161,10 +163,12 @@ function WhiteboardsPage() {
       realtimeChannel.current = null;
     }
     setActiveBoard(board);
+    activeBoardRef.current = board;
     const els = board.data?.elements || [];
     setElements(els);
     setListOpen(false);
     setConnected(false);
+    setSaveStatus("saved");
 
     const ch = supabase.channel(`whiteboard:${board.id}`)
       .on("broadcast", { event: "elements" }, ({ payload }) => {
@@ -180,22 +184,54 @@ function WhiteboardsPage() {
 
   // ── Save board ───────────────────────────────────────────────────────────────
   const saveBoard = useCallback(async (els: WBElement[], boardId: string) => {
+    setSaveStatus("saving");
     await supabase.from("documents")
       .update({ data: { elements: els } as any, updated_at: new Date().toISOString() })
       .eq("id", boardId);
+    setSaveStatus("saved");
   }, []);
+
+  // ── Auto-create board if none exists when user starts drawing ─────────────────
+  const autoEnsureBoard = useCallback(async (): Promise<Whiteboard | null> => {
+    if (activeBoardRef.current) return activeBoardRef.current;
+    if (!user) return null;
+
+    const projectId = selectedProjectId !== "all" ? selectedProjectId : null;
+    const title = projectId
+      ? `Quadro - ${new Date().toLocaleDateString("pt-BR")}`
+      : `Rascunho - ${new Date().toLocaleDateString("pt-BR")}`;
+
+    const { data, error } = await supabase.from("documents").insert({
+      title,
+      type: "whiteboard",
+      content: "",
+      data: { elements: [] },
+      owner_id: user.id,
+      project_id: projectId,
+    }).select("id,title,data,project_id,updated_at").single();
+
+    if (error || !data) return null;
+    const board = data as Whiteboard;
+    setBoards((prev) => [board, ...prev]);
+    setActiveBoard(board);
+    activeBoardRef.current = board;
+    setSaveStatus("saved");
+    toast.success(projectId ? `Quadro criado e vinculado ao projeto!` : `Quadro criado como rascunho.`);
+    return board;
+  }, [user, selectedProjectId]);
 
   const commitElements = useCallback((els: WBElement[]) => {
     setElements(els);
-    if (activeBoard) {
-      saveBoard(els, activeBoard.id);
+    const board = activeBoardRef.current;
+    if (board) {
+      saveBoard(els, board.id);
       realtimeChannel.current?.send({
         type: "broadcast",
         event: "elements",
         payload: { elements: els, sender: user?.id },
       });
     }
-  }, [activeBoard, saveBoard, user?.id]);
+  }, [saveBoard, user?.id]);
 
   // ── Create new board ─────────────────────────────────────────────────────────
   const createBoard = async () => {
@@ -358,7 +394,7 @@ function WhiteboardsPage() {
   };
 
   // ── Drawing handlers ─────────────────────────────────────────────────────────
-  const onDrawStart = (e: React.PointerEvent) => {
+  const onDrawStart = async (e: React.PointerEvent) => {
     if (tool === "select") {
       const target = e.target as SVGElement;
       if (!target.dataset.elId) {
@@ -371,6 +407,11 @@ function WhiteboardsPage() {
     if (tool === "eraser") {
       isEraserRubbing.current = true;
       return;
+    }
+
+    // Auto-create board if none exists
+    if (!activeBoardRef.current) {
+      await autoEnsureBoard();
     }
 
     if (tool === "text") {
@@ -698,9 +739,9 @@ function WhiteboardsPage() {
         <div className="flex items-center gap-3">
           <Presentation className="h-6 w-6 text-accent" />
           <div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-display font-bold text-lg leading-none">
-                {activeBoard ? activeBoard.title : "Carregando Quadro..."}
+                {activeBoard ? activeBoard.title : "Novo Quadro"}
               </h1>
               {connected ? (
                 <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
@@ -711,9 +752,27 @@ function WhiteboardsPage() {
                   <WifiOff className="h-3 w-3" /> Offline
                 </span>
               )}
+              {/* Save status badge */}
+              {saveStatus === "saving" && (
+                <span className="flex items-center gap-1 text-[10px] text-amber-500 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20 animate-pulse">
+                  <Layers className="h-3 w-3" /> Salvando...
+                </span>
+              )}
+              {saveStatus === "saved" && activeBoard && (
+                <span className="flex items-center gap-1 text-[10px] text-emerald-500 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
+                  <Check className="h-3 w-3" /> Salvo no projeto
+                </span>
+              )}
+              {!activeBoard && (
+                <span className="flex items-center gap-1 text-[10px] text-muted-foreground bg-muted/60 px-2 py-0.5 rounded-full">
+                  Comece a desenhar para salvar automaticamente
+                </span>
+              )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              Quadros e mapas conceituais vinculados ao projeto.
+              {activeBoard?.project_id
+                ? `Vinculado ao projeto selecionado · salvo automaticamente`
+                : `Selecione um projeto antes de desenhar para vincular o quadro`}
             </p>
           </div>
         </div>
@@ -787,7 +846,7 @@ function WhiteboardsPage() {
 
           {/* Color picker */}
           <div className="flex items-center gap-1.5 px-2">
-            <RichColorPicker color={color} onChange={setColor} className="h-7 w-7 rounded-lg" />
+            <RichColorPicker value={color} onChange={setColor} compact className="h-7 w-7 rounded-lg" />
           </div>
 
           <div className="h-5 w-px bg-border mx-1" />
