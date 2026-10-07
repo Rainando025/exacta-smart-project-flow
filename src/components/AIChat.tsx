@@ -189,22 +189,20 @@ export function AIChat({ contextData }: { contextData?: any }) {
   return (
     <>
       {/* Floating Action Button */}
-      <div className="fixed bottom-6 left-6 z-40 flex items-center gap-2">
+      <div className="fixed bottom-6 left-6 z-40">
         {!isOpen && (
           <Button
             onClick={() => setIsOpen(true)}
-            className="h-14 px-5 rounded-full bg-gradient-primary shadow-glow hover:shadow-elegant transition-all duration-300 gap-3 border border-white/20 group animate-in fade-in zoom-in-90"
+            size="icon"
+            className="h-12 w-12 rounded-full bg-gradient-primary shadow-glow hover:shadow-elegant hover:scale-105 transition-all duration-300 border border-white/20 group animate-in fade-in zoom-in-90 p-0"
+            title="Abrir Agente IA (EXACTA Copilot)"
           >
             <div className="relative flex items-center justify-center">
-              <Sparkles className="h-6 w-6 text-primary-foreground animate-pulse" />
+              <Sparkles className="h-5 w-5 text-primary-foreground animate-pulse" />
               <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent"></span>
               </span>
-            </div>
-            <div className="text-left hidden sm:block">
-              <p className="text-xs font-black tracking-wider uppercase text-primary-foreground leading-tight">Agente IA</p>
-              <p className="text-[10px] text-primary-foreground/80 font-medium leading-tight">EXACTA Copilot</p>
             </div>
           </Button>
         )}

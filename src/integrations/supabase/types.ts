@@ -41,9 +41,9 @@ export interface Database {
         Relationships: []
       }
       documents: {
-        Row: { id: string; title: string; content: string | null; type: string; owner_id: string; is_starred: boolean | null; data: Json | null; created_at: string; updated_at: string }
-        Insert: { id?: string; title: string; content?: string | null; type?: string; owner_id: string; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
-        Update: { id?: string; title?: string; content?: string | null; type?: string; owner_id?: string; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
+        Row: { id: string; title: string; content: string | null; type: string; owner_id: string; project_id: string | null; is_starred: boolean | null; data: Json | null; created_at: string; updated_at: string }
+        Insert: { id?: string; title: string; content?: string | null; type?: string; owner_id: string; project_id?: string | null; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
+        Update: { id?: string; title?: string; content?: string | null; type?: string; owner_id?: string; project_id?: string | null; is_starred?: boolean | null; data?: Json | null; created_at?: string; updated_at?: string }
         Relationships: []
       }
       feedback_competencies: {
