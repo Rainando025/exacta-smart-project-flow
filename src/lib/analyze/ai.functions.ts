@@ -9,6 +9,14 @@ const generateDashboardSchema = z.object({
   fields: z.array(z.object({ name: z.string(), type: z.string() })),
   sample: z.array(z.record(z.any())),
   rowCount: z.number().nonnegative(),
+  aiConfig: z
+    .object({
+      geminiKey: z.string().optional(),
+      groqKey: z.string().optional(),
+      preferredProvider: z.enum(["gemini", "groq", "auto"]).optional(),
+      modelName: z.string().optional(),
+    })
+    .optional(),
 }).strict();
 
 const extractDocumentSchema = z.object({
@@ -36,9 +44,11 @@ export const generateDashboard = createServerFn({ method: "POST" })
       colunas: data.fields,
       amostra: data.sample.slice(0, 40),
     };
-    const text = await callGateway(DASHBOARD_SYSTEM, [
-      { type: "text", text: JSON.stringify(payload) },
-    ]);
+    const text = await callGateway(
+      DASHBOARD_SYSTEM,
+      [{ type: "text", text: JSON.stringify(payload) }],
+      data.aiConfig
+    );
     const parsed = parseJson<Partial<Dashboard>>(text, {});
     return {
       title: sanitizeString(parsed.title || data.name),

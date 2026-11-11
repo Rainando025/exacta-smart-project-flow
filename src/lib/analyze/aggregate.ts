@@ -263,9 +263,34 @@ export function buildHeuristicDashboard(
   const quantFields = numericFields.filter((f) => !isIdOrTemporalField(f.name));
 
   // Prioritise currency-like fields
-  const currencyLike = (name: string) => /valor|preco|pre[çc]o|custo|receita|total|faturamento|salario|sal[aá]rio|lucro|despesa|pagamento|premi[ou]/i.test(name);
-  const quantityLike = (name: string) => /quant(idade)?|qtd|qtde|count|amount|volume|unidade|un\b|pcs|kg|ton/i.test(name);
+  const currencyLike = (n: string) =>
+    /valor|preco|pre[çc]o|custo|receita|total|faturamento|salario|sal[aá]rio|lucro|despesa|pagamento|premi[ou]/i.test(n);
+  const quantityLike = (n: string) =>
+    /quant(idade)?|qtd|qtde|count|amount|volume|unidade|un\b|pcs|kg|ton/i.test(n);
+  const statusLike = (n: string) =>
+    /status|fase|etapa|stage|funil|pipeline|situacao|situa[çc][aã]o|estado/i.test(n);
 
+  const mainDate = dateFields[0];
+  const mainNum = quantFields.find((f) => currencyLike(f.name)) ?? quantFields[0];
+  const secondNum = quantFields.find((f) => f.name !== mainNum?.name);
+  const mainCat =
+    categoricalFields.find((f) => !/^id$/i.test(f.name) && !statusLike(f.name)) ??
+    categoricalFields[0];
+  const statusCat = categoricalFields.find((f) => statusLike(f.name));
+  const secondCat = categoricalFields.find(
+    (f) => f.name !== mainCat?.name && f.name !== statusCat?.name && !/^id$/i.test(f.name)
+  );
+
+  const isCurrency = mainNum ? currencyLike(mainNum.name) : false;
+  const mainNumFmt: "currency" | "compact" | "integer" = mainNum
+    ? isCurrency
+      ? "currency"
+      : quantityLike(mainNum.name)
+        ? "integer"
+        : "compact"
+    : "compact";
+
+  // KPIs Estratégicos
   const kpis: Dashboard["kpis"] = [
     {
       id: "kpi-0",
@@ -278,27 +303,38 @@ export function buildHeuristicDashboard(
   ];
 
   let kpiIdx = 1;
-  for (const numF of quantFields) {
-    if (kpiIdx >= 4) break;
-    const isCurrency = currencyLike(numF.name);
+  for (const numF of quantFields.slice(0, 3)) {
+    const isCur = currencyLike(numF.name);
     kpis.push({
       id: `kpi-${kpiIdx}`,
-      label: `Total de ${numF.name}`,
+      label: isCur ? `Receita / Total ${numF.name}` : `Total de ${numF.name}`,
       field: numF.name,
       agg: "sum",
       accent: kpiIdx % 6,
-      format: isCurrency ? "currency" : quantityLike(numF.name) ? "integer" : "compact",
+      format: isCur ? "currency" : quantityLike(numF.name) ? "integer" : "compact",
     });
     kpiIdx++;
+
+    // Se for financeiro, adiciona também a Média
+    if (isCur && kpiIdx < 5) {
+      kpis.push({
+        id: `kpi-${kpiIdx}`,
+        label: `Média de ${numF.name}`,
+        field: numF.name,
+        agg: "avg",
+        accent: kpiIdx % 6,
+        format: "currency",
+      });
+      kpiIdx++;
+    }
   }
 
-  for (const catF of categoricalFields) {
-    if (kpiIdx >= 5) break;
-    if (/^id$/i.test(catF.name)) continue;
+  // Se sobrou espaço de KPI, adiciona valores distintos da categoria principal
+  if (kpiIdx < 5 && mainCat) {
     kpis.push({
       id: `kpi-${kpiIdx}`,
-      label: `${catF.name}s Distintos`,
-      field: catF.name,
+      label: `${mainCat.name}s Distintos`,
+      field: mainCat.name,
       agg: "distinct",
       accent: kpiIdx % 6,
       format: "compact",
@@ -306,24 +342,37 @@ export function buildHeuristicDashboard(
     kpiIdx++;
   }
 
+  // Estatísticas reais da amostra para gráficos e insights inteligentes
+  const sampleValues = sample
+    .map((r) => (mainNum ? Number(r[mainNum.name]) : null))
+    .filter((v): v is number => v !== null && !isNaN(v));
+
+  const totalSum = sampleValues.reduce((a, b) => a + b, 0);
+  const avgVal = sampleValues.length ? totalSum / sampleValues.length : 0;
+  const maxVal = sampleValues.length ? Math.max(...sampleValues) : 0;
+
+  // Frequência de categorias no mainCat
+  const catFreq: Record<string, number> = {};
+  if (mainCat) {
+    for (const r of sample) {
+      const v = String(r[mainCat.name] || "Não especificado");
+      catFreq[v] = (catFreq[v] || 0) + 1;
+    }
+  }
+  const sortedCats = Object.entries(catFreq).sort((a, b) => b[1] - a[1]);
+  const topCat = sortedCats[0];
+  const topCatShare = topCat && sample.length ? ((topCat[1] / sample.length) * 100).toFixed(1) : null;
+  const top3Count = sortedCats.slice(0, 3).reduce((acc, curr) => acc + curr[1], 0);
+  const top3Share = sample.length ? ((top3Count / sample.length) * 100).toFixed(1) : null;
+
   const charts: Dashboard["charts"] = [];
   let chartIdx = 0;
 
-  const mainDate = dateFields[0];
-  const mainNum = quantFields.find((f) => currencyLike(f.name)) ?? quantFields[0];
-  const secondNum = quantFields.find((f) => f.name !== mainNum?.name);
-  const mainCat = categoricalFields.find((f) => !/^id$/i.test(f.name)) ?? categoricalFields[0];
-  const secondCat = categoricalFields.find((f) => f.name !== mainCat?.name && !/^id$/i.test(f.name));
-  const thirdCat = categoricalFields.find(
-    (f) => f.name !== mainCat?.name && f.name !== secondCat?.name && !/^id$/i.test(f.name)
-  );
-  const mainNumFmt: "currency" | "compact" | "integer" = mainNum ? (currencyLike(mainNum.name) ? "currency" : quantityLike(mainNum.name) ? "integer" : "compact") : "compact";
-
-  // 1. Chart: Area Chart for Time Evolution
+  // 1. Gráfico de Evolução Temporal (SE houver data)
   if (mainDate) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Evolução Temporal por ${mainDate.name}`,
+      title: `Evolução Histórica por ${mainDate.name}`,
       type: "area",
       dimension: mainDate.name,
       measure: mainNum?.name ?? null,
@@ -334,11 +383,11 @@ export function buildHeuristicDashboard(
     });
   }
 
-  // 2. Chart: Bar Chart for Primary Ranking
+  // 2. Gráfico de Ranking Principal (Barras)
   if (mainCat) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Distribuição por ${mainCat.name}`,
+      title: `Top ${mainCat.name}s por ${mainNum?.name ?? "Volume"}`,
       type: "bar",
       dimension: mainCat.name,
       measure: mainNum?.name ?? null,
@@ -350,14 +399,14 @@ export function buildHeuristicDashboard(
     });
   }
 
-  // 3. Chart: Donut Chart for Percentage Share
-  if (secondCat || mainCat) {
-    const targetCat = secondCat ?? mainCat;
+  // 3. Gráfico de Rosca (SE houver categoria de Status ou categoria com poucos itens)
+  const donutTarget = statusCat ?? (sortedCats.length <= 7 && sortedCats.length >= 2 ? mainCat : secondCat);
+  if (donutTarget) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Participação Relativa por ${targetCat.name}`,
+      title: `Participação Proporcional por ${donutTarget.name}`,
       type: "donut",
-      dimension: targetCat.name,
+      dimension: donutTarget.name,
       measure: mainNum?.name ?? null,
       agg: mainNum ? "sum" : "count",
       limit: 6,
@@ -366,33 +415,32 @@ export function buildHeuristicDashboard(
     });
   }
 
-  // 4. Chart: Horizontal Bar Chart (barH) for Top Items
-  const descCat = categoricalFields.find(
-    (f) => /descri/i.test(f.name) || /nome/i.test(f.name) || /produto/i.test(f.name) || /assunto/i.test(f.name)
-  ) ?? thirdCat ?? categoricalFields[1];
-
-  if (descCat) {
+  // 4. Barras Horizontais para Detalhamento Secundário
+  const barHTarget = secondCat ?? mainCat;
+  if (barHTarget) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Top Registros por ${descCat.name}`,
+      title: `Distribuição Segmentada por ${barHTarget.name}`,
       type: "barH",
-      dimension: descCat.name,
+      dimension: barHTarget.name,
       measure: mainNum?.name ?? null,
       agg: mainNum ? "sum" : "count",
       limit: 10,
       span: 3,
       palette: 3,
+      format: mainNumFmt,
     });
   }
 
-  // 5. Chart: Stacked Bar Chart (Cross Analysis)
-  if (mainCat && secondCat) {
+  // 5. Gráfico Cruzado (StackedBar) quando houver duas categorias consistentes
+  if (mainCat && (secondCat || statusCat)) {
+    const crossTarget = secondCat ?? statusCat!;
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Análise Cruzada: ${mainCat.name} x ${secondCat.name}`,
+      title: `Cruzamento Analítico: ${mainCat.name} vs ${crossTarget.name}`,
       type: "stackedBar",
       dimension: mainCat.name,
-      series: secondCat.name,
+      series: crossTarget.name,
       measure: mainNum?.name ?? null,
       agg: mainNum ? "sum" : "count",
       limit: 8,
@@ -401,8 +449,35 @@ export function buildHeuristicDashboard(
     });
   }
 
-  // 6. Chart: Line Chart for Secondary Metric Trends
-  if (secondNum && mainCat) {
+  // 6. Funil (SOMENTE se houver campo de status/etapa)
+  if (statusCat) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Funil de Conversão / Status por ${statusCat.name}`,
+      type: "funnel",
+      dimension: statusCat.name,
+      measure: mainNum?.name ?? null,
+      agg: "count",
+      limit: 8,
+      span: 3,
+      palette: 5,
+    });
+  }
+
+  // 7. Gráfico Combinado (Composed: Volume vs Média) ou Linha de Tendência
+  if (mainCat && secondNum) {
+    charts.push({
+      id: `chart-${chartIdx++}`,
+      title: `Volume vs ${secondNum.name} por ${mainCat.name}`,
+      type: "composed",
+      dimension: mainCat.name,
+      measure: mainNum?.name ?? null,
+      agg: "sum",
+      limit: 8,
+      span: 3,
+      palette: 6,
+    });
+  } else if (secondNum && mainCat) {
     charts.push({
       id: `chart-${chartIdx++}`,
       title: `Média de ${secondNum.name} por ${mainCat.name}`,
@@ -412,82 +487,70 @@ export function buildHeuristicDashboard(
       agg: "avg",
       limit: 10,
       span: 3,
-      palette: 5,
-    });
-  }
-
-  // 7. Chart: Radar Chart for Multi-Dimensional Profile
-  if (mainCat) {
-    charts.push({
-      id: `chart-${chartIdx++}`,
-      title: `Matriz de Desempenho por ${mainCat.name}`,
-      type: "radar",
-      dimension: mainCat.name,
-      measure: mainNum?.name ?? null,
-      agg: mainNum ? "sum" : "count",
-      limit: 6,
-      span: 3,
       palette: 6,
     });
   }
 
-  // 8. Chart: Funnel Chart for Volume Pipeline Stage
-  if (secondCat || descCat) {
-    const funnelCat = secondCat ?? descCat!;
+  // 8. Treemap para Blocos de Alta Densidade
+  if (mainCat && sortedCats.length > 5) {
     charts.push({
       id: `chart-${chartIdx++}`,
-      title: `Funil Proporcional por ${funnelCat.name}`,
-      type: "funnel",
-      dimension: funnelCat.name,
+      title: `Visão Hierárquica (Treemap) por ${mainCat.name}`,
+      type: "treemap",
+      dimension: mainCat.name,
       measure: mainNum?.name ?? null,
       agg: mainNum ? "sum" : "count",
-      limit: 6,
+      limit: 12,
       span: 3,
       palette: 7,
     });
   }
 
-  // 9. Chart: Treemap for Block Proportions
-  if (descCat || mainCat) {
-    const treeCat = descCat ?? mainCat;
-    charts.push({
-      id: `chart-${chartIdx++}`,
-      title: `Mapa Proporcional (Treemap) por ${treeCat.name}`,
-      type: "treemap",
-      dimension: treeCat.name,
-      measure: mainNum?.name ?? null,
-      agg: mainNum ? "sum" : "count",
-      limit: 12,
-      span: 3,
-      palette: 8,
-    });
+  // Insights Dinâmicos, Executivos e com Números Reais
+  const insights: string[] = [
+    `Volume Mapeado: Base consolidada com ${rowCount.toLocaleString("pt-BR")} registros e ${fields.length} colunas estruturadas para tomada de decisão.`,
+  ];
+
+  if (topCat && topCatShare) {
+    insights.push(
+      `Destaque em '${mainCat?.name}': O segmento '${topCat[0]}' lidera a representatividade com ${topCat[1]} ocorrências (${topCatShare}% da amostragem observada).`
+    );
   }
 
-  // 10. Chart: Composed Chart for Combined Bars + Line
-  if (mainCat && secondNum) {
-    charts.push({
-      id: `chart-${chartIdx++}`,
-      title: `Volume x Média de ${secondNum.name}`,
-      type: "composed",
-      dimension: mainCat.name,
-      measure: mainNum?.name ?? null,
-      agg: "sum",
-      limit: 8,
-      span: 3,
-      palette: 9,
-    });
+  if (top3Share && Number(top3Share) > 40 && mainCat) {
+    insights.push(
+      `Concentração de Pareto: Os 3 maiores grupos de '${mainCat.name}' concentram ${top3Share}% do volume total, exigindo atenção prioritária da equipe.`
+    );
   }
+
+  if (mainNum && sampleValues.length > 0) {
+    const fmtAvg = isCurrency
+      ? `R$ ${avgVal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : avgVal.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+    const fmtMax = isCurrency
+      ? `R$ ${maxVal.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      : maxVal.toLocaleString("pt-BR");
+
+    insights.push(
+      `Métrica de Desempenho ('${mainNum.name}'): Média apurada de ${fmtAvg} por registro, com valor máximo atingindo ${fmtMax}.`
+    );
+  }
+
+  if (mainDate) {
+    insights.push(
+      `Sazonalidade & Tempo: O campo '${mainDate.name}' permite acompanhar tendências temporais e identificar ciclos de crescimento ou retração.`
+    );
+  }
+
+  insights.push(
+    `Recomendação de Gestão: Utilize os filtros cruzados ao clicar nos gráficos para isolar anomalias e orientar ações corretivas nos pontos de menor rendimento.`
+  );
 
   return {
     title: name,
     subtitle: `${rowCount.toLocaleString("pt-BR")} registros analisados`,
     kpis,
     charts,
-    insights: [
-      `Análise executiva concluída para a base "${name}" com ${rowCount.toLocaleString("pt-BR")} registros e ${fields.length} colunas mapeadas.`,
-      mainCat ? `A categoria "${mainCat.name}" representa o principal eixo de segmentação dos dados.` : "",
-      mainNum ? `A métrica "${mainNum.name}" foi selecionada como indicador primário de volume e valor.` : "",
-      mainDate ? `Identificada variação temporal relevante ao longo do campo "${mainDate.name}".` : "",
-    ].filter(Boolean),
+    insights,
   };
 }

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BarChart3,
   Bell,
+  Database,
   ShieldCheck,
   FileSpreadsheet,
   Filter,
@@ -65,6 +66,8 @@ import { MergeDatasetsDialog } from "@/components/analyze/MergeDatasetsDialog";
 import { KpiEditorDialog } from "@/components/analyze/KpiEditorDialog";
 import { RemindersDialog } from "@/components/analyze/RemindersDialog";
 import { ImportChartDialog } from "@/components/analyze/ImportChartDialog";
+import { SqlDatabaseDialog } from "@/components/analyze/SqlDatabaseDialog";
+import { getAIConfig } from "@/lib/ai";
 import { buildAlertEvents, evaluateAlerts, type AlertEvent, type AlertRule } from "@/lib/analyze/alerts";
 import { dispatchAlertNotification } from "@/lib/analyze/notify.functions";
 import { aggregateKpi, formatNumber, formatKpiValue, buildHeuristicDashboard } from "@/lib/analyze/aggregate";
@@ -159,6 +162,7 @@ function Index() {
   const [editingKpi, setEditingKpi] = useState<KpiSpec | null>(null);
   const [kpiEditorOpen, setKpiEditorOpen] = useState(false);
   const [importChartOpen, setImportChartOpen] = useState(false);
+  const [sqlDialogOpen, setSqlDialogOpen] = useState(false);
   const [soundOn, setSoundOn] = useState(isAudioEnabled());
 
   const [user, setUser] = useState<{ id: string; email: string | null } | null>(null);
@@ -384,8 +388,20 @@ function Index() {
       try {
         let spec: Dashboard | null = null;
         try {
+          const cfg = getAIConfig();
           spec = await generateDashboard({
-            data: { name: ds.name, fields: ds.fields, sample: ds.rows.slice(0, 40), rowCount: ds.rows.length },
+            data: {
+              name: ds.name,
+              fields: ds.fields,
+              sample: ds.rows.slice(0, 40),
+              rowCount: ds.rows.length,
+              aiConfig: {
+                geminiKey: cfg.geminiKey,
+                groqKey: cfg.groqKey,
+                preferredProvider: cfg.preferredProvider,
+                modelName: cfg.modelName,
+              },
+            },
           });
         } catch (err) {
           console.warn("Provedor de IA indisponível ou sem resposta, usando gerador heurístico:", err);
@@ -495,6 +511,58 @@ function Index() {
       } catch (e) {
         toast.error("Erro ao importar", { description: (e as Error).message });
         setLoading(null);
+      }
+    },
+    [analyze, page, patchPage],
+  );
+
+  const handleImportSqlDataset = useCallback(
+    async (ds: Dataset, mode: "create" | "append") => {
+      try {
+        if (mode === "append" && page) {
+          const { dataset: merged, added, duplicates } = mergeDataset(page.dataset, ds.name, ds.rows);
+          const entry: ImportEntry = {
+            id: `imp-${Date.now()}`,
+            at: new Date().toISOString(),
+            mode: "append",
+            filename: ds.name,
+            rowCount: merged.rows.length,
+            added,
+            duplicates,
+            previous: page.dataset,
+          };
+          patchPage(page.id, { dataset: merged, history: [...(page.history ?? []), entry] });
+          toast.success("Base atualizada com dados do banco SQL", {
+            description: `${added.toLocaleString("pt-BR")} novos registros importados`,
+          });
+          return;
+        }
+
+        const autoDashboard = buildHeuristicDashboard(ds.name, ds.fields, ds.rows, ds.rows.length);
+        const newPage: Page = {
+          id: `page-${Date.now()}`,
+          name: ds.name,
+          icon: "database",
+          dataset: ds,
+          dashboard: autoDashboard,
+          views: [],
+          annotations: [],
+          history: [
+            {
+              id: `imp-${Date.now()}`,
+              at: new Date().toISOString(),
+              mode: "create",
+              filename: ds.name,
+              rowCount: ds.rows.length,
+            },
+          ],
+        };
+
+        setPages((ps) => [...ps, newPage]);
+        setActiveId(newPage.id);
+        await analyze(newPage.id, ds);
+      } catch (e: any) {
+        toast.error("Erro ao importar do banco SQL", { description: e?.message });
       }
     },
     [analyze, page, patchPage],
@@ -1014,6 +1082,9 @@ function Index() {
                 <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => { modeRef.current = "replace"; inputRef.current?.click(); }}>
                   <Upload className="size-3.5 text-primary" /> Nova Página
                 </Button>
+                <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5 text-emerald-600 dark:text-emerald-400 font-medium" onClick={() => setSqlDialogOpen(true)}>
+                  <Database className="size-3.5 text-emerald-500" /> Banco SQL / MariaDB
+                </Button>
                 {dataset && (
                   <>
                     <Button variant="ghost" size="sm" className="h-7 text-xs gap-1.5 hover:bg-background shadow-none px-2.5" onClick={() => { modeRef.current = "append"; inputRef.current?.click(); }}>
@@ -1185,6 +1256,7 @@ function Index() {
               modeRef.current = "replace";
               void handleFiles(f);
             }}
+            onOpenSql={() => setSqlDialogOpen(true)}
           />
         )}
 
@@ -1532,6 +1604,13 @@ function Index() {
         }}
       />
 
+      <SqlDatabaseDialog
+        open={sqlDialogOpen}
+        onOpenChange={setSqlDialogOpen}
+        onImportDataset={handleImportSqlDataset}
+        currentPageName={page?.name}
+      />
+
       {user && (
         <ShareDialog
           open={shareOpen}
@@ -1577,7 +1656,15 @@ function Index() {
   );
 }
 
-function EmptyState({ onPick, onDrop }: { onPick: () => void; onDrop: (files: FileList | null) => void }) {
+function EmptyState({
+  onPick,
+  onDrop,
+  onOpenSql,
+}: {
+  onPick: () => void;
+  onDrop: (files: FileList | null) => void;
+  onOpenSql: () => void;
+}) {
   const [over, setOver] = useState(false);
   return (
     <div
@@ -1591,26 +1678,64 @@ function EmptyState({ onPick, onDrop }: { onPick: () => void; onDrop: (files: Fi
         setOver(false);
         void onDrop(e.dataTransfer.files);
       }}
-      className={`grid-backdrop panel flex min-h-[60vh] flex-col items-center justify-center gap-4 p-10 text-center transition ${
+      className={`grid-backdrop panel flex min-h-[60vh] flex-col items-center justify-center gap-6 p-8 md:p-12 text-center transition ${
         over ? "panel-glow-blue" : ""
       }`}
     >
-      <div className="grid size-16 place-items-center rounded-2xl bg-primary/15 panel-glow-blue">
-        <Upload className="size-7 text-primary" />
-      </div>
-      <div>
-        <h2 className="font-display text-2xl font-semibold tracking-wide">Importe seus dados</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Arraste um arquivo CSV, XLSX ou PDF aqui. Cada base vira uma página com menu e ícone automáticos, e a IA monta
-          o dashboard sozinha.
+      <div className="space-y-2">
+        <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">Crie seu Dashboard Executivo</h2>
+        <p className="mx-auto max-w-lg text-sm text-muted-foreground">
+          Conecte seu banco de dados relacional (MariaDB / MySQL) para consultar tabelas em tempo real ou importe arquivos para gerar análises e gráficos inteligentes com IA.
         </p>
       </div>
-      <Button size="lg" onClick={onPick}>
-        <Upload className="size-4" /> Selecionar arquivo
-      </Button>
-      <div className="mt-2 flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
-        {["CSV", "XLSX", "XLS", "PDF"].map((f) => (
-          <span key={f} className="rounded-full border border-border px-3 py-1">
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-xl w-full">
+        {/* Card 1: SQL / MariaDB */}
+        <div
+          onClick={onOpenSql}
+          className="group flex flex-col items-center text-center p-6 rounded-2xl border border-emerald-500/30 bg-emerald-500/5 hover:bg-emerald-500/10 hover:border-emerald-500/60 transition cursor-pointer space-y-3 shadow-sm hover:shadow-md"
+        >
+          <div className="p-3.5 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 group-hover:scale-105 transition">
+            <Database className="size-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-foreground flex items-center justify-center gap-1.5">
+              Banco SQL / MariaDB
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Conecte servidores MariaDB ou MySQL, explore tabelas com contagem de linhas e faça queries com apoio de IA.
+            </p>
+          </div>
+          <Button size="sm" className="w-full text-xs gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium mt-auto">
+            <Database className="size-3.5" /> Conectar Banco SQL
+          </Button>
+        </div>
+
+        {/* Card 2: Arquivo Local */}
+        <div
+          onClick={onPick}
+          className="group flex flex-col items-center text-center p-6 rounded-2xl border border-primary/30 bg-primary/5 hover:bg-primary/10 hover:border-primary/60 transition cursor-pointer space-y-3 shadow-sm hover:shadow-md"
+        >
+          <div className="p-3.5 rounded-2xl bg-primary/20 text-primary group-hover:scale-105 transition">
+            <Upload className="size-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-sm font-semibold text-foreground flex items-center justify-center gap-1.5">
+              Planilhas & Documentos
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Arraste ou selecione arquivos CSV, planilhas Excel (XLSX, XLS) ou relatórios em PDF para leitura automática.
+            </p>
+          </div>
+          <Button size="sm" variant="secondary" className="w-full text-xs gap-1.5 font-medium mt-auto">
+            <Upload className="size-3.5" /> Selecionar Arquivo
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground pt-1">
+        {["MariaDB", "MySQL", "CSV", "Excel (XLSX)", "PDF"].map((f) => (
+          <span key={f} className="rounded-full border border-border px-3 py-0.5 text-[11px] bg-muted/40 font-mono">
             {f}
           </span>
         ))}

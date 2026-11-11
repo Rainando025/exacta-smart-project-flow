@@ -12,17 +12,19 @@ const STORAGE_KEY = "exacta_ai_config";
 
 // Fallback chains — tried in order until one succeeds
 const GEMINI_MODELS = [
-  "gemini-2.0-flash",
-  "gemini-2.0-flash-lite",
-  "gemini-1.5-flash",
-  "gemini-1.5-pro",
+  "gemini-2.5-flash",
+  "gemini-3.8-flash",
+  "gemini-2.5-pro",
+  "gemini-flash-latest",
+  "gemini-2.5-flash-lite",
 ];
 
 const GROQ_MODELS = [
+  "openai/gpt-oss-120b",
+  "qwen/qwen3.8-27b",
+  "openai/gpt-oss-20b",
   "llama-3.3-70b-versatile",
   "llama-3.1-8b-instant",
-  "mixtral-8x7b-32768",
-  "gemma2-9b-it",
 ];
 
 export function getAIConfig(): AIConfig {
@@ -187,13 +189,18 @@ export async function askGroq(prompt: string, customKey?: string): Promise<strin
  * - Tries provider API with model fallback chain
  * - If keys are missing or API fails, uses smart built-in heuristic reasoning fallback
  */
-export async function askAI(prompt: string, contextDescription?: string): Promise<string> {
-  const cfg = getAIConfig();
+export async function askAI(
+  prompt: string,
+  contextDescription?: string,
+  customConfig?: Partial<AIConfig>
+): Promise<string> {
+  const baseCfg = getAIConfig();
+  const cfg: AIConfig = { ...baseCfg, ...customConfig };
   const preferred = cfg.preferredProvider || "auto";
 
   if (preferred === "groq" || (preferred === "auto" && cfg.groqKey)) {
     try {
-      return await askGroq(prompt);
+      return await askGroq(prompt, cfg.groqKey);
     } catch (e) {
       console.warn("Groq failed, trying Gemini fallback...", e);
     }
@@ -201,7 +208,7 @@ export async function askAI(prompt: string, contextDescription?: string): Promis
 
   if (preferred === "gemini" || cfg.geminiKey) {
     try {
-      return await askGemini(prompt);
+      return await askGemini(prompt, cfg.geminiKey);
     } catch (e) {
       console.warn("Gemini failed, trying Groq fallback...", e);
     }
@@ -210,7 +217,7 @@ export async function askAI(prompt: string, contextDescription?: string): Promis
   // Try the other provider as last resort
   if (preferred !== "groq" && cfg.groqKey) {
     try {
-      return await askGroq(prompt);
+      return await askGroq(prompt, cfg.groqKey);
     } catch (e) {
       console.warn("Auto Groq fallback failed", e);
     }
@@ -218,7 +225,7 @@ export async function askAI(prompt: string, contextDescription?: string): Promis
 
   if (preferred !== "gemini" && cfg.geminiKey) {
     try {
-      return await askGemini(prompt);
+      return await askGemini(prompt, cfg.geminiKey);
     } catch (e) {
       console.warn("Auto Gemini fallback failed", e);
     }
