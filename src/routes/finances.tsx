@@ -70,6 +70,8 @@ import {
   getPrevMonth,
   getNextMonth,
   calculateCarriedOverBalance,
+  CREDIT_CARDS,
+  normalizeCreditCardName,
   type CsvParsedRow,
 } from "@/lib/finances-helpers";
 import { ImportCsvDialog } from "@/components/finances/ImportCsvDialog";
@@ -113,18 +115,6 @@ const RECURRING_OPTIONS = [
   { value: "weekly", label: "Semanal (52 semanas)" },
 ];
 
-const CREDIT_CARDS = [
-  "Nubank",
-  "Itaú",
-  "Inter",
-  "Bradesco",
-  "Santander",
-  "C6 Bank",
-  "Banco do Brasil",
-  "Caixa",
-  "XP",
-  "Outro",
-];
 
 const PIE_COLORS = [
   "#0891b2",
@@ -174,6 +164,7 @@ function FinancesContent() {
   const [filterCat, setFilterCat] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all"); // all, paid, pending
   const [filterCost, setFilterCost] = useState("all"); // all, fixo, variavel
+  const [filterCardChoice, setFilterCardChoice] = useState("all"); // all, Nubank, Caixa, PicPay
   const [open, setOpen] = useState(false);
   const [importCsvOpen, setImportCsvOpen] = useState(false);
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
@@ -371,22 +362,26 @@ function FinancesContent() {
       if (isCreditCard && parseInt(installments, 10) > 1) {
         const totalInstallments = parseInt(installments, 10);
         const installmentAmount = Math.round((amountNum / totalInstallments) * 100) / 100;
+        const nextMonthStr = getNextMonth(currentMonth);
+        const cardDay = (dueDate || today).split("-")[2] || "10";
+        const baseCardDate = `${nextMonthStr}-${cardDay}`;
+        const normalizedCard = normalizeCreditCardName(cardName);
 
-        // Create parent (parcela 1)
+        // Create parent (parcela 1) que entra na fatura do próximo mês
         const parentPayload = {
           user_id: user.id,
           title: `${title.trim()} (1/${totalInstallments})`,
           amount: installmentAmount,
           type: "despesa",
           category,
-          date: effectiveDate,
-          due_date: finalDueDate,
-          notes: computedNotes,
+          date: baseCardDate,
+          due_date: baseCardDate,
+          notes: buildFinanceNotes(notes, normalizedCard, null, costType),
           recurring: "none",
           is_credit_card: true,
           installments: totalInstallments,
           installment_number: 1,
-          paid: isInitialPaid,
+          paid: false,
         };
 
         const { data: parent, error } = await supabase
@@ -400,11 +395,10 @@ function FinancesContent() {
           return;
         }
 
-        // Create remaining installments (parcelas 2..N)
+        // Create remaining installments (parcelas 2..N nos meses subsequentes)
         const childRows = [];
         for (let i = 2; i <= totalInstallments; i++) {
-          const installDate = addMonths(effectiveDate, i - 1);
-          const installDueDate = finalDueDate ? addMonths(finalDueDate, i - 1) : null;
+          const installDate = addMonths(baseCardDate, i - 1);
           childRows.push({
             user_id: user.id,
             title: `${title.trim()} (${i}/${totalInstallments})`,
@@ -412,8 +406,8 @@ function FinancesContent() {
             type: "despesa",
             category,
             date: installDate,
-            due_date: installDueDate,
-            notes: buildFinanceNotes(notes, cardName, null, costType),
+            due_date: installDate,
+            notes: buildFinanceNotes(notes, normalizedCard, null, costType),
             recurring: "none",
             is_credit_card: true,
             installments: totalInstallments,
@@ -431,7 +425,9 @@ function FinancesContent() {
           }
         }
 
-        toast.success(`${totalInstallments} parcelas adicionadas na fatura do cartão ${cardName}!`);
+        toast.success(
+          `${totalInstallments} parcelas adicionadas na fatura do cartão ${normalizedCard} a partir de ${formatMonthYear(nextMonthStr)}!`
+        );
       } else if (recurring !== "none") {
         const occurrences = recurring === "monthly" ? 12 : 52;
         const parentRes = await supabase
@@ -497,27 +493,49 @@ function FinancesContent() {
 
         toast.success(`Lançamento recorrente adicionado para os próximos ${occurrences} períodos!`);
       } else {
+        const nextMonthStr = getNextMonth(currentMonth);
+        const cardDay = (dueDate || today).split("-")[2] || "10";
+        const baseCardDate = `${nextMonthStr}-${cardDay}`;
+        const normalizedCard = normalizeCreditCardName(cardName);
+
+        const finalDate = isCreditCard ? baseCardDate : effectiveDate;
+        const finalDue = isCreditCard ? baseCardDate : finalDueDate;
+        const finalPaid = isCreditCard ? false : isInitialPaid;
+        const finalNotes = buildFinanceNotes(
+          notes,
+          isCreditCard ? normalizedCard : null,
+          finalPaid ? today : null,
+          costType
+        );
+
         const { error } = await supabase.from("personal_finances").insert({
           user_id: user.id,
           title: title.trim(),
           amount: amountNum,
           type,
           category,
-          date: effectiveDate,
-          due_date: finalDueDate,
-          notes: computedNotes,
+          date: finalDate,
+          due_date: finalDue,
+          notes: finalNotes,
           recurring: "none",
           is_credit_card: isCreditCard,
           installments: 1,
           installment_number: 1,
-          paid: isInitialPaid,
+          paid: finalPaid,
         });
 
         if (error) {
           toast.error(error.message);
           return;
         }
-        toast.success(type === "receita" ? "Receita adicionada!" : "Despesa adicionada!");
+
+        if (isCreditCard) {
+          toast.success(
+            `Compra lançada na fatura de ${formatMonthYear(nextMonthStr)} do cartão ${normalizedCard}!`
+          );
+        } else {
+          toast.success(type === "receita" ? "Receita adicionada!" : "Despesa adicionada!");
+        }
       }
     }
 
@@ -664,7 +682,7 @@ function FinancesContent() {
         f.type === "despesa" &&
         !f.paid &&
         (f.date.startsWith(currentMonth) || (f.due_date && f.due_date.startsWith(currentMonth))) &&
-        (parseFinanceNotes(f.notes).cardName || "Nubank").toLowerCase() === targetCardName.toLowerCase()
+        normalizeCreditCardName(parseFinanceNotes(f.notes).cardName).toLowerCase() === targetCardName.toLowerCase()
     );
 
     if (cardExpenses.length === 0) {
@@ -675,7 +693,7 @@ function FinancesContent() {
     try {
       for (const item of cardExpenses) {
         const parsed = parseFinanceNotes(item.notes);
-        const updatedNotes = buildFinanceNotes(parsed.cleanNotes, targetCardName, today);
+        const updatedNotes = buildFinanceNotes(parsed.cleanNotes, targetCardName, today, parsed.costType);
         await supabase
           .from("personal_finances")
           .update({
@@ -696,6 +714,42 @@ function FinancesContent() {
   };
 
   /**
+   * Reverte quitação da fatura de um cartão no mês atual
+   */
+  const handleRevertCardInvoice = async (targetCardName: string) => {
+    if (!user) return;
+    const cardExpenses = items.filter(
+      (f) =>
+        f.is_credit_card &&
+        f.type === "despesa" &&
+        f.paid &&
+        (f.date.startsWith(currentMonth) || (f.due_date && f.due_date.startsWith(currentMonth))) &&
+        normalizeCreditCardName(parseFinanceNotes(f.notes).cardName).toLowerCase() === targetCardName.toLowerCase()
+    );
+
+    if (cardExpenses.length === 0) return;
+
+    try {
+      for (const item of cardExpenses) {
+        const parsed = parseFinanceNotes(item.notes);
+        const updatedNotes = buildFinanceNotes(parsed.cleanNotes, targetCardName, null, parsed.costType);
+        await supabase
+          .from("personal_finances")
+          .update({
+            paid: false,
+            notes: updatedNotes,
+          })
+          .eq("id", item.id)
+          .eq("user_id", user.id);
+      }
+      toast.info(`Fatura do cartão ${targetCardName} revertida para Aberta.`);
+      load();
+    } catch (e: any) {
+      toast.error("Erro ao reverter fatura", { description: e?.message });
+    }
+  };
+
+  /**
    * Importação em lote por CSV
    */
   const handleImportCsv = async (rows: CsvParsedRow[]) => {
@@ -710,6 +764,12 @@ function FinancesContent() {
       const baseDate = r.dueDate || todayStr;
       const initialDueDate = r.type === "receita" ? null : (r.dueDate || null);
 
+      // Compras no cartão caem automaticamente na fatura do próximo mês
+      const nextMonthStr = getNextMonth(currentMonth);
+      const cardDay = (r.dueDate || todayStr).split("-")[2] || "10";
+      const baseCardDate = `${nextMonthStr}-${cardDay}`;
+      const normalizedCard = normalizeCreditCardName(r.cardName);
+
       if (r.isCreditCard && r.installments > 1) {
         const totalInst = r.installments;
         const instAmount = Math.round((r.amount / totalInst) * 100) / 100;
@@ -721,9 +781,9 @@ function FinancesContent() {
             amount: instAmount,
             type: "despesa",
             category: r.category,
-            date: baseDate,
-            due_date: initialDueDate,
-            notes: buildFinanceNotes(r.notes, r.cardName || "Nubank", null, r.costType),
+            date: baseCardDate,
+            due_date: baseCardDate,
+            notes: buildFinanceNotes(r.notes, normalizedCard, null, r.costType),
             recurring: "none",
             is_credit_card: true,
             installments: totalInst,
@@ -737,8 +797,7 @@ function FinancesContent() {
 
         const childRows = [];
         for (let i = 2; i <= totalInst; i++) {
-          const nextDate = addMonths(baseDate, i - 1);
-          const nextDueDate = r.dueDate ? addMonths(r.dueDate, i - 1) : null;
+          const nextDate = addMonths(baseCardDate, i - 1);
           childRows.push({
             user_id: user.id,
             title: `${r.title.trim()} (${i}/${totalInst})`,
@@ -746,8 +805,8 @@ function FinancesContent() {
             type: "despesa",
             category: r.category,
             date: nextDate,
-            due_date: nextDueDate,
-            notes: buildFinanceNotes(r.notes, r.cardName || "Nubank", null, r.costType),
+            due_date: nextDate,
+            notes: buildFinanceNotes(r.notes, normalizedCard, null, r.costType),
             recurring: "none",
             is_credit_card: true,
             installments: totalInst,
@@ -772,7 +831,7 @@ function FinancesContent() {
             category: r.category,
             date: baseDate,
             due_date: initialDueDate,
-            notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null, r.costType),
+            notes: buildFinanceNotes(r.notes, r.isCreditCard ? normalizedCard : null, null, r.costType),
             recurring: r.recurring,
             is_credit_card: r.isCreditCard,
             installments: occurrences,
@@ -802,7 +861,7 @@ function FinancesContent() {
             category: r.category,
             date: nextDate,
             due_date: nextDueDate,
-            notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null, r.costType),
+            notes: buildFinanceNotes(r.notes, r.isCreditCard ? normalizedCard : null, null, r.costType),
             recurring: r.recurring,
             is_credit_card: r.isCreditCard,
             installments: occurrences,
@@ -816,15 +875,18 @@ function FinancesContent() {
           if (e2) throw new Error(e2.message);
         }
       } else {
+        const finalDate = r.isCreditCard ? baseCardDate : baseDate;
+        const finalDue = r.type === "receita" ? null : (r.isCreditCard ? baseCardDate : (r.dueDate || null));
+
         directInserts.push({
           user_id: user.id,
           title: r.title.trim(),
           amount: r.amount,
           type: r.type,
           category: r.category,
-          date: baseDate,
-          due_date: initialDueDate,
-          notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null, r.costType),
+          date: finalDate,
+          due_date: finalDue,
+          notes: buildFinanceNotes(r.notes, r.isCreditCard ? normalizedCard : null, null, r.costType),
           recurring: "none",
           is_credit_card: r.isCreditCard,
           installments: 1,
@@ -1002,7 +1064,7 @@ function FinancesContent() {
     ? Math.min(100, Math.round((totalDespesasMes / totalReceitasProjetadasMes) * 100))
     : 0;
 
-  // Credit card grouping by card name in active month
+  // Credit card grouping by card name in active month (estritamente Nubank, Caixa e PicPay)
   const creditCardInvoices = useMemo(() => {
     const map: Record<
       string,
@@ -1016,11 +1078,23 @@ function FinancesContent() {
       }
     > = {};
 
+    // Inicializa os 3 cartões permitidos
+    for (const card of CREDIT_CARDS) {
+      map[card] = {
+        cardName: card,
+        totalAmount: 0,
+        paidAmount: 0,
+        openAmount: 0,
+        items: [],
+        allPaid: true,
+      };
+    }
+
     monthItems
       .filter((f) => f.is_credit_card && f.type === "despesa")
       .forEach((f) => {
         const parsed = parseFinanceNotes(f.notes);
-        const cName = parsed.cardName || "Nubank";
+        const cName = normalizeCreditCardName(parsed.cardName);
         if (!map[cName]) {
           map[cName] = {
             cardName: cName,
@@ -1042,10 +1116,32 @@ function FinancesContent() {
         map[cName].items.push(f);
       });
 
-    return Object.values(map).sort((a, b) => b.totalAmount - a.totalAmount);
+    return Object.values(map);
   }, [monthItems]);
 
   const totalFaturasCartao = creditCardInvoices.reduce((s, c) => s + c.totalAmount, 0);
+
+  // Lançamentos em Conta (Receitas e Despesas normais, excluindo cartão) ordenados por valor decrescente
+  const filteredAccountItems = useMemo(() => {
+    return filtered
+      .filter((f) => !f.is_credit_card)
+      .sort((a, b) => Number(b.amount) - Number(a.amount));
+  }, [filtered]);
+
+  // Lançamentos em Cartões de Crédito (Nubank, Caixa e PicPay) ordenados por valor decrescente
+  const filteredCardItems = useMemo(() => {
+    return filtered
+      .filter((f) => {
+        if (!f.is_credit_card) return false;
+        if (filterCardChoice !== "all") {
+          const parsed = parseFinanceNotes(f.notes);
+          const cName = normalizeCreditCardName(parsed.cardName);
+          if (cName !== filterCardChoice) return false;
+        }
+        return true;
+      })
+      .sort((a, b) => Number(b.amount) - Number(a.amount));
+  }, [filtered, filterCardChoice]);
 
   // Due soon alerts (Apenas despesas com vencimento próximo, receitas nunca possuem vencimento)
   const dueSoon = useMemo(() => {
@@ -2062,79 +2158,21 @@ function FinancesContent() {
         </Card>
       </div>
 
-      {/* Credit Card Invoices Breakdown Widget */}
-      {creditCardInvoices.length > 0 && (
-        <Card className="p-4 shadow-card border border-purple-500/30 bg-purple-500/5 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <CreditCard className="size-4 text-purple-600" />
-              <h3 className="text-xs font-semibold text-foreground">
-                Faturas de Cartão em {formatMonthYear(currentMonth)}
-              </h3>
-            </div>
-            <span className="text-[11px] text-muted-foreground font-mono">
-              Total Faturas: {fmt(totalFaturasCartao)}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-            {creditCardInvoices.map((inv) => (
-              <div
-                key={inv.cardName}
-                className="p-3 rounded-xl border border-border/70 bg-background/80 flex items-center justify-between gap-3 shadow-xs"
-              >
-                <div className="space-y-0.5 truncate">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs font-semibold text-foreground truncate">{inv.cardName}</span>
-                    {inv.allPaid ? (
-                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-normal">
-                        Fatura Paga
-                      </Badge>
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 font-normal">
-                        Aberta
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-sm font-bold text-purple-600 dark:text-purple-400 font-mono">
-                    {fmt(inv.totalAmount)}
-                  </p>
-                  <p className="text-[10px] text-muted-foreground">
-                    {inv.items.length} compra(s)/parcela(s)
-                  </p>
-                </div>
-
-                {!inv.allPaid ? (
-                  <Button
-                    size="sm"
-                    onClick={() => handlePayCardInvoice(inv.cardName)}
-                    className="h-7 text-xs px-2.5 gap-1 bg-purple-600 hover:bg-purple-700 text-white font-medium shrink-0"
-                  >
-                    <Check className="size-3" /> Pagar Fatura
-                  </Button>
-                ) : (
-                  <div className="p-1 rounded-full bg-emerald-500/10 text-emerald-600 shrink-0">
-                    <CheckCircle2 className="size-4" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Main Tabs: List & Report */}
+      {/* Main Tabs: Lançamentos em Conta, Cartões de Crédito & Relatórios */}
       <Tabs defaultValue="list" className="space-y-6">
         <TabsList className="bg-muted/60 p-1">
           <TabsTrigger value="list" className="text-xs gap-1.5 px-3">
-            <Search className="size-3.5" /> Lançamentos ({filtered.length})
+            <Wallet className="size-3.5 text-blue-600" /> Lançamentos em Conta ({filteredAccountItems.length})
+          </TabsTrigger>
+          <TabsTrigger value="cards" className="text-xs gap-1.5 px-3">
+            <CreditCard className="size-3.5 text-purple-600" /> Cartões de Crédito ({filteredCardItems.length})
           </TabsTrigger>
           <TabsTrigger value="report" className="text-xs gap-1.5 px-3">
             <BarChart3 className="size-3.5" /> Gráficos & Relatórios
           </TabsTrigger>
         </TabsList>
 
-        {/* Tab: List */}
+        {/* Tab 1: Lançamentos em Conta (Receitas e Despesas normais, sem cartão) */}
         <TabsContent value="list" className="space-y-4">
           {/* Filters Bar */}
           <div className="flex flex-wrap gap-2.5">
@@ -2197,21 +2235,18 @@ function FinancesContent() {
             </Select>
           </div>
 
-          {/* Informações de visualização do período */}
+          {/* Informações de visualização do período e ordenação */}
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
             <span>
-              Exibindo <strong>{filtered.length}</strong> lançamento(s){" "}
+              Exibindo <strong>{filteredAccountItems.length}</strong> lançamento(s) em conta ordenados por valor (maior para o menor){" "}
               {monthViewMode === "month" ? (
                 <>no mês de <strong>{formatMonthYear(currentMonth)}</strong></>
               ) : (
                 <>em <strong>todo o histórico</strong></>
               )}
-              {monthViewMode === "month" && items.length > filtered.length && (
-                <> (total cadastrado no banco: <strong>{items.length}</strong>)</>
-              )}
             </span>
 
-            {monthViewMode === "month" && items.length > filtered.length && (
+            {monthViewMode === "month" && items.length > filteredAccountItems.length && (
               <button
                 type="button"
                 onClick={() => setMonthViewMode("all")}
@@ -2313,12 +2348,12 @@ function FinancesContent() {
                     </tr>
                   )}
 
-                  {filtered.length === 0 && (!includeCarriedOver || saldoTransportado <= 0 || filterType === "despesa") && (
+                  {filteredAccountItems.length === 0 && (!includeCarriedOver || saldoTransportado <= 0 || filterType === "despesa") && (
                     <tr>
                       <td colSpan={6} className="text-center py-12 text-muted-foreground text-xs">
                         <div className="space-y-2 max-w-sm mx-auto">
                           <p className="font-medium text-foreground">
-                            Nenhum lançamento encontrado para {formatMonthYear(currentMonth)}.
+                            Nenhum lançamento em conta encontrado para {formatMonthYear(currentMonth)}.
                           </p>
                           {items.length > 0 && monthViewMode === "month" && (
                             <div className="pt-1 space-y-1">
@@ -2339,7 +2374,8 @@ function FinancesContent() {
                       </td>
                     </tr>
                   )}
-                  {filtered.map((f) => {
+
+                  {filteredAccountItems.map((f) => {
                     const parsed = parseFinanceNotes(f.notes);
                     const isReceita = f.type === "receita";
 
@@ -2424,15 +2460,6 @@ function FinancesContent() {
                                   <span className="font-semibold text-foreground">{f.title}</span>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
-                                  {f.is_credit_card && (
-                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-700 dark:text-purple-300 font-medium">
-                                      <CreditCard className="size-3" />
-                                      {parsed.cardName || "Cartão"}
-                                      {f.installments > 1
-                                        ? ` (${f.installment_number}/${f.installments})`
-                                        : ""}
-                                    </span>
-                                  )}
                                   {f.recurring !== "none" && (
                                     <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-600 font-medium">
                                       <Repeat className="size-3" />
@@ -2569,7 +2596,7 @@ function FinancesContent() {
                                   className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
                                   title="Editar completo"
                                 >
-                                  <CreditCard className="size-3.5" />
+                                  <Pencil className="size-3.5" />
                                 </button>
                                 <button
                                   onClick={() => handleDelete(f.id)}
@@ -2582,6 +2609,333 @@ function FinancesContent() {
                             </td>
                           </>
                         )}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </TabsContent>
+
+        {/* Tab 2: Cartões de Crédito (Nubank, Caixa e PicPay) */}
+        <TabsContent value="cards" className="space-y-6">
+          {/* Faturas Consolidadas dos Cartões do Mês */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CreditCard className="size-4 text-purple-600" />
+                <h3 className="font-semibold text-sm text-foreground">
+                  Faturas de Cartão em {formatMonthYear(currentMonth)}
+                </h3>
+              </div>
+              <span className="text-xs text-muted-foreground font-mono">
+                Total de Faturas: <strong>{fmt(totalFaturasCartao)}</strong>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {creditCardInvoices.map((inv) => {
+                const isNubank = inv.cardName === "Nubank";
+                const isCaixa = inv.cardName === "Caixa";
+                const isPicPay = inv.cardName === "PicPay";
+
+                const cardTheme = isNubank
+                  ? {
+                      border: "border-purple-500/40 bg-purple-500/5",
+                      badge: "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30",
+                      button: "bg-purple-600 hover:bg-purple-700 text-white",
+                      icon: "text-purple-600",
+                    }
+                  : isCaixa
+                  ? {
+                      border: "border-blue-500/40 bg-blue-500/5",
+                      badge: "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30",
+                      button: "bg-blue-600 hover:bg-blue-700 text-white",
+                      icon: "text-blue-600",
+                    }
+                  : {
+                      border: "border-emerald-500/40 bg-emerald-500/5",
+                      badge: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30",
+                      button: "bg-emerald-600 hover:bg-emerald-700 text-white",
+                      icon: "text-emerald-600",
+                    };
+
+                return (
+                  <Card key={inv.cardName} className={`p-4 shadow-card border-2 ${cardTheme.border} flex flex-col justify-between gap-3`}>
+                    <div className="flex items-start justify-between">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1.5">
+                          <CreditCard className={`size-4 ${cardTheme.icon}`} />
+                          <span className="font-bold text-sm text-foreground">{inv.cardName}</span>
+                        </div>
+                        <p className={`text-2xl font-bold font-mono ${cardTheme.icon}`}>
+                          {fmt(inv.totalAmount)}
+                        </p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {inv.items.length} compra(s) nesta fatura
+                        </p>
+                      </div>
+                      {inv.totalAmount > 0 && (
+                        inv.allPaid ? (
+                          <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
+                            <Check className="size-3 mr-1" /> Fatura Paga
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                            Aberta
+                          </Badge>
+                        )
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-border/50">
+                      {inv.totalAmount === 0 ? (
+                        <span className="text-[11px] text-muted-foreground italic block text-center py-1">
+                          Sem compras nesta fatura
+                        </span>
+                      ) : !inv.allPaid ? (
+                        <Button
+                          size="sm"
+                          onClick={() => handlePayCardInvoice(inv.cardName)}
+                          className={`w-full h-8 text-xs font-semibold ${cardTheme.button} gap-1.5 shadow-xs`}
+                        >
+                          <Check className="size-3.5" /> Pagar Fatura ({fmt(inv.openAmount)})
+                        </Button>
+                      ) : (
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                            <CheckCircle2 className="size-3.5" /> Fatura quitada
+                          </span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleRevertCardInvoice(inv.cardName)}
+                            className="h-7 text-[10px] text-muted-foreground hover:text-foreground"
+                          >
+                            Reverter
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Filters Bar específico de Cartões */}
+          <div className="flex flex-wrap gap-2.5">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Buscar compras no cartão..."
+                className="pl-9 h-8 text-xs bg-background"
+              />
+            </div>
+
+            <Select value={filterCardChoice} onValueChange={setFilterCardChoice}>
+              <SelectTrigger className="w-[150px] h-8 text-xs">
+                <CreditCard className="size-3 mr-1 text-purple-500" />
+                <SelectValue placeholder="Cartão" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">Todos os Cartões</SelectItem>
+                <SelectItem value="Nubank" className="text-xs">Nubank</SelectItem>
+                <SelectItem value="Caixa" className="text-xs">Caixa</SelectItem>
+                <SelectItem value="PicPay" className="text-xs">PicPay</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterStatus} onValueChange={setFilterStatus}>
+              <SelectTrigger className="w-[150px] h-8 text-xs">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">Todos os Status</SelectItem>
+                <SelectItem value="pending" className="text-xs">Faturas Abertas</SelectItem>
+                <SelectItem value="paid" className="text-xs">Faturas Pagas</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filterCat} onValueChange={setFilterCat}>
+              <SelectTrigger className="w-[160px] h-8 text-xs">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">Todas as Categorias</SelectItem>
+                {CATEGORIES.map((c) => (
+                  <SelectItem key={c} value={c} className="capitalize text-xs">
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Informações da lista de cartões */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
+            <span>
+              Exibindo <strong>{filteredCardItems.length}</strong> compra(s) no cartão ordenadas por valor (maior para o menor){" "}
+              {monthViewMode === "month" ? (
+                <>na fatura de <strong>{formatMonthYear(currentMonth)}</strong></>
+              ) : (
+                <>em todo o histórico</>
+              )}
+            </span>
+            <span className="text-[11px] text-muted-foreground">
+              💡 As compras de cartão são quitadas coletivamente na fatura do cartão
+            </span>
+          </div>
+
+          {/* Tabela de Compras em Cartão */}
+          <Card className="shadow-card overflow-hidden border border-border">
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
+                    <th className="text-left px-4 py-3">Descrição da Compra</th>
+                    <th className="text-left px-4 py-3">Cartão</th>
+                    <th className="text-left px-4 py-3">Categoria</th>
+                    <th className="text-left px-4 py-3">Fatura / Vencimento</th>
+                    <th className="text-center px-4 py-3">Status da Fatura</th>
+                    <th className="text-right px-4 py-3">Valor</th>
+                    <th className="text-right px-4 py-3 w-28">Opções</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {filteredCardItems.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-muted-foreground text-xs">
+                        <div className="space-y-2 max-w-sm mx-auto">
+                          <CreditCard className="size-8 mx-auto text-purple-400/50" />
+                          <p className="font-medium text-foreground">
+                            Nenhuma compra em cartão de crédito encontrada para este mês.
+                          </p>
+                          <p className="text-[11px] text-muted-foreground">
+                            Ao cadastrar novas compras em cartão de crédito (Nubank, Caixa ou PicPay), elas são lançadas automaticamente na fatura do próximo mês.
+                          </p>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
+
+                  {filteredCardItems.map((f) => {
+                    const parsed = parseFinanceNotes(f.notes);
+                    const cName = normalizeCreditCardName(parsed.cardName);
+
+                    const badgeStyle =
+                      cName === "Nubank"
+                        ? "bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30"
+                        : cName === "Caixa"
+                        ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30"
+                        : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30";
+
+                    return (
+                      <tr
+                        key={f.id}
+                        className={`hover:bg-muted/20 transition ${
+                          f.paid ? "bg-muted/5 opacity-80" : ""
+                        }`}
+                      >
+                        {/* Descrição */}
+                        <td className="px-4 py-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="size-3.5 text-purple-600 shrink-0" />
+                              <span className="font-semibold text-foreground">{f.title}</span>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                              {f.installments > 1 && (
+                                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[10px] font-semibold">
+                                  Parcela {f.installment_number}/{f.installments}
+                                </span>
+                              )}
+                              {(() => {
+                                const cost = parsed.costType || "variavel";
+                                return (
+                                  <span
+                                    className={`inline-flex items-center px-1.5 py-0.5 rounded font-medium text-[10px] ${
+                                      cost === "fixo"
+                                        ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                                        : "bg-muted text-muted-foreground border border-border/60"
+                                    }`}
+                                  >
+                                    {cost === "fixo" ? "Custo Fixo" : "Custo Variável"}
+                                  </span>
+                                );
+                              })()}
+                              {parsed.cleanNotes && (
+                                <span className="truncate max-w-[220px]" title={parsed.cleanNotes}>
+                                  • {parsed.cleanNotes}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+
+                        {/* Cartão */}
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className={`text-[11px] font-semibold ${badgeStyle}`}>
+                            {cName}
+                          </Badge>
+                        </td>
+
+                        {/* Categoria */}
+                        <td className="px-4 py-3 capitalize text-muted-foreground">
+                          <Badge variant="outline" className="text-[11px] font-normal capitalize">
+                            {f.category}
+                          </Badge>
+                        </td>
+
+                        {/* Fatura / Vencimento */}
+                        <td className="px-4 py-3">
+                          <div className="space-y-0.5">
+                            <span className="text-muted-foreground block text-xs">
+                              {f.due_date ? formatDate(f.due_date) : `Fatura ${formatMonthYear(currentMonth)}`}
+                            </span>
+                          </div>
+                        </td>
+
+                        {/* Status da Fatura (Sem botões individuais de pago/não pago, pois é no cartão) */}
+                        <td className="px-4 py-3 text-center">
+                          {f.paid ? (
+                            <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-[10px] font-medium">
+                              <Check className="size-3 mr-0.5" /> Fatura Paga
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="bg-purple-500/10 text-purple-700 dark:text-purple-300 border-purple-500/30 text-[10px] font-medium">
+                              <Clock className="size-3 mr-0.5" /> Aberto na Fatura
+                            </Badge>
+                          )}
+                        </td>
+
+                        {/* Valor */}
+                        <td className="px-4 py-3 text-right font-bold font-mono text-sm text-purple-600 dark:text-purple-400">
+                          -{fmt(Number(f.amount))}
+                        </td>
+
+                        {/* Opções */}
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => openEdit(f)}
+                              className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground"
+                              title="Editar compra"
+                            >
+                              <Pencil className="size-3.5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(f.id)}
+                              className="p-1.5 rounded hover:bg-destructive/10 text-destructive"
+                              title="Excluir lançamento"
+                            >
+                              <Trash2 className="size-3.5" />
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })}

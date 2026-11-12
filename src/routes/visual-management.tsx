@@ -290,6 +290,369 @@ function GutMatrix({ issues, setIssues }: { issues: any[], setIssues: any }) {
   );
 }
 
+// --- RACI Matrix Component ---
+export type RaciRoleType = "R" | "A" | "C" | "I" | "";
+
+export interface RaciColumn {
+  id: string;
+  name: string;
+}
+
+export interface RaciRow {
+  id: string;
+  task: string;
+  assignments: Record<string, RaciRoleType>;
+}
+
+export interface RaciData {
+  roles: RaciColumn[];
+  tasks: RaciRow[];
+}
+
+export const INITIAL_RACI: RaciData = {
+  roles: [
+    { id: "r1", name: "Gerente do Projeto" },
+    { id: "r2", name: "Líder Técnico" },
+    { id: "r3", name: "Desenvolvedor" },
+    { id: "r4", name: "Designer / UX" },
+    { id: "r5", name: "Cliente / Sponsor" },
+  ],
+  tasks: [
+    {
+      id: "t1",
+      task: "Definição do Escopo e Requisitos",
+      assignments: { r1: "A", r2: "C", r3: "I", r4: "C", r5: "R" },
+    },
+    {
+      id: "t2",
+      task: "Design de Telas e Protótipo",
+      assignments: { r1: "C", r2: "C", r3: "I", r4: "R", r5: "A" },
+    },
+    {
+      id: "t3",
+      task: "Desenvolvimento Frontend e Backend",
+      assignments: { r1: "I", r2: "A", r3: "R", r4: "C", r5: "I" },
+    },
+    {
+      id: "t4",
+      task: "Homologação e Testes Finais",
+      assignments: { r1: "R", r2: "C", r3: "C", r4: "I", r5: "A" },
+    },
+  ],
+};
+
+function RaciMatrix({ data, setData }: { data: RaciData; setData: (d: RaciData) => void }) {
+  const roles = data?.roles || [];
+  const tasks = data?.tasks || [];
+
+  const roleCycle: RaciRoleType[] = ["", "R", "A", "C", "I"];
+
+  const handleCellClick = (taskId: string, roleId: string) => {
+    const current = tasks.find((t) => t.id === taskId)?.assignments?.[roleId] || "";
+    const currentIndex = roleCycle.indexOf(current);
+    const nextVal = roleCycle[(currentIndex + 1) % roleCycle.length];
+
+    const newTasks = tasks.map((t) => {
+      if (t.id !== taskId) return t;
+      return {
+        ...t,
+        assignments: {
+          ...t.assignments,
+          [roleId]: nextVal,
+        },
+      };
+    });
+
+    setData({ ...data, tasks: newTasks });
+  };
+
+  const handleTaskNameChange = (taskId: string, name: string) => {
+    const newTasks = tasks.map((t) => (t.id === taskId ? { ...t, task: name } : t));
+    setData({ ...data, tasks: newTasks });
+  };
+
+  const handleRoleNameChange = (roleId: string, name: string) => {
+    const newRoles = roles.map((r) => (r.id === roleId ? { ...r, name } : r));
+    setData({ ...data, roles: newRoles });
+  };
+
+  const handleAddRole = () => {
+    const roleName = prompt("Nome do novo papel / membro:");
+    if (!roleName?.trim()) return;
+    const newRoleId = "role_" + Date.now();
+    const newRoles = [...roles, { id: newRoleId, name: roleName.trim() }];
+    setData({ ...data, roles: newRoles });
+  };
+
+  const handleRemoveRole = (roleId: string) => {
+    if (roles.length <= 1) {
+      toast.error("A matriz deve conter ao menos um papel.");
+      return;
+    }
+    const role = roles.find((r) => r.id === roleId);
+    if (!confirm(`Remover o papel "${role?.name}"?`)) return;
+
+    const newRoles = roles.filter((r) => r.id !== roleId);
+    const newTasks = tasks.map((t) => {
+      const rest = { ...t.assignments };
+      delete rest[roleId];
+      return { ...t, assignments: rest };
+    });
+    setData({ roles: newRoles, tasks: newTasks });
+  };
+
+  const handleAddTask = () => {
+    const taskName = prompt("Nome da nova atividade / tarefa:");
+    if (!taskName?.trim()) return;
+    const newTaskId = "task_" + Date.now();
+    const newTasks = [...tasks, { id: newTaskId, task: taskName.trim(), assignments: {} }];
+    setData({ ...data, tasks: newTasks });
+  };
+
+  const handleRemoveTask = (taskId: string) => {
+    const newTasks = tasks.filter((t) => t.id !== taskId);
+    setData({ ...data, tasks: newTasks });
+  };
+
+  const handleResetToEmpty = () => {
+    if (!confirm("Deseja criar a Matriz RACI do zero?")) return;
+    setData({
+      roles: [
+        { id: "r1", name: "Papel 1" },
+        { id: "r2", name: "Papel 2" },
+      ],
+      tasks: [
+        { id: "t1", task: "Atividade 1", assignments: {} },
+      ],
+    });
+  };
+
+  const handleLoadDefaultTemplate = () => {
+    setData(INITIAL_RACI);
+  };
+
+  const getBadgeForType = (type: RaciRoleType) => {
+    switch (type) {
+      case "R":
+        return (
+          <span className="w-8 h-8 rounded-lg bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/40 font-bold flex items-center justify-center text-xs shadow-xs transition transform group-hover:scale-105">
+            R
+          </span>
+        );
+      case "A":
+        return (
+          <span className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-bold flex items-center justify-center text-xs shadow-xs ring-1 ring-emerald-500/30 transition transform group-hover:scale-105">
+            A
+          </span>
+        );
+      case "C":
+        return (
+          <span className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 font-bold flex items-center justify-center text-xs shadow-xs transition transform group-hover:scale-105">
+            C
+          </span>
+        );
+      case "I":
+        return (
+          <span className="w-8 h-8 rounded-lg bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/40 font-bold flex items-center justify-center text-xs shadow-xs transition transform group-hover:scale-105">
+            I
+          </span>
+        );
+      default:
+        return (
+          <span className="w-8 h-8 rounded-lg border border-dashed border-border/60 text-muted-foreground/30 flex items-center justify-center text-xs hover:border-accent hover:text-accent transition">
+            -
+          </span>
+        );
+    }
+  };
+
+  return (
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 flex-1 flex flex-col">
+      {/* Header com Descrição e Ações */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+        <div>
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-emerald-500" />
+            <h3 className="font-bold text-lg lg:text-xl text-foreground">
+              Matriz RACI (Responsabilidades do Projeto)
+            </h3>
+          </div>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Defina com clareza quem é o Responsável (R), Aprovador (A), Consultado (C) e Informado (I) em cada entrega.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleAddRole} className="h-8 text-xs gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-accent" /> Adicionar Papel
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleAddTask} className="h-8 text-xs gap-1.5">
+            <Plus className="h-3.5 w-3.5 text-accent" /> Adicionar Tarefa
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleResetToEmpty} className="h-8 text-xs text-muted-foreground hover:text-destructive">
+            Criar do Zero
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleLoadDefaultTemplate} className="h-8 text-xs text-muted-foreground hover:text-accent">
+            Restaurar Modelo
+          </Button>
+        </div>
+      </div>
+
+      {/* Legenda RACI */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 p-3.5 rounded-xl bg-card/60 border border-border/60 shadow-xs">
+        <div className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-md bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/40 font-bold flex items-center justify-center text-xs">
+            R
+          </span>
+          <div className="text-[11px] leading-tight">
+            <strong className="text-foreground block">Responsável</strong>
+            <span className="text-muted-foreground">Quem executa a tarefa</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-md bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border border-emerald-500/40 font-bold flex items-center justify-center text-xs ring-1 ring-emerald-500/30">
+            A
+          </span>
+          <div className="text-[11px] leading-tight">
+            <strong className="text-foreground block">Aprovador</strong>
+            <span className="text-muted-foreground">1 autoridade final</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-md bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40 font-bold flex items-center justify-center text-xs">
+            C
+          </span>
+          <div className="text-[11px] leading-tight">
+            <strong className="text-foreground block">Consultado</strong>
+            <span className="text-muted-foreground">Apoia com informações</span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <span className="w-6 h-6 rounded-md bg-purple-500/20 text-purple-600 dark:text-purple-400 border border-purple-500/40 font-bold flex items-center justify-center text-xs">
+            I
+          </span>
+          <div className="text-[11px] leading-tight">
+            <strong className="text-foreground block">Informado</strong>
+            <span className="text-muted-foreground">Recebe atualizações</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Tabela Interativa */}
+      <div className="overflow-x-auto rounded-xl border border-border bg-card/40 flex-1">
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="bg-muted/50 border-b">
+              <th className="text-left p-3.5 font-bold uppercase tracking-wider text-muted-foreground min-w-[240px]">
+                Atividade / Tarefa
+              </th>
+              {roles.map((r) => (
+                <th key={r.id} className="p-3.5 text-center min-w-[130px] border-l border-border/40">
+                  <div className="flex items-center justify-between gap-1 group">
+                    <Input
+                      value={r.name}
+                      onChange={(e) => handleRoleNameChange(r.id, e.target.value)}
+                      className="h-7 text-xs font-semibold text-center border-transparent hover:border-border focus:border-accent bg-transparent px-1 truncate"
+                      title="Clique para editar o nome do papel"
+                    />
+                    <button
+                      onClick={() => handleRemoveRole(r.id)}
+                      className="opacity-0 group-hover:opacity-100 p-1 text-muted-foreground hover:text-destructive rounded transition shrink-0"
+                      title={`Remover papel "${r.name}"`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
+                </th>
+              ))}
+              <th className="p-3.5 text-center w-28 border-l border-border/40 text-muted-foreground font-semibold uppercase tracking-wider">
+                Regra (A)
+              </th>
+              <th className="p-3.5 w-10 border-l border-border/40"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border/50">
+            {tasks.map((t) => {
+              // Conta a quantidade de 'A' nesta linha
+              const countA = roles.filter((r) => t.assignments?.[r.id] === "A").length;
+
+              return (
+                <tr key={t.id} className="hover:bg-muted/15 transition-colors">
+                  {/* Nome da Tarefa */}
+                  <td className="p-3">
+                    <Input
+                      value={t.task}
+                      onChange={(e) => handleTaskNameChange(t.id, e.target.value)}
+                      className="h-8 text-xs font-medium border-transparent hover:border-border focus:border-accent bg-transparent"
+                      placeholder="Descreva a tarefa ou atividade..."
+                    />
+                  </td>
+
+                  {/* Células de Atribuição RACI */}
+                  {roles.map((r) => {
+                    const currentVal = t.assignments?.[r.id] || "";
+                    return (
+                      <td
+                        key={r.id}
+                        className="p-2 text-center border-l border-border/40 cursor-pointer group"
+                        onClick={() => handleCellClick(t.id, r.id)}
+                        title={`Clique para alternar: ${t.task} -> ${r.name}`}
+                      >
+                        <div className="flex items-center justify-center">
+                          {getBadgeForType(currentVal)}
+                        </div>
+                      </td>
+                    );
+                  })}
+
+                  {/* Validação da Regra de Ouro (Exatamente 1 Aprovador) */}
+                  <td className="p-3 text-center border-l border-border/40">
+                    {countA === 1 ? (
+                      <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 font-medium">
+                        ✓ 1 Aprovador
+                      </Badge>
+                    ) : countA === 0 ? (
+                      <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-600 border-rose-500/30 font-medium" title="Toda tarefa deve ter 1 Aprovador responsável">
+                        Sem A
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30 font-medium" title="Idealmente deve existir apenas 1 Aprovador por tarefa">
+                        {countA} As
+                      </Badge>
+                    )}
+                  </td>
+
+                  {/* Opção excluir tarefa */}
+                  <td className="p-2 text-center border-l border-border/40">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive rounded-md"
+                      onClick={() => handleRemoveTask(t.id)}
+                      title="Excluir tarefa"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+        <span>
+          Dica: Clique sobre cada célula para alternar rapidamente entre <strong>R</strong> (Responsável), <strong>A</strong> (Aprovador), <strong>C</strong> (Consultado), <strong>I</strong> (Informado) e vazio.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 // --- Flowchart Tool ---
 type AnchorHandle = "top" | "right" | "bottom" | "left";
 
@@ -909,6 +1272,7 @@ function VisualManagementPage() {
   const [pareto, setPareto] = useState([{ cause: "Erros de login", occurrences: 45, percentage: 45 }]);
   const [smart, setSmart] = useState({ specific: "", measurable: "", achievable: "", relevant: "", timeBound: "" });
   const [gut, setGut] = useState([{ id: "1", issue: "Servidor", gravity: 5, urgency: 5, tendency: 5 }]);
+  const [raci, setRaci] = useState<RaciData>(INITIAL_RACI);
   const [nodes, setNodes] = useState([{ id: "1", type: "start", x: 400, y: 50, label: "Início" }]);
   const [edges, setEdges] = useState<any[]>([]);
   const [mindMapData, setMindMapData] = useState<MindMapData>(INITIAL_MINDMAP);
@@ -935,6 +1299,7 @@ function VisualManagementPage() {
       case "pareto": dataToSave = pareto; name = "Diagrama de Pareto"; break;
       case "smart": dataToSave = smart; name = "Metas SMART"; break;
       case "gut": dataToSave = gut; name = "Matriz GUT"; break;
+      case "raci": dataToSave = raci; name = "Matriz RACI"; break;
       case "flowchart": dataToSave = { nodes, edges }; name = "Fluxograma"; break;
       case "mindmap": dataToSave = mindMapData; name = "Mapa Mental"; break;
     }
@@ -979,6 +1344,7 @@ function VisualManagementPage() {
       case "pareto": setPareto(savedData); break;
       case "smart": setSmart(savedData); break;
       case "gut": setGut(savedData); break;
+      case "raci": setRaci(savedData || INITIAL_RACI); break;
       case "flowchart":
         setNodes(savedData.nodes || []);
         setEdges(savedData.edges || []);
@@ -1044,6 +1410,7 @@ function VisualManagementPage() {
       case "pareto": setPareto(savedData); break;
       case "smart": setSmart(savedData); break;
       case "gut": setGut(savedData); break;
+      case "raci": setRaci(savedData || INITIAL_RACI); break;
       case "flowchart":
         setNodes(savedData.nodes || []);
         setEdges(savedData.edges || []);
@@ -1117,11 +1484,11 @@ function VisualManagementPage() {
 
   const handleAIAnalysis = async () => {
     setLoadingAI(true);
-    const dataToAnalyze = { swot, eisenhower, fiveW, pareto, smart, gut, nodes, edges, mindMap: mindMapData };
+    const dataToAnalyze = { swot, eisenhower, fiveW, pareto, smart, gut, raci, nodes, edges, mindMap: mindMapData };
     const prompt = `
-      Analise os seguintes dados estratégicos, o mapa mental e o fluxo de processo da plataforma EXACTA e forneça insights acionáveis, incluindo otimizações para o fluxograma e estrutura mental.
+      Analise os seguintes dados estratégicos, a matriz RACI de responsabilidades, o mapa mental e o fluxo de processo da plataforma EXACTA e forneça insights acionáveis, incluindo otimizações para governança de papéis e entregas.
       
-      Dados Estratégicos: ${JSON.stringify({ swot, eisenhower, fiveW, pareto, smart, gut })}
+      Dados Estratégicos: ${JSON.stringify({ swot, eisenhower, fiveW, pareto, smart, gut, raci })}
       Mapa Mental: ${JSON.stringify(mindMapData)}
       Fluxograma (Nós e Conexões): ${JSON.stringify({ nodes, edges })}
       
@@ -1228,6 +1595,10 @@ function VisualManagementPage() {
             <TabsTrigger value="pareto" className="rounded-lg gap-2">Pareto</TabsTrigger>
             <TabsTrigger value="smart" className="rounded-lg gap-2">SMART</TabsTrigger>
             <TabsTrigger value="gut" className="rounded-lg gap-2">GUT</TabsTrigger>
+            <TabsTrigger value="raci" className="rounded-lg gap-2">
+              <Users className="h-4 w-4 text-emerald-500" />
+              Matriz RACI
+            </TabsTrigger>
             <TabsTrigger value="flowchart" className="rounded-lg gap-2">Fluxograma</TabsTrigger>
             <TabsTrigger value="mindmap" className="rounded-lg gap-2">
               <Brain className="h-4 w-4 text-accent" />
@@ -1243,6 +1614,7 @@ function VisualManagementPage() {
           <TabsContent value="pareto" className="mt-0 flex-1"><ParetoDiagram data={pareto} setData={setPareto} /></TabsContent>
           <TabsContent value="smart" className="mt-0 flex-1"><SmartMatrix goal={smart} setGoal={setSmart} /></TabsContent>
           <TabsContent value="gut" className="mt-0 flex-1"><GutMatrix issues={gut} setIssues={setGut} /></TabsContent>
+          <TabsContent value="raci" className="mt-0 flex-1 flex flex-col"><RaciMatrix data={raci} setData={setRaci} /></TabsContent>
           <TabsContent value="flowchart" className="mt-0 flex-1 flex flex-col"><FlowchartTool nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} /></TabsContent>
           <TabsContent value="mindmap" className="mt-0 flex-1 flex flex-col"><MindMapTool data={mindMapData} onChange={setMindMapData} /></TabsContent>
         </Card>

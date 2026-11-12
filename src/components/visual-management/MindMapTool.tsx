@@ -83,50 +83,12 @@ export const COLOR_PALETTES: Record<PaletteId, { name: string; rootBg: string; c
 
 export const INITIAL_MINDMAP: MindMapData = {
   layout: "radial",
-  palette: "cyber-neon",
+  palette: "emerald-executive",
   root: {
     id: "root-1",
-    text: "Estratégia de Crescimento EXACTA",
-    color: "#8b5cf6",
-    children: [
-      {
-        id: "c1",
-        text: "Produto & Inovação",
-        children: [
-          { id: "c1-1", text: "Gestão Visual com Mapas Mentais", children: [] },
-          { id: "c1-2", text: "Módulo de Finanças Pessoais & Cartões", children: [] },
-          { id: "c1-3", text: "Área de Treinamentos e Manuais", children: [] },
-          { id: "c1-4", text: "Colaboração ao Vivo em Projetos", children: [] },
-        ],
-      },
-      {
-        id: "c2",
-        text: "Operações & Produtividade",
-        children: [
-          { id: "c2-1", text: "Automação de Lançamentos Recorrentes", children: [] },
-          { id: "c2-2", text: "Alertas Pop-up de Contas Próximas", children: [] },
-          { id: "c2-3", text: "Importação Inteligente de Planilhas CSV", children: [] },
-        ],
-      },
-      {
-        id: "c3",
-        text: "Pessoas & Cultura",
-        children: [
-          { id: "c3-1", text: "Onboarding Estruturado com Vídeos", children: [] },
-          { id: "c3-2", text: "Manuais Operacionais Padronizados (POPs)", children: [] },
-          { id: "c3-3", text: "Feedback 360° e Metas Compartilhadas", children: [] },
-        ],
-      },
-      {
-        id: "c4",
-        text: "BI & Análise de Dados",
-        children: [
-          { id: "c4-1", text: "Conexão Direta com MariaDB / MySQL", children: [] },
-          { id: "c4-2", text: "Geração de Consultas com IA Especializada", children: [] },
-          { id: "c4-3", text: "Dashboards Executivos de Performance", children: [] },
-        ],
-      },
-    ],
+    text: "Ideia Central",
+    color: "#059669",
+    children: [],
   },
 };
 
@@ -754,7 +716,7 @@ export function MindMapTool({
     try {
       toast.info("Renderizando imagem em alta resolução...");
       const canvas = await html2canvas(canvasRef.current, {
-        backgroundColor: "#0d1117",
+        backgroundColor: "#f8fafc",
         scale: 2,
         useCORS: true,
       });
@@ -765,6 +727,24 @@ export function MindMapTool({
       toast.success("Mapa Mental exportado com sucesso!");
     } catch (e) {
       toast.error("Erro ao exportar mapa mental.");
+    }
+  };
+
+  // Resetar e criar novo mapa do zero
+  const handleResetToEmpty = () => {
+    if (confirm("Deseja criar um novo mapa mental do zero? Todo o conteúdo atual será resetado.")) {
+      updateState((prev) => ({
+        ...prev,
+        root: {
+          id: `root-${Date.now()}`,
+          text: "Ideia Central",
+          color: COLOR_PALETTES[prev.palette]?.colors[0] || "#059669",
+          children: [],
+        },
+      }));
+      setPan({ x: 0, y: 0 });
+      setZoom(1);
+      toast.success("Novo mapa mental pronto! Comece adicionando ideias a partir do nó central.");
     }
   };
 
@@ -850,13 +830,13 @@ REQUISITOS OBRIGATÓRIOS:
   };
 
   return (
-    <div className="flex flex-col h-full w-full min-h-[680px] bg-card/40 rounded-xl border border-white/5 overflow-hidden select-none">
+    <div className="flex flex-col h-full w-full min-h-[680px] bg-card rounded-xl border border-border shadow-sm overflow-hidden select-none">
       {/* Top Toolbar */}
-      <div className="p-3 border-b border-white/5 bg-sidebar/80 backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
+      <div className="p-3 border-b border-border bg-card/90 backdrop-blur-md flex flex-wrap items-center justify-between gap-3">
         {/* Esquerda: Tipo de Layout e Paleta */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Layout Selector */}
-          <div className="flex items-center gap-1 bg-background/50 border border-white/10 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-background/80 border border-border rounded-lg p-1">
             <span className="text-xs font-semibold px-2 text-muted-foreground flex items-center gap-1.5">
               <Layout className="h-3.5 w-3.5 text-accent" /> Layout:
             </span>
@@ -905,7 +885,7 @@ REQUISITOS OBRIGATÓRIOS:
           </div>
 
           {/* Palette Selector */}
-          <div className="flex items-center gap-1 bg-background/50 border border-white/10 rounded-lg p-1">
+          <div className="flex items-center gap-1 bg-background/80 border border-border rounded-lg p-1">
             <span className="text-xs font-semibold px-2 text-muted-foreground flex items-center gap-1.5">
               <Palette className="h-3.5 w-3.5 text-accent" /> Cores:
             </span>
@@ -1023,12 +1003,24 @@ REQUISITOS OBRIGATÓRIOS:
             <span>Gerar com IA</span>
           </Button>
 
+          {/* Criar do Zero */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleResetToEmpty}
+            className="h-8 px-2.5 text-xs gap-1.5 border-border hover:border-destructive/40 text-muted-foreground hover:text-destructive"
+            title="Criar novo mapa mental do zero"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Criar do Zero</span>
+          </Button>
+
           {/* Exportar PNG */}
           <Button
             size="sm"
             variant="outline"
             onClick={handleExportPNG}
-            className="h-8 px-2.5 text-xs gap-1.5 border-white/10 hover:border-accent"
+            className="h-8 px-2.5 text-xs gap-1.5 border-border hover:border-accent text-foreground"
             title="Exportar imagem PNG"
           >
             <Download className="h-3.5 w-3.5 text-accent" />
@@ -1045,8 +1037,8 @@ REQUISITOS OBRIGATÓRIOS:
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         className={cn(
-          "flex-1 relative overflow-hidden bg-[#0c1017] cursor-grab active:cursor-grabbing",
-          "bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:24px_24px]"
+          "flex-1 relative overflow-hidden bg-slate-100/90 dark:bg-slate-900/40 cursor-grab active:cursor-grabbing",
+          "bg-[radial-gradient(#64748b33_1px,transparent_1px)] [background-size:24px_24px]"
         )}
       >
         <div
@@ -1167,12 +1159,12 @@ REQUISITOS OBRIGATÓRIOS:
                 }}
                 className={cn(
                   "absolute pointer-events-auto rounded-xl flex items-center justify-between px-3.5 transition-all duration-150 group",
-                  "backdrop-blur-md shadow-card border text-foreground",
+                  "shadow-card border text-foreground",
                   isRoot
                     ? "font-bold text-sm tracking-wide text-white border-white/20 shadow-glow"
-                    : "text-xs font-medium border-white/10 hover:border-accent/50",
+                    : "text-xs font-medium border-border/80 bg-card hover:border-accent/60 hover:shadow-md",
                   isSelected
-                    ? "ring-2 ring-accent ring-offset-2 ring-offset-[#0c1017] border-accent"
+                    ? "ring-2 ring-accent ring-offset-2 ring-offset-background border-accent shadow-md"
                     : ""
                 )}
                 style={{
@@ -1182,11 +1174,11 @@ REQUISITOS OBRIGATÓRIOS:
                   height: p.height,
                   background: isRoot
                     ? currentPalette.rootBg
-                    : `linear-gradient(135deg, rgba(25, 33, 44, 0.95), rgba(15, 23, 34, 0.98))`,
-                  borderColor: isSelected ? p.color : isRoot ? "transparent" : `${p.color}40`,
+                    : "hsl(var(--card))",
+                  borderColor: isSelected ? p.color : isRoot ? "transparent" : `${p.color}50`,
                   boxShadow: isSelected
-                    ? `0 0 16px ${p.color}60`
-                    : `0 4px 12px rgba(0,0,0,0.3)`,
+                    ? `0 0 16px ${p.color}50`
+                    : `0 2px 8px rgba(0,0,0,0.06)`,
                 }}
               >
                 {/* Indicador de cor à esquerda do nó */}
@@ -1209,13 +1201,13 @@ REQUISITOS OBRIGATÓRIOS:
                         if (e.key === "Enter") saveEditing();
                         if (e.key === "Escape") setEditingNodeId(null);
                       }}
-                      className="h-7 text-xs bg-black/60 border-accent px-1.5 py-0 text-white"
+                      className="h-7 text-xs bg-background border-accent px-1.5 py-0 text-foreground"
                     />
                   ) : (
                     <span
                       className={cn(
-                        "block truncate leading-tight",
-                        isRoot ? "text-white font-semibold" : "text-gray-100"
+                        "block truncate leading-tight font-medium",
+                        isRoot ? "text-white font-bold" : "text-foreground"
                       )}
                       title={p.node.text}
                     >

@@ -179,7 +179,7 @@ function NotesContent() {
       </div>
         </TabsContent>
 
-        <TabsContent value="ideas" className="animate-in fade-in duration-500">
+        <TabsContent value="ideas" className="animate-in fade-in duration-500 h-[calc(100vh-230px)] min-h-[600px]">
           <NeuralMap />
         </TabsContent>
 

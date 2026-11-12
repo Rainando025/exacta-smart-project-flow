@@ -9,6 +9,20 @@ export interface ParsedNotes {
   costType: "fixo" | "variavel" | null;
 }
 
+export const CREDIT_CARDS = ["Nubank", "Caixa", "PicPay"] as const;
+export type CreditCardName = typeof CREDIT_CARDS[number];
+
+/**
+ * Normaliza o nome do cartão de crédito para estritamente: Nubank, Caixa ou PicPay
+ */
+export function normalizeCreditCardName(rawName?: string | null): CreditCardName {
+  if (!rawName) return "Nubank";
+  const lower = rawName.toLowerCase();
+  if (lower.includes("pic")) return "PicPay";
+  if (lower.includes("caix")) return "Caixa";
+  return "Nubank";
+}
+
 /**
  * Extrai tags especiais dos campos de observação como [Custo: Fixo], [Cartão: Nubank] e [Pago em: 2026-11-12]
  */
@@ -453,7 +467,9 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
         rawCcClean === "1" ||
         (rawCardNameGiven.length > 0 && !isExplicitNonCard));
 
-    const cardName = isCreditCard ? (rawCardNameGiven && !isExplicitNonCard ? rawCardNameGiven : "Nubank") : "";
+    const cardName = isCreditCard
+      ? normalizeCreditCardName(rawCardNameGiven && !isExplicitNonCard ? rawCardNameGiven : "Nubank")
+      : "";
 
     const installments = isNaN(rawInst) || rawInst < 1 ? 1 : rawInst;
     const isValid = !error;
