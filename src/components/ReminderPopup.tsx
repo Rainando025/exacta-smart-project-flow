@@ -21,15 +21,11 @@ import { Badge } from "@/components/ui/badge";
 import { parseFinanceNotes, buildFinanceNotes } from "@/lib/finances-helpers";
 import { formatDate } from "@/lib/exacta";
 import { toast } from "sonner";
-
-interface Reminder {
-  id: string;
-  title: string;
-  description: string | null;
-  remind_at: string;
-  completed: boolean;
-  priority: string;
-}
+import {
+  fetchUserReminders,
+  toggleUserReminder,
+  type Reminder,
+} from "@/lib/reminders/reminders-service";
 
 interface DueBill {
   id: string;
@@ -143,18 +139,15 @@ export function ReminderPopup() {
     if (!user || !loaded) return;
     const now = Date.now();
 
-    // 1. Checa Lembretes pontuais (reminders)
-    const soonRemind = new Date(now + 15 * 60 * 1000);
-    const { data: reminders } = await supabase
-      .from("reminders")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("completed", false)
-      .lte("remind_at", soonRemind.toISOString())
-      .order("remind_at", { ascending: true })
-      .limit(5);
+    // 1. Checa Lembretes pontuais (reminders) via Service (bypass RLS + cache)
+    const allReminders = await fetchUserReminders(user.id);
+    const maxRemindTime = now + advanceDays * 24 * 60 * 60 * 1000;
 
-    const pendingReminders = ((reminders || []) as Reminder[]).filter((r) => {
+    const pendingReminders = allReminders.filter((r) => {
+      if (r.completed) return false;
+      const remindTime = new Date(r.remind_at).getTime();
+      // Notifica lembretes já vencidos ou próximos de vencer na janela configurada!
+      if (remindTime > maxRemindTime) return false;
       const until = dismissed.current.get("r-" + r.id);
       return !until || now >= until;
     });
@@ -234,7 +227,7 @@ export function ReminderPopup() {
   const markDone = async () => {
     if (!popup || !user) return;
     if (popup.kind === "reminder") {
-      await supabase.from("reminders").update({ completed: true }).eq("id", popup.data.id);
+      await toggleUserReminder(popup.data.id, user.id, true);
     } else {
       const bill = popup.data as DueBill;
       const today = new Date().toISOString().split("T")[0];

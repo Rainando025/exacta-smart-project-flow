@@ -19,15 +19,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import {
+  fetchUserReminders,
+  saveUserReminder,
+  deleteUserReminder,
+  toggleUserReminder,
+  getCachedReminders,
+  type Reminder,
+} from "@/lib/reminders/reminders-service";
 
 export const Route = createFileRoute("/reminders")({ component: RemindersPage });
-
-interface Reminder {
-  id: string; title: string; description: string | null;
-  remind_at: string; repeat: string; completed: boolean;
-  priority: string; created_at: string; updated_at: string;
-  task_id?: string | null;
-}
 
 const REPEAT_OPTIONS = [
   { value: "none", label: "Não repetir" },
@@ -48,7 +49,12 @@ function RemindersPage() { return <AppShell><RemindersContent /></AppShell>; }
 function RemindersContent() {
   const { user } = useAuth();
   const { selectedProjectId, selectedProject } = useProject();
-  const [items, setItems] = useState<Reminder[]>([]);
+  const [items, setItems] = useState<Reminder[]>(() => {
+    if (typeof window !== "undefined" && user?.id) {
+      return getCachedReminders(user.id);
+    }
+    return [];
+  });
   const [tasks, setTasks] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Reminder | null>(null);
@@ -65,9 +71,12 @@ function RemindersContent() {
   // Load reminders
   const load = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from("reminders").select("*").eq("user_id", user.id)
-      .order("remind_at", { ascending: true });
-    setItems((data || []) as Reminder[]);
+    try {
+      const data = await fetchUserReminders(user.id);
+      setItems(data);
+    } catch (e) {
+      console.error("Erro ao carregar lembretes:", e);
+    }
   }, [user]);
 
   // Load tasks for task linking
@@ -131,34 +140,47 @@ function RemindersContent() {
       toast.error("Informe o título e a data/hora do lembrete.");
       return;
     }
-    const payload = {
-      user_id: user.id,
-      title: title.trim(),
-      description: description.trim() || null,
-      remind_at: new Date(remindAt).toISOString(),
-      repeat,
-      priority,
-    };
+    try {
+      const saved = await saveUserReminder({
+        id: editing?.id,
+        userId: user.id,
+        title: title.trim(),
+        description: description.trim() || null,
+        remindAt: new Date(remindAt).toISOString(),
+        repeat,
+        priority,
+      });
 
-    if (editing) {
-      const { error } = await supabase.from("reminders").update(payload).eq("id", editing.id);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Lembrete atualizado!");
-    } else {
-      const { error } = await supabase.from("reminders").insert(payload);
-      if (error) { toast.error(error.message); return; }
-      toast.success("Lembrete criado com sucesso!");
+      // Atualiza estado local imediatamente
+      setItems((prev) => {
+        const exists = prev.some((r) => r.id === saved.id);
+        return exists ? prev.map((r) => (r.id === saved.id ? saved : r)) : [saved, ...prev];
+      });
+
+      toast.success(editing ? "Lembrete atualizado!" : "Lembrete criado com sucesso!");
+      resetForm();
+      setOpen(false);
+      await load();
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao salvar lembrete.");
     }
-    resetForm(); setOpen(false); load();
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("reminders").delete().eq("id", id);
-    toast.success("Removido!"); load();
+    if (!user) return;
+    setItems((prev) => prev.filter((r) => r.id !== id));
+    await deleteUserReminder(id, user.id);
+    toast.success("Removido!");
+    load();
   };
 
   const toggleComplete = async (r: Reminder) => {
-    await supabase.from("reminders").update({ completed: !r.completed }).eq("id", r.id);
+    if (!user) return;
+    const nextCompleted = !r.completed;
+    setItems((prev) =>
+      prev.map((item) => (item.id === r.id ? { ...item, completed: nextCompleted } : item))
+    );
+    await toggleUserReminder(r.id, user.id, nextCompleted);
     load();
   };
 
@@ -380,12 +402,21 @@ function ReminderCard({ r, onEdit, onDelete, onToggle, onReload }: {
   });
 
   const save = async () => {
-    const { error } = await supabase.from("reminders").update({
-      title: iTitle.trim(), description: iDesc.trim() || null,
-      remind_at: new Date(iAt).toISOString(),
-    }).eq("id", r.id);
-    if (error) { toast.error(error.message); return; }
-    setInlineEdit(false); onReload();
+    try {
+      await saveUserReminder({
+        id: r.id,
+        userId: r.user_id,
+        title: iTitle.trim(),
+        description: iDesc.trim() || null,
+        remindAt: new Date(iAt).toISOString(),
+        repeat: r.repeat,
+        priority: r.priority,
+      });
+      setInlineEdit(false);
+      onReload();
+    } catch (err: any) {
+      toast.error(err?.message || "Erro ao atualizar lembrete.");
+    }
   };
 
   return (
