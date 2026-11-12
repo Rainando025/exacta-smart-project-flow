@@ -27,6 +27,7 @@ import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useEffect } from "react";
 import { RichColorPicker } from "@/components/ui/color-picker";
+import { MindMapTool, INITIAL_MINDMAP, type MindMapData } from "@/components/visual-management/MindMapTool";
 
 export const Route = createFileRoute("/visual-management")({
   component: () => <AppShell><VisualManagementPage /></AppShell>,
@@ -910,6 +911,7 @@ function VisualManagementPage() {
   const [gut, setGut] = useState([{ id: "1", issue: "Servidor", gravity: 5, urgency: 5, tendency: 5 }]);
   const [nodes, setNodes] = useState([{ id: "1", type: "start", x: 400, y: 50, label: "Início" }]);
   const [edges, setEdges] = useState<any[]>([]);
+  const [mindMapData, setMindMapData] = useState<MindMapData>(INITIAL_MINDMAP);
 
   const [activeTab, setActiveTab] = useState("swot");
   const { selectedProjectId, setSelectedProjectId, projects } = useProject();
@@ -934,6 +936,7 @@ function VisualManagementPage() {
       case "smart": dataToSave = smart; name = "Metas SMART"; break;
       case "gut": dataToSave = gut; name = "Matriz GUT"; break;
       case "flowchart": dataToSave = { nodes, edges }; name = "Fluxograma"; break;
+      case "mindmap": dataToSave = mindMapData; name = "Mapa Mental"; break;
     }
 
     const { error } = await (supabase.from("visual_boards" as any)).insert({
@@ -979,6 +982,9 @@ function VisualManagementPage() {
       case "flowchart":
         setNodes(savedData.nodes || []);
         setEdges(savedData.edges || []);
+        break;
+      case "mindmap":
+        setMindMapData(savedData || INITIAL_MINDMAP);
         break;
     }
     toast.success("Painel carregado com sucesso!");
@@ -1041,6 +1047,9 @@ function VisualManagementPage() {
       case "flowchart":
         setNodes(savedData.nodes || []);
         setEdges(savedData.edges || []);
+        break;
+      case "mindmap":
+        setMindMapData(savedData || INITIAL_MINDMAP);
         break;
     }
     toast.success("Painel carregado com sucesso!");
@@ -1108,11 +1117,12 @@ function VisualManagementPage() {
 
   const handleAIAnalysis = async () => {
     setLoadingAI(true);
-    const dataToAnalyze = { swot, eisenhower, fiveW, pareto, smart, gut, nodes, edges };
+    const dataToAnalyze = { swot, eisenhower, fiveW, pareto, smart, gut, nodes, edges, mindMap: mindMapData };
     const prompt = `
-      Analise os seguintes dados estratégicos e o fluxo de processo da plataforma EXACTA e forneça insights acionáveis, incluindo otimizações para o fluxograma.
+      Analise os seguintes dados estratégicos, o mapa mental e o fluxo de processo da plataforma EXACTA e forneça insights acionáveis, incluindo otimizações para o fluxograma e estrutura mental.
       
       Dados Estratégicos: ${JSON.stringify({ swot, eisenhower, fiveW, pareto, smart, gut })}
+      Mapa Mental: ${JSON.stringify(mindMapData)}
       Fluxograma (Nós e Conexões): ${JSON.stringify({ nodes, edges })}
       
       IMPORTANTE: No final da sua resposta, inclua obrigatoriamente um bloco JSON estruturado como este (não use blocos de código, apenas o JSON bruto após o texto):
@@ -1219,6 +1229,10 @@ function VisualManagementPage() {
             <TabsTrigger value="smart" className="rounded-lg gap-2">SMART</TabsTrigger>
             <TabsTrigger value="gut" className="rounded-lg gap-2">GUT</TabsTrigger>
             <TabsTrigger value="flowchart" className="rounded-lg gap-2">Fluxograma</TabsTrigger>
+            <TabsTrigger value="mindmap" className="rounded-lg gap-2">
+              <Brain className="h-4 w-4 text-accent" />
+              Mapa Mental
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1230,6 +1244,7 @@ function VisualManagementPage() {
           <TabsContent value="smart" className="mt-0 flex-1"><SmartMatrix goal={smart} setGoal={setSmart} /></TabsContent>
           <TabsContent value="gut" className="mt-0 flex-1"><GutMatrix issues={gut} setIssues={setGut} /></TabsContent>
           <TabsContent value="flowchart" className="mt-0 flex-1 flex flex-col"><FlowchartTool nodes={nodes} setNodes={setNodes} edges={edges} setEdges={setEdges} /></TabsContent>
+          <TabsContent value="mindmap" className="mt-0 flex-1 flex flex-col"><MindMapTool data={mindMapData} onChange={setMindMapData} /></TabsContent>
         </Card>
       </Tabs>
 

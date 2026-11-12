@@ -6,7 +6,7 @@ import {
   StickyNote, FolderOpen, Building2, UserCircle, ChevronDown, BellRing, Settings,
   Moon, Sun, Command, Search, Target, Brain, FileText, Presentation, Cpu, Timer,
   Plus, ArrowLeft, Sparkles, MessageSquare, PanelLeftClose, PanelLeftOpen, CalendarPlus,
-  Network, BarChart3
+  Network, BarChart3, GraduationCap
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -63,6 +63,7 @@ const PERSONAL_NAV: readonly NavGroup[] = [
       { to: "/notes", label: "Anotações", icon: StickyNote },
       { to: "/finances", label: "Finanças", icon: Wallet },
       { to: "/reminders", label: "Lembretes", icon: BellRing },
+      { to: "/training", label: "Treinamentos", icon: GraduationCap },
     ]
   }
 ];
@@ -112,6 +113,7 @@ const TEAM_NAV: readonly NavGroup[] = [
     items: [
       { to: "/team", label: "Equipe", icon: Users },
       { to: "/feedback", label: "Feedback 360°", icon: MessageSquareHeart },
+      { to: "/training", label: "Treinamentos & Manuais", icon: GraduationCap },
     ]
   }
 ];

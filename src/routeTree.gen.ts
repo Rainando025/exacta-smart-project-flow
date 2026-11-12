@@ -34,6 +34,7 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as TimeTrackingRouteImport } from './routes/time-tracking'
+import { Route as TrainingRouteImport } from './routes/training'
 import { Route as VisualManagementRouteImport } from './routes/visual-management'
 import { Route as WhiteboardsRouteImport } from './routes/whiteboards'
 
@@ -162,6 +163,11 @@ const TimeTrackingRoute = TimeTrackingRouteImport.update({
   path: '/time-tracking',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TrainingRoute = TrainingRouteImport.update({
+  id: '/training',
+  path: '/training',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VisualManagementRoute = VisualManagementRouteImport.update({
   id: '/visual-management',
   path: '/visual-management',
@@ -199,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/time-tracking': typeof TimeTrackingRoute
+  '/training': typeof TrainingRoute
   '/visual-management': typeof VisualManagementRoute
   '/whiteboards': typeof WhiteboardsRoute
 }
@@ -228,6 +235,7 @@ export interface FileRoutesByTo {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/time-tracking': typeof TimeTrackingRoute
+  '/training': typeof TrainingRoute
   '/visual-management': typeof VisualManagementRoute
   '/whiteboards': typeof WhiteboardsRoute
 }
@@ -258,6 +266,7 @@ export interface FileRoutesById {
   '/tasks': typeof TasksRoute
   '/team': typeof TeamRoute
   '/time-tracking': typeof TimeTrackingRoute
+  '/training': typeof TrainingRoute
   '/visual-management': typeof VisualManagementRoute
   '/whiteboards': typeof WhiteboardsRoute
 }
@@ -289,6 +298,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/time-tracking'
+    | '/training'
     | '/visual-management'
     | '/whiteboards'
   fileRoutesByTo: FileRoutesByTo
@@ -318,6 +328,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/time-tracking'
+    | '/training'
     | '/visual-management'
     | '/whiteboards'
   id:
@@ -347,6 +358,7 @@ export interface FileRouteTypes {
     | '/tasks'
     | '/team'
     | '/time-tracking'
+    | '/training'
     | '/visual-management'
     | '/whiteboards'
   fileRoutesById: FileRoutesById
@@ -377,6 +389,7 @@ export interface RootRouteChildren {
   TasksRoute: typeof TasksRoute
   TeamRoute: typeof TeamRoute
   TimeTrackingRoute: typeof TimeTrackingRoute
+  TrainingRoute: typeof TrainingRoute
   VisualManagementRoute: typeof VisualManagementRoute
   WhiteboardsRoute: typeof WhiteboardsRoute
 }
@@ -558,6 +571,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TimeTrackingRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/training': {
+      id: '/training'
+      path: '/training'
+      fullPath: '/training'
+      preLoaderRoute: typeof TrainingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/visual-management': {
       id: '/visual-management'
       path: '/visual-management'
@@ -601,6 +621,7 @@ const rootRouteChildren: RootRouteChildren = {
   TasksRoute: TasksRoute,
   TeamRoute: TeamRoute,
   TimeTrackingRoute: TimeTrackingRoute,
+  TrainingRoute: TrainingRoute,
   VisualManagementRoute: VisualManagementRoute,
   WhiteboardsRoute: WhiteboardsRoute,
 }
