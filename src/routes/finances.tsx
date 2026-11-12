@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import logoUrl from "@/assets/exacta_logo.png";
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
@@ -179,6 +179,9 @@ function FinancesContent() {
   const [clearDialogOpen, setClearDialogOpen] = useState(false);
   const [clearScope, setClearScope] = useState<"month" | "all">("month");
   const [clearing, setClearing] = useState(false);
+  // Alerta temporário de contas a vencer (aparece uma vez, fica 7s e sai para o ícone de notificação)
+  const [showDuePopup, setShowDuePopup] = useState(false);
+  const alertedSessionRef = useRef(false);
   const [editing, setEditing] = useState<Finance | null>(null);
   const [editingInlineId, setEditingInlineId] = useState<string | null>(null);
   const [editRecurringScope, setEditRecurringScope] = useState<"single" | "all_future">("single");
@@ -1053,6 +1056,18 @@ function FinancesContent() {
     );
   }, [items]);
 
+  // Dispara o alerta flutuante apenas uma vez na sessão, permanece 7 segundos e sai automaticamente da tela
+  useEffect(() => {
+    if (dueSoon.length > 0 && !alertedSessionRef.current) {
+      alertedSessionRef.current = true;
+      setShowDuePopup(true);
+      const timer = setTimeout(() => {
+        setShowDuePopup(false);
+      }, 7000);
+      return () => clearTimeout(timer);
+    }
+  }, [dueSoon]);
+
   // Report items
   const reportItems = useMemo(() => {
     if (reportMode === "month") {
@@ -1706,36 +1721,69 @@ function FinancesContent() {
               Todos ({items.length})
             </button>
           </div>
+
+          {dueSoon.length > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDuePopup(true)}
+              className="h-8 px-2.5 text-xs text-amber-600 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/10 gap-1.5 font-medium shadow-xs"
+              title="Visualizar contas a vencer"
+            >
+              <AlertTriangle className="size-3.5 text-amber-500" />
+              <span>{dueSoon.length} a vencer</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* Due soon alert */}
-      {dueSoon.length > 0 && (
-        <Card className="p-4 border-l-4 border-l-warning bg-warning/5 shadow-card flex items-start gap-3">
-          <AlertTriangle className="size-5 text-warning shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="font-semibold text-xs text-foreground">
-              {dueSoon.length} conta(s) com vencimento próximo (próximos 3 dias)
-            </p>
-            <div className="text-xs text-muted-foreground space-y-0.5">
-              {dueSoon.map((f) => (
-                <div key={f.id} className="flex items-center gap-2">
-                  <span>
-                    <strong>{f.title}</strong> — vence {formatDate(f.due_date!)} — {fmt(Number(f.amount))}
-                  </span>
+      {/* Pop-up flutuante de Alerta de Contas a Vencer (aparece 1x na sessão, fica 7s e sai) */}
+      {showDuePopup && dueSoon.length > 0 && (
+        <div className="fixed top-20 right-6 z-50 max-w-sm w-full animate-in fade-in slide-in-from-top-4 duration-300">
+          <Card className="p-4 shadow-2xl border-2 border-amber-500/40 bg-card/95 backdrop-blur-md relative overflow-hidden">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-semibold text-xs">
+                <AlertTriangle className="size-4 shrink-0" />
+                <span>{dueSoon.length} conta(s) com vencimento próximo</span>
+              </div>
+              <button
+                onClick={() => setShowDuePopup(false)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded-md"
+                title="Fechar alerta"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+
+            <div className="mt-2.5 max-h-48 overflow-y-auto space-y-1.5 text-xs text-muted-foreground pr-1">
+              {dueSoon.slice(0, 5).map((f) => (
+                <div key={f.id} className="flex items-center justify-between gap-2 p-1.5 rounded-lg bg-muted/40">
+                  <div className="truncate">
+                    <strong className="text-foreground block truncate">{f.title}</strong>
+                    <span className="text-[11px]">Vence {formatDate(f.due_date!)} • {fmt(Number(f.amount))}</span>
+                  </div>
                   <Button
                     size="sm"
                     variant="ghost"
                     onClick={() => handleTogglePaidWithDate(f, true)}
-                    className="h-5 px-2 text-[10px] text-emerald-600 hover:bg-emerald-500/10 font-medium"
+                    className="h-6 px-2 text-[10px] text-emerald-600 hover:bg-emerald-500/10 font-semibold shrink-0"
                   >
-                    Marcar Pago
+                    Pagar
                   </Button>
                 </div>
               ))}
+              {dueSoon.length > 5 && (
+                <p className="text-[10px] text-muted-foreground text-center pt-1">
+                  + {dueSoon.length - 5} outra(s) conta(s) a vencer
+                </p>
+              )}
             </div>
-          </div>
-        </Card>
+
+            <p className="text-[10px] text-muted-foreground mt-2 text-right">
+              Salvo no sino de notificações 🔔
+            </p>
+          </Card>
+        </div>
       )}
 
       {/* Card Executivo de Previsão de Sobra no Final do Mês (Projeção Financeira) */}
@@ -2149,6 +2197,40 @@ function FinancesContent() {
             </Select>
           </div>
 
+          {/* Informações de visualização do período */}
+          <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground px-1">
+            <span>
+              Exibindo <strong>{filtered.length}</strong> lançamento(s){" "}
+              {monthViewMode === "month" ? (
+                <>no mês de <strong>{formatMonthYear(currentMonth)}</strong></>
+              ) : (
+                <>em <strong>todo o histórico</strong></>
+              )}
+              {monthViewMode === "month" && items.length > filtered.length && (
+                <> (total cadastrado no banco: <strong>{items.length}</strong>)</>
+              )}
+            </span>
+
+            {monthViewMode === "month" && items.length > filtered.length && (
+              <button
+                type="button"
+                onClick={() => setMonthViewMode("all")}
+                className="text-primary hover:underline font-semibold text-xs flex items-center gap-1"
+              >
+                Exibir todos os {items.length} lançamentos sem filtrar mês →
+              </button>
+            )}
+            {monthViewMode === "all" && (
+              <button
+                type="button"
+                onClick={() => setMonthViewMode("month")}
+                className="text-primary hover:underline font-semibold text-xs flex items-center gap-1"
+              >
+                ← Filtrar apenas lançamentos deste mês ({formatMonthYear(currentMonth)})
+              </button>
+            )}
+          </div>
+
           {/* Table */}
           <Card className="shadow-card overflow-hidden border border-border">
             <div className="overflow-x-auto">
@@ -2234,7 +2316,26 @@ function FinancesContent() {
                   {filtered.length === 0 && (!includeCarriedOver || saldoTransportado <= 0 || filterType === "despesa") && (
                     <tr>
                       <td colSpan={6} className="text-center py-12 text-muted-foreground text-xs">
-                        Nenhum lançamento encontrado para o período selecionado.
+                        <div className="space-y-2 max-w-sm mx-auto">
+                          <p className="font-medium text-foreground">
+                            Nenhum lançamento encontrado para {formatMonthYear(currentMonth)}.
+                          </p>
+                          {items.length > 0 && monthViewMode === "month" && (
+                            <div className="pt-1 space-y-1">
+                              <p className="text-[11px] text-muted-foreground">
+                                Você possui <strong>{items.length}</strong> lançamento(s) cadastrado(s) em outros meses ou períodos.
+                              </p>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setMonthViewMode("all")}
+                                className="text-xs h-8 gap-1.5 font-medium bg-background mt-1"
+                              >
+                                Ver todos os {items.length} lançamentos do histórico
+                              </Button>
+                            </div>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   )}

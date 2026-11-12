@@ -159,6 +159,39 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     } catch (e) {
       console.warn("ensureDueNotifications reminders error:", e);
     }
+
+    // 4. Checa Contas a Vencer de Finanças Pessoais (despesas pendentes dos próximos 3 dias)
+    try {
+      const todayStr = now.toISOString().split("T")[0];
+      const in3Str = in3.toISOString().split("T")[0];
+
+      const { data: dueBills } = await supabase
+        .from("personal_finances")
+        .select("id, title, amount, due_date, paid, type")
+        .eq("user_id", user.id)
+        .eq("type", "despesa")
+        .eq("paid", false)
+        .gte("due_date", todayStr)
+        .lte("due_date", in3Str);
+
+      if (dueBills && dueBills.length > 0) {
+        for (const b of dueBills) {
+          const titleStr = `Conta a vencer: ${b.title}`;
+          if (existingTitles.has(titleStr)) continue;
+
+          await notify({
+            user_id: user.id,
+            type: "finance_due",
+            title: titleStr,
+            message: `Vencimento: ${formatDate(b.due_date)} • R$ ${Number(b.amount).toFixed(2)}`,
+            link: "/finances",
+          });
+          existingTitles.add(titleStr);
+        }
+      }
+    } catch (e) {
+      console.warn("ensureDueNotifications finances error:", e);
+    }
   }, [user]);
 
   // Desbloqueia o AudioContext na primeira interação do usuário (exigência dos navegadores)

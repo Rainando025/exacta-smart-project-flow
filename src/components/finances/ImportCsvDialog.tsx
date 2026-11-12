@@ -324,7 +324,7 @@ export function ImportCsvDialog({
             )}
 
             {/* Tabela de Lançamentos com diagnóstico */}
-            <ScrollArea className="flex-1 max-h-60 border rounded-lg overflow-hidden bg-background">
+            <ScrollArea className="flex-1 max-h-[380px] border rounded-lg overflow-hidden bg-background">
               <table className="w-full text-[11px] text-left border-collapse">
                 <thead className="bg-muted/60 border-b text-muted-foreground sticky top-0">
                   <tr>

@@ -1,10 +1,12 @@
-import { Bell, AlertCircle, Clock, CheckCheck, MessageSquare, UserPlus, Sparkles } from "lucide-react";
+import { Bell, AlertCircle, Clock, CheckCheck, MessageSquare, UserPlus, Sparkles, Wallet } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Link } from "@tanstack/react-router";
 import { useNotifications } from "@/contexts/NotificationsContext";
 
 const iconFor = (type: string) => {
   switch (type) {
+    case "finance_due":
+      return <Wallet className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />;
     case "task_assigned":
       return <UserPlus className="h-4 w-4 text-accent shrink-0 mt-0.5" />;
     case "task_updated":

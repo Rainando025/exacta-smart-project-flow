@@ -220,13 +220,15 @@ export interface CsvParsedRow {
 }
 
 /**
- * Converte datas brasileiras (DD/MM/AAAA) ou ISO (AAAA-MM-DD) para padrão AAAA-MM-DD
+ * Converte datas brasileiras (DD/MM/AAAA, DD/MM/AA, DD/MM, DD) ou ISO (AAAA-MM-DD) para padrão AAAA-MM-DD
  * Se vazio, retorna null (indicando ausência intencional de data de vencimento)
  */
 export function normalizeCsvDate(rawDate?: string | null): { date: string | null; isValid: boolean } {
   if (!rawDate) return { date: null, isValid: true };
   const cleaned = rawDate.trim();
-  if (!cleaned) return { date: null, isValid: true };
+  if (!cleaned || ["-", "null", "undefined", "sem", "sem vencimento"].includes(cleaned.toLowerCase())) {
+    return { date: null, isValid: true };
+  }
 
   // Já está em YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
@@ -242,6 +244,37 @@ export function normalizeCsvDate(rawDate?: string | null): { date: string | null
     return { date: `${year}-${month}-${day}`, isValid: true };
   }
 
+  // Formato brasileiro com 2 dígitos de ano: DD/MM/YY
+  const br2Match = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2})$/);
+  if (br2Match) {
+    const day = br2Match[1].padStart(2, "0");
+    const month = br2Match[2].padStart(2, "0");
+    const year = `20${br2Match[3]}`;
+    return { date: `${year}-${month}-${day}`, isValid: true };
+  }
+
+  // Formato dia e mês: DD/MM ou DD-MM (assume o ano corrente)
+  const dmMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})$/);
+  if (dmMatch) {
+    const day = dmMatch[1].padStart(2, "0");
+    const month = dmMatch[2].padStart(2, "0");
+    const year = new Date().getFullYear();
+    return { date: `${year}-${month}-${day}`, isValid: true };
+  }
+
+  // Formato apenas dia do mês: DD (ex: 5, 10, 15, 30)
+  const dayOnlyMatch = cleaned.match(/^(\d{1,2})$/);
+  if (dayOnlyMatch) {
+    const dayNum = parseInt(dayOnlyMatch[1], 10);
+    if (dayNum >= 1 && dayNum <= 31) {
+      const day = String(dayNum).padStart(2, "0");
+      const now = new Date();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const year = now.getFullYear();
+      return { date: `${year}-${month}-${day}`, isValid: true };
+    }
+  }
+
   // Tenta converter date genérica
   const parsed = new Date(cleaned);
   if (!isNaN(parsed.getTime())) {
@@ -249,6 +282,41 @@ export function normalizeCsvDate(rawDate?: string | null): { date: string | null
   }
 
   return { date: null, isValid: false };
+}
+
+/**
+ * Converte strings monetárias brasileiras (1.500,00 ou 150,00) ou decimais (150.00) em número
+ */
+export function parseCsvAmount(rawAmount?: string | null): number {
+  if (!rawAmount) return NaN;
+  let str = String(rawAmount).replace(/R\$\s?/gi, "").trim();
+  if (!str) return NaN;
+
+  const hasComma = str.includes(",");
+  const hasDot = str.includes(".");
+
+  if (hasComma && hasDot) {
+    if (str.lastIndexOf(",") > str.lastIndexOf(".")) {
+      // 1.250,50 -> formato brasileiro
+      str = str.replace(/\./g, "").replace(",", ".");
+    } else {
+      // 1,250.50 -> formato americano
+      str = str.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    // 150,50 -> 150.50
+    str = str.replace(",", ".");
+  } else if (hasDot) {
+    const parts = str.split(".");
+    if (parts.length === 2 && parts[1].length <= 2) {
+      // decimal válido, ex: 150.50
+    } else if (parts.length > 2) {
+      str = str.replace(/\./g, "");
+    }
+  }
+
+  str = str.replace(/[^\d.-]/g, "");
+  return parseFloat(str);
 }
 
 /**
@@ -331,8 +399,8 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
     const rawDueDate = cols[dueIdx] || "";
     const rawCost = costIdx >= 0 ? cols[costIdx] || "" : "";
     const rawRec = (cols[recIdx] || "none").toLowerCase();
-    const rawCc = (cols[ccIdx] || "").toLowerCase();
-    const rawCardName = cols[cardNameIdx] || "Nubank";
+    const rawCcClean = (cols[ccIdx] || "").toLowerCase().trim();
+    const rawCardNameGiven = cardNameIdx >= 0 && cols[cardNameIdx] ? cols[cardNameIdx].trim() : "";
     const rawInst = parseInt(cols[instIdx] || "1", 10);
     const notes = cols[notesIdx] || "";
 
@@ -344,13 +412,8 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
       error = "Descrição do lançamento em branco";
     }
 
-    // Parse do Valor Numérico
-    const cleanAmount = String(rawAmount)
-      .replace(/R\$\s?/gi, "")
-      .replace(/\s+/g, "")
-      .replace(/\./g, "")
-      .replace(",", ".");
-    const amount = parseFloat(cleanAmount);
+    // Parse do Valor Numérico com suporte a formato brasileiro e internacional
+    const amount = parseCsvAmount(rawAmount);
 
     if (!error && (isNaN(amount) || amount <= 0)) {
       error = `Valor numérico inválido ou zerado (encontrado: "${rawAmount || "vazio"}")`;
@@ -359,7 +422,7 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
     // Validação e normalização da Data de Vencimento
     const dateNorm = normalizeCsvDate(rawDueDate);
     if (!error && !dateNorm.isValid) {
-      error = `Data de vencimento inválida: "${rawDueDate}". Utilize o formato DD/MM/AAAA ou AAAA-MM-DD.`;
+      error = `Data de vencimento inválida: "${rawDueDate}". Utilize o formato DD/MM/AAAA ou DD/MM.`;
     }
 
     let type: "receita" | "despesa" = "despesa";
@@ -380,9 +443,17 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
       costType = "fixo";
     }
 
+    // Cartão de crédito: apenas se explicitamente marcado ou informado pelo usuário
+    const isExplicitNonCard = ["nao", "não", "n", "false", "0", "-", ""].includes(rawCardNameGiven.toLowerCase());
     const isCreditCard =
       type === "despesa" &&
-      (rawCc === "sim" || rawCc === "s" || rawCc === "true" || rawCc === "1" || rawCardName.length > 0);
+      (rawCcClean === "sim" ||
+        rawCcClean === "s" ||
+        rawCcClean === "true" ||
+        rawCcClean === "1" ||
+        (rawCardNameGiven.length > 0 && !isExplicitNonCard));
+
+    const cardName = isCreditCard ? (rawCardNameGiven && !isExplicitNonCard ? rawCardNameGiven : "Nubank") : "";
 
     const installments = isNaN(rawInst) || rawInst < 1 ? 1 : rawInst;
     const isValid = !error;
@@ -398,7 +469,7 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
       costType,
       recurring,
       isCreditCard,
-      cardName: rawCardName,
+      cardName,
       installments,
       notes,
       isValid,
