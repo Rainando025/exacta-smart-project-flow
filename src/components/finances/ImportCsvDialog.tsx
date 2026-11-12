@@ -43,6 +43,7 @@ export function ImportCsvDialog({
   const [parsedRows, setParsedRows] = useState<CsvParsedRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [filterMode, setFilterMode] = useState<"all" | "valid" | "error">("all");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDownloadTemplate = () => {
@@ -98,7 +99,13 @@ export function ImportCsvDialog({
     setImporting(true);
     try {
       await onImport(validRows);
-      toast.success(`${validRows.length} lançamento(s) importado(s) com sucesso!`);
+      if (invalidCount > 0) {
+        toast.success(`${validRows.length} lançamento(s) importado(s) com sucesso!`, {
+          description: `${invalidCount} linha(s) com inconsistências foram ignoradas.`,
+        });
+      } else {
+        toast.success(`${validRows.length} lançamento(s) importado(s) com sucesso!`);
+      }
       handleReset();
       onOpenChange(false);
     } catch (e: any) {
@@ -111,11 +118,18 @@ export function ImportCsvDialog({
   const handleReset = () => {
     setFile(null);
     setParsedRows([]);
+    setFilterMode("all");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const validCount = parsedRows.filter((r) => r.isValid).length;
   const invalidCount = parsedRows.length - validCount;
+
+  const displayedRows = parsedRows.filter((r) => {
+    if (filterMode === "valid") return r.isValid;
+    if (filterMode === "error") return !r.isValid;
+    return true;
+  });
 
   return (
     <Dialog
@@ -219,55 +233,194 @@ export function ImportCsvDialog({
         )}
 
         {!loading && parsedRows.length > 0 && (
-          <div className="space-y-2 flex-1 flex flex-col min-h-0">
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-medium">Pré-visualização dos Lançamentos</span>
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30">
-                  <CheckCircle2 className="size-3 mr-1" /> {validCount} válidos
-                </Badge>
+          <div className="space-y-3 flex-1 flex flex-col min-h-0">
+            {/* Toolbar com filtros e contadores */}
+            <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="font-semibold text-foreground">
+                Pré-visualização dos Lançamentos ({parsedRows.length})
+              </span>
+
+              {/* Botões de Filtro */}
+              <div className="flex items-center gap-1.5 rounded-lg border bg-muted/40 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setFilterMode("all")}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition ${
+                    filterMode === "all"
+                      ? "bg-background text-foreground shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Todos ({parsedRows.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFilterMode("valid")}
+                  className={`px-2.5 py-1 rounded text-xs font-medium transition flex items-center gap-1 ${
+                    filterMode === "valid"
+                      ? "bg-background text-emerald-600 shadow-xs"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <CheckCircle2 className="size-3 text-emerald-600" />
+                  Válidos ({validCount})
+                </button>
                 {invalidCount > 0 && (
-                  <Badge variant="outline" className="text-[10px] bg-destructive/10 text-destructive border-destructive/30">
-                    <AlertCircle className="size-3 mr-1" /> {invalidCount} com erro
-                  </Badge>
+                  <button
+                    type="button"
+                    onClick={() => setFilterMode("error")}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition flex items-center gap-1 ${
+                      filterMode === "error"
+                        ? "bg-background text-destructive shadow-xs font-semibold"
+                        : "text-destructive hover:bg-destructive/10"
+                    }`}
+                  >
+                    <AlertCircle className="size-3 text-destructive" />
+                    Com Erro ({invalidCount})
+                  </button>
                 )}
               </div>
             </div>
 
-            <ScrollArea className="flex-1 max-h-56 border rounded-lg overflow-hidden bg-background">
+            {/* Banner de alerta detalhado caso haja inconsistências */}
+            {invalidCount > 0 && (
+              <div className="p-3.5 rounded-xl border border-destructive/40 bg-destructive/5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-destructive font-semibold text-xs">
+                    <AlertCircle className="size-4 shrink-0" />
+                    <span>
+                      {invalidCount} linha(s) com erros identificadas (não serão importadas até a correção):
+                    </span>
+                  </div>
+                  {filterMode !== "error" && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFilterMode("error")}
+                      className="h-6 px-2 text-[10px] border-destructive/30 text-destructive hover:bg-destructive/10 font-medium"
+                    >
+                      Filtrar apenas com erro
+                    </Button>
+                  )}
+                </div>
+
+                <div className="max-h-24 overflow-y-auto space-y-1 text-[11px] pr-1 divide-y divide-destructive/10">
+                  {parsedRows
+                    .filter((r) => !r.isValid)
+                    .map((r, i) => (
+                      <div key={i} className="flex items-start gap-2 pt-1 first:pt-0">
+                        <span className="font-semibold text-destructive shrink-0 bg-destructive/10 px-1 rounded text-[10px]">
+                          Linha {r.rowNumber}
+                        </span>
+                        <span className="font-medium text-foreground truncate max-w-[180px]">
+                          {r.title || "(sem título)"}
+                        </span>
+                        <span className="text-destructive font-medium">• {r.error}</span>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tabela de Lançamentos com diagnóstico */}
+            <ScrollArea className="flex-1 max-h-60 border rounded-lg overflow-hidden bg-background">
               <table className="w-full text-[11px] text-left border-collapse">
-                <thead className="bg-muted/50 border-b text-muted-foreground sticky top-0">
+                <thead className="bg-muted/60 border-b text-muted-foreground sticky top-0">
                   <tr>
+                    <th className="p-2 font-medium w-12 text-center">Linha</th>
                     <th className="p-2 font-medium">Descrição</th>
+                    <th className="p-2 font-medium">Status / Diagnóstico</th>
                     <th className="p-2 font-medium">Tipo</th>
+                    <th className="p-2 font-medium">Custo</th>
                     <th className="p-2 font-medium">Categoria</th>
                     <th className="p-2 font-medium">Vencimento</th>
-                    <th className="p-2 font-medium">Cartão / Recorrência</th>
+                    <th className="p-2 font-medium">Recorrência / Cartão</th>
                     <th className="p-2 font-medium text-right">Valor</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {parsedRows.map((r, idx) => (
+                  {displayedRows.length === 0 && (
+                    <tr>
+                      <td colSpan={9} className="p-4 text-center text-muted-foreground text-xs">
+                        Nenhum lançamento corresponde ao filtro selecionado.
+                      </td>
+                    </tr>
+                  )}
+                  {displayedRows.map((r, idx) => (
                     <tr
                       key={idx}
                       className={`hover:bg-muted/20 transition ${
-                        !r.isValid ? "bg-destructive/5 text-destructive" : ""
+                        !r.isValid ? "bg-destructive/5" : ""
                       }`}
                     >
-                      <td className="p-2 font-medium truncate max-w-[160px]">{r.title}</td>
+                      <td className="p-2 text-center text-muted-foreground font-mono text-[10px]">
+                        {r.rowNumber}
+                      </td>
+                      <td className="p-2 font-medium truncate max-w-[150px]">{r.title}</td>
+
+                      {/* Status / Diagnóstico */}
+                      <td className="p-2">
+                        {r.isValid ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 font-medium"
+                          >
+                            <CheckCircle2 className="size-2.5 mr-1" /> Válido
+                          </Badge>
+                        ) : (
+                          <div className="space-y-0.5 max-w-[200px]">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] bg-destructive/15 text-destructive border-destructive/40 font-semibold"
+                            >
+                              <AlertCircle className="size-2.5 mr-1 shrink-0" /> Inconsistente
+                            </Badge>
+                            <p className="text-[10px] text-destructive leading-tight font-medium">
+                              {r.error}
+                            </p>
+                          </div>
+                        )}
+                      </td>
+
                       <td className="p-2 capitalize">
                         <span
                           className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
                             r.type === "receita"
                               ? "bg-emerald-500/10 text-emerald-600"
-                              : "bg-destructive/10 text-destructive"
+                              : "bg-rose-500/10 text-rose-600"
                           }`}
                         >
                           {r.type}
                         </span>
                       </td>
+
+                      {/* Custo: Fixo ou Variável */}
+                      <td className="p-2">
+                        <span
+                          className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                            r.costType === "fixo"
+                              ? "bg-blue-500/10 text-blue-600 border border-blue-500/30"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {r.costType === "fixo" ? "Fixo" : "Variável"}
+                        </span>
+                      </td>
+
                       <td className="p-2 capitalize text-muted-foreground">{r.category}</td>
-                      <td className="p-2 text-muted-foreground">{r.dueDate}</td>
+
+                      {/* Vencimento */}
+                      <td className="p-2">
+                        {r.dueDate ? (
+                          <span className="font-mono text-muted-foreground">{r.dueDate}</span>
+                        ) : (
+                          <span className="text-muted-foreground/60 italic text-[10px]">
+                            Sem vencimento
+                          </span>
+                        )}
+                      </td>
+
                       <td className="p-2">
                         <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
                           {r.isCreditCard && (
@@ -285,9 +438,10 @@ export function ImportCsvDialog({
                           {!r.isCreditCard && r.recurring === "none" && "-"}
                         </div>
                       </td>
+
                       <td
-                        className={`p-2 text-right font-semibold ${
-                          r.type === "receita" ? "text-emerald-600" : "text-destructive"
+                        className={`p-2 text-right font-semibold font-mono ${
+                          r.type === "receita" ? "text-emerald-600" : "text-rose-600"
                         }`}
                       >
                         {r.type === "receita" ? "+" : "-"}

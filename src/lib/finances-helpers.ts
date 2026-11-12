@@ -6,19 +6,29 @@ export interface ParsedNotes {
   cleanNotes: string;
   cardName: string | null;
   paymentDate: string | null;
+  costType: "fixo" | "variavel" | null;
 }
 
 /**
- * Extrai tags especiais dos campos de observação como [Cartão: Nubank] e [Pago em: 2026-11-12]
+ * Extrai tags especiais dos campos de observação como [Custo: Fixo], [Cartão: Nubank] e [Pago em: 2026-11-12]
  */
 export function parseFinanceNotes(notes: string | null | undefined): ParsedNotes {
   if (!notes) {
-    return { cleanNotes: "", cardName: null, paymentDate: null };
+    return { cleanNotes: "", cardName: null, paymentDate: null, costType: null };
   }
 
   let text = notes;
   let cardName: string | null = null;
   let paymentDate: string | null = null;
+  let costType: "fixo" | "variavel" | null = null;
+
+  // Extrai classificação de custo (Fixo ou Variável)
+  const costMatch = text.match(/\[(?:Custo|TipoCusto):\s*([^\]]+)\]/i);
+  if (costMatch) {
+    const raw = costMatch[1].trim().toLowerCase();
+    costType = raw.includes("fix") ? "fixo" : "variavel";
+    text = text.replace(costMatch[0], "").trim();
+  }
 
   // Extrai nome do cartão
   const cardMatch = text.match(/\[(?:Cartão|Cartao):\s*([^\]]+)\]/i);
@@ -38,6 +48,7 @@ export function parseFinanceNotes(notes: string | null | undefined): ParsedNotes
     cleanNotes: text.trim(),
     cardName,
     paymentDate,
+    costType,
   };
 }
 
@@ -47,9 +58,14 @@ export function parseFinanceNotes(notes: string | null | undefined): ParsedNotes
 export function buildFinanceNotes(
   cleanNotes: string,
   cardName?: string | null,
-  paymentDate?: string | null
+  paymentDate?: string | null,
+  costType?: "fixo" | "variavel" | null
 ): string | null {
   const tags: string[] = [];
+
+  if (costType) {
+    tags.push(`[Custo: ${costType === "fixo" ? "Fixo" : "Variável"}]`);
+  }
 
   if (cardName && cardName.trim()) {
     tags.push(`[Cartão: ${cardName.trim()}]`);
@@ -101,6 +117,7 @@ export function generateCsvTemplate(): string {
     "tipo",
     "categoria",
     "vencimento",
+    "custo", // fixo ou variavel
     "recorrente",
     "cartao_credito",
     "cartao_nome",
@@ -115,6 +132,7 @@ export function generateCsvTemplate(): string {
       "receita",
       "salário",
       "2026-11-05",
+      "fixo",
       "monthly",
       "nao",
       "",
@@ -127,6 +145,7 @@ export function generateCsvTemplate(): string {
       "despesa",
       "moradia",
       "2026-11-10",
+      "fixo",
       "monthly",
       "nao",
       "",
@@ -139,6 +158,7 @@ export function generateCsvTemplate(): string {
       "despesa",
       "alimentação",
       "2026-11-15",
+      "variavel",
       "none",
       "sim",
       "Nubank",
@@ -151,6 +171,7 @@ export function generateCsvTemplate(): string {
       "receita",
       "freelance",
       "2026-11-20",
+      "variavel",
       "none",
       "nao",
       "",
@@ -163,6 +184,7 @@ export function generateCsvTemplate(): string {
       "despesa",
       "moradia",
       "2026-11-25",
+      "fixo",
       "monthly",
       "nao",
       "",
@@ -181,11 +203,13 @@ export function generateCsvTemplate(): string {
 }
 
 export interface CsvParsedRow {
+  rowNumber: number;
   title: string;
   amount: number;
   type: "receita" | "despesa";
   category: string;
-  dueDate: string;
+  dueDate: string | null;
+  costType: "fixo" | "variavel";
   recurring: "none" | "monthly" | "weekly";
   isCreditCard: boolean;
   cardName: string;
@@ -196,7 +220,68 @@ export interface CsvParsedRow {
 }
 
 /**
- * Lê e interpreta conteúdo de arquivo CSV
+ * Converte datas brasileiras (DD/MM/AAAA) ou ISO (AAAA-MM-DD) para padrão AAAA-MM-DD
+ * Se vazio, retorna null (indicando ausência intencional de data de vencimento)
+ */
+export function normalizeCsvDate(rawDate?: string | null): { date: string | null; isValid: boolean } {
+  if (!rawDate) return { date: null, isValid: true };
+  const cleaned = rawDate.trim();
+  if (!cleaned) return { date: null, isValid: true };
+
+  // Já está em YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(cleaned)) {
+    return { date: cleaned, isValid: true };
+  }
+
+  // Formato brasileiro DD/MM/YYYY ou DD-MM-YYYY
+  const brMatch = cleaned.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (brMatch) {
+    const day = brMatch[1].padStart(2, "0");
+    const month = brMatch[2].padStart(2, "0");
+    const year = brMatch[3];
+    return { date: `${year}-${month}-${day}`, isValid: true };
+  }
+
+  // Tenta converter date genérica
+  const parsed = new Date(cleaned);
+  if (!isNaN(parsed.getTime())) {
+    return { date: parsed.toISOString().split("T")[0], isValid: true };
+  }
+
+  return { date: null, isValid: false };
+}
+
+/**
+ * Divide linha de CSV respeitando aspas duplas escapadas
+ */
+function splitCsvLine(line: string, sep: string): string[] {
+  const result: string[] = [];
+  let current = "";
+  let insideQuotes = false;
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (char === '"') {
+      if (insideQuotes && line[i + 1] === '"') {
+        current += '"';
+        i++; // pula aspas escapadas
+      } else {
+        insideQuotes = !insideQuotes;
+      }
+    } else if (char === sep && !insideQuotes) {
+      result.push(current.trim());
+      current = "";
+    } else {
+      current += char;
+    }
+  }
+  result.push(current.trim());
+  return result.map((c) => c.replace(/^["']|["']$/g, "").trim());
+}
+
+/**
+ * Lê e interpreta conteúdo de arquivo CSV com diagnóstico preciso de inconsistências
  */
 export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
   // Remove BOM se presente
@@ -205,9 +290,31 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
 
   if (lines.length <= 1) return [];
 
-  // Detecta separador (; ou ,)
+  // Detecta separador (; ou , ou \t)
   const headerLine = lines[0];
-  const sep = headerLine.includes(";") ? ";" : ",";
+  const sep = headerLine.includes(";") ? ";" : headerLine.includes("\t") ? "\t" : ",";
+
+  const headerCols = splitCsvLine(headerLine, sep).map((h) =>
+    h.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim()
+  );
+
+  const getColIdx = (aliases: string[], fallbackIdx: number): number => {
+    const found = headerCols.findIndex((h) => aliases.some((a) => h.includes(a)));
+    return found >= 0 ? found : fallbackIdx;
+  };
+
+  const hasCostHeader = headerCols.some((h) => h.includes("cust") || h.includes("fix"));
+  const titleIdx = getColIdx(["desc", "titul", "nome"], 0);
+  const amountIdx = getColIdx(["val", "quant"], 1);
+  const typeIdx = getColIdx(["tip", "naturez"], 2);
+  const catIdx = getColIdx(["cat"], 3);
+  const dueIdx = getColIdx(["venc", "data"], 4);
+  const costIdx = getColIdx(["cust", "fixo", "classif"], hasCostHeader ? 5 : -1);
+  const recIdx = getColIdx(["recorren", "mensal", "period"], hasCostHeader ? 6 : 5);
+  const ccIdx = getColIdx(["cartao_cred", "credito", "cartao"], hasCostHeader ? 7 : 6);
+  const cardNameIdx = getColIdx(["cartao_nom", "banco", "bandeir"], hasCostHeader ? 8 : 7);
+  const instIdx = getColIdx(["parcel"], hasCostHeader ? 9 : 8);
+  const notesIdx = getColIdx(["obs", "not", "detalh"], hasCostHeader ? 10 : 9);
 
   const rows: CsvParsedRow[] = [];
 
@@ -215,25 +322,45 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
     const line = lines[i].trim();
     if (!line) continue;
 
-    const cols = line.split(sep).map((c) => c.replace(/^["']|["']$/g, "").trim());
+    const cols = splitCsvLine(line, sep);
 
-    const title = cols[0] || `Lançamento ${i}`;
-    const rawAmount = cols[1] || "0";
-    const rawType = (cols[2] || "despesa").toLowerCase();
-    const category = (cols[3] || "outros").toLowerCase();
-    const dueDate = cols[4] || new Date().toISOString().split("T")[0];
-    const rawRec = (cols[5] || "none").toLowerCase();
-    const rawCc = (cols[6] || "").toLowerCase();
-    const cardName = cols[7] || "Nubank";
-    const rawInst = parseInt(cols[8] || "1", 10);
-    const notes = cols[9] || "";
+    const rawTitle = cols[titleIdx] || "";
+    const rawAmount = cols[amountIdx] || "";
+    const rawType = (cols[typeIdx] || "despesa").toLowerCase();
+    const rawCategory = cols[catIdx] || "outros";
+    const rawDueDate = cols[dueIdx] || "";
+    const rawCost = costIdx >= 0 ? cols[costIdx] || "" : "";
+    const rawRec = (cols[recIdx] || "none").toLowerCase();
+    const rawCc = (cols[ccIdx] || "").toLowerCase();
+    const rawCardName = cols[cardNameIdx] || "Nubank";
+    const rawInst = parseInt(cols[instIdx] || "1", 10);
+    const notes = cols[notesIdx] || "";
 
-    // Parse amount
-    const cleanAmount = rawAmount
+    const title = rawTitle.trim();
+    let error: string | undefined;
+
+    // Validação da Descrição
+    if (!title) {
+      error = "Descrição do lançamento em branco";
+    }
+
+    // Parse do Valor Numérico
+    const cleanAmount = String(rawAmount)
       .replace(/R\$\s?/gi, "")
+      .replace(/\s+/g, "")
       .replace(/\./g, "")
       .replace(",", ".");
     const amount = parseFloat(cleanAmount);
+
+    if (!error && (isNaN(amount) || amount <= 0)) {
+      error = `Valor numérico inválido ou zerado (encontrado: "${rawAmount || "vazio"}")`;
+    }
+
+    // Validação e normalização da Data de Vencimento
+    const dateNorm = normalizeCsvDate(rawDueDate);
+    if (!error && !dateNorm.isValid) {
+      error = `Data de vencimento inválida: "${rawDueDate}". Utilize o formato DD/MM/AAAA ou AAAA-MM-DD.`;
+    }
 
     let type: "receita" | "despesa" = "despesa";
     if (rawType.includes("receit") || rawType.includes("entrada") || rawType.includes("receber")) {
@@ -244,27 +371,37 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
     if (rawRec === "monthly" || rawRec === "mensal") recurring = "monthly";
     if (rawRec === "weekly" || rawRec === "semanal") recurring = "weekly";
 
+    // Tipo de Custo: Fixo ou Variável
+    let costType: "fixo" | "variavel" = "variavel";
+    if (rawCost) {
+      const cleanCost = rawCost.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      costType = cleanCost.includes("fix") ? "fixo" : "variavel";
+    } else if (recurring !== "none") {
+      costType = "fixo";
+    }
+
     const isCreditCard =
       type === "despesa" &&
-      (rawCc === "sim" || rawCc === "s" || rawCc === "true" || rawCc === "1" || cardName.length > 0);
+      (rawCc === "sim" || rawCc === "s" || rawCc === "true" || rawCc === "1" || rawCardName.length > 0);
 
     const installments = isNaN(rawInst) || rawInst < 1 ? 1 : rawInst;
-
-    const isValid = !isNaN(amount) && amount > 0 && title.length > 0;
+    const isValid = !error;
 
     rows.push({
-      title,
+      rowNumber: i + 1,
+      title: title || `Lançamento Linha ${i + 1}`,
       amount: isNaN(amount) ? 0 : amount,
       type,
-      category,
-      dueDate,
+      category: rawCategory.toLowerCase() || "outros",
+      dueDate: dateNorm.date, // null se o usuário não preencheu!
+      costType,
       recurring,
       isCreditCard,
-      cardName,
+      cardName: rawCardName,
       installments,
       notes,
       isValid,
-      error: !isValid ? "Valor ou descrição inválida" : undefined,
+      error,
     });
   }
 

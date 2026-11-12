@@ -171,6 +171,7 @@ function FinancesContent() {
   const [filterType, setFilterType] = useState("all");
   const [filterCat, setFilterCat] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all"); // all, paid, pending
+  const [filterCost, setFilterCost] = useState("all"); // all, fixo, variavel
   const [open, setOpen] = useState(false);
   const [importCsvOpen, setImportCsvOpen] = useState(false);
   const [editing, setEditing] = useState<Finance | null>(null);
@@ -186,8 +187,9 @@ function FinancesContent() {
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<"despesa" | "receita">("despesa");
+  const [costType, setCostType] = useState<"fixo" | "variavel">("variavel");
   const [category, setCategory] = useState("outros");
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split("T")[0]);
+  const [dueDate, setDueDate] = useState("");
   const [notes, setNotes] = useState("");
   const [recurring, setRecurring] = useState("none");
   const [isCreditCard, setIsCreditCard] = useState(false);
@@ -231,8 +233,9 @@ function FinancesContent() {
     setTitle("");
     setAmount("");
     setType("despesa");
+    setCostType("variavel");
     setCategory("outros");
-    setDueDate(new Date().toISOString().split("T")[0]);
+    setDueDate("");
     setNotes("");
     setEditing(null);
     setEditRecurringScope("single");
@@ -258,10 +261,13 @@ function FinancesContent() {
     }
 
     const today = new Date().toISOString().split("T")[0];
+    const effectiveDate = dueDate ? dueDate : today;
+    const finalDueDate = dueDate ? dueDate : null;
     const computedNotes = buildFinanceNotes(
       notes,
       isCreditCard ? cardName : null,
-      isInitialPaid ? today : null
+      isInitialPaid ? today : null,
+      costType
     );
 
     if (editing) {
@@ -280,8 +286,8 @@ function FinancesContent() {
           amount: amountNum,
           type,
           category,
-          date: dueDate,
-          due_date: dueDate,
+          date: effectiveDate,
+          due_date: finalDueDate,
           notes: computedNotes,
           paid: isInitialPaid,
         };
@@ -322,8 +328,8 @@ function FinancesContent() {
           amount: amountNum,
           type,
           category,
-          date: dueDate,
-          due_date: dueDate,
+          date: effectiveDate,
+          due_date: finalDueDate,
           notes: computedNotes,
           recurring: editing.recurring,
           is_credit_card: isCreditCard,
@@ -363,8 +369,8 @@ function FinancesContent() {
           amount: installmentAmount,
           type: "despesa",
           category,
-          date: dueDate,
-          due_date: dueDate,
+          date: effectiveDate,
+          due_date: finalDueDate,
           notes: computedNotes,
           recurring: "none",
           is_credit_card: true,
@@ -387,7 +393,8 @@ function FinancesContent() {
         // Create remaining installments (parcelas 2..N)
         const childRows = [];
         for (let i = 2; i <= totalInstallments; i++) {
-          const installDate = addMonths(dueDate, i - 1);
+          const installDate = addMonths(effectiveDate, i - 1);
+          const installDueDate = finalDueDate ? addMonths(finalDueDate, i - 1) : null;
           childRows.push({
             user_id: user.id,
             title: `${title.trim()} (${i}/${totalInstallments})`,
@@ -395,8 +402,8 @@ function FinancesContent() {
             type: "despesa",
             category,
             date: installDate,
-            due_date: installDate,
-            notes: buildFinanceNotes(notes, cardName, null),
+            due_date: installDueDate,
+            notes: buildFinanceNotes(notes, cardName, null, costType),
             recurring: "none",
             is_credit_card: true,
             installments: totalInstallments,
@@ -425,8 +432,8 @@ function FinancesContent() {
             amount: amountNum,
             type,
             category,
-            date: dueDate,
-            due_date: dueDate,
+            date: effectiveDate,
+            due_date: finalDueDate,
             notes: computedNotes,
             recurring,
             is_credit_card: isCreditCard,
@@ -444,7 +451,13 @@ function FinancesContent() {
 
         const childRows = [];
         for (let i = 2; i <= occurrences; i++) {
-          const nextDate = recurring === "monthly" ? addMonths(dueDate, i - 1) : addWeeks(dueDate, i - 1);
+          const nextDate = recurring === "monthly" ? addMonths(effectiveDate, i - 1) : addWeeks(effectiveDate, i - 1);
+          const nextDueDate = finalDueDate
+            ? recurring === "monthly"
+              ? addMonths(finalDueDate, i - 1)
+              : addWeeks(finalDueDate, i - 1)
+            : null;
+
           childRows.push({
             user_id: user.id,
             title: title.trim(),
@@ -452,8 +465,8 @@ function FinancesContent() {
             type,
             category,
             date: nextDate,
-            due_date: nextDate,
-            notes: buildFinanceNotes(notes, isCreditCard ? cardName : null, null),
+            due_date: nextDueDate,
+            notes: buildFinanceNotes(notes, isCreditCard ? cardName : null, null, costType),
             recurring,
             is_credit_card: isCreditCard,
             installments: occurrences,
@@ -479,8 +492,8 @@ function FinancesContent() {
           amount: amountNum,
           type,
           category,
-          date: dueDate,
-          due_date: dueDate,
+          date: effectiveDate,
+          due_date: finalDueDate,
           notes: computedNotes,
           recurring: "none",
           is_credit_card: isCreditCard,
@@ -612,9 +625,14 @@ function FinancesContent() {
   const handleImportCsv = async (rows: CsvParsedRow[]) => {
     if (!user) return;
     const directInserts: any[] = [];
+    const todayStr = new Date().toISOString().split("T")[0];
 
     for (const r of rows) {
       if (!r.isValid) continue;
+
+      // Se dueDate for null (não informado no CSV), due_date vai null para o banco!
+      const baseDate = r.dueDate || todayStr;
+      const initialDueDate = r.dueDate || null;
 
       if (r.isCreditCard && r.installments > 1) {
         const totalInst = r.installments;
@@ -627,9 +645,9 @@ function FinancesContent() {
             amount: instAmount,
             type: "despesa",
             category: r.category,
-            date: r.dueDate,
-            due_date: r.dueDate,
-            notes: buildFinanceNotes(r.notes, r.cardName || "Nubank", null),
+            date: baseDate,
+            due_date: initialDueDate,
+            notes: buildFinanceNotes(r.notes, r.cardName || "Nubank", null, r.costType),
             recurring: "none",
             is_credit_card: true,
             installments: totalInst,
@@ -643,7 +661,8 @@ function FinancesContent() {
 
         const childRows = [];
         for (let i = 2; i <= totalInst; i++) {
-          const nextDate = addMonths(r.dueDate, i - 1);
+          const nextDate = addMonths(baseDate, i - 1);
+          const nextDueDate = r.dueDate ? addMonths(r.dueDate, i - 1) : null;
           childRows.push({
             user_id: user.id,
             title: `${r.title.trim()} (${i}/${totalInst})`,
@@ -651,8 +670,8 @@ function FinancesContent() {
             type: "despesa",
             category: r.category,
             date: nextDate,
-            due_date: nextDate,
-            notes: buildFinanceNotes(r.notes, r.cardName || "Nubank", null),
+            due_date: nextDueDate,
+            notes: buildFinanceNotes(r.notes, r.cardName || "Nubank", null, r.costType),
             recurring: "none",
             is_credit_card: true,
             installments: totalInst,
@@ -675,9 +694,9 @@ function FinancesContent() {
             amount: r.amount,
             type: r.type,
             category: r.category,
-            date: r.dueDate,
-            due_date: r.dueDate,
-            notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null),
+            date: baseDate,
+            due_date: initialDueDate,
+            notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null, r.costType),
             recurring: r.recurring,
             is_credit_card: r.isCreditCard,
             installments: occurrences,
@@ -691,7 +710,13 @@ function FinancesContent() {
 
         const childRows = [];
         for (let i = 2; i <= occurrences; i++) {
-          const nextDate = r.recurring === "monthly" ? addMonths(r.dueDate, i - 1) : addWeeks(r.dueDate, i - 1);
+          const nextDate = r.recurring === "monthly" ? addMonths(baseDate, i - 1) : addWeeks(baseDate, i - 1);
+          const nextDueDate = r.dueDate
+            ? r.recurring === "monthly"
+              ? addMonths(r.dueDate, i - 1)
+              : addWeeks(r.dueDate, i - 1)
+            : null;
+
           childRows.push({
             user_id: user.id,
             title: r.title.trim(),
@@ -699,8 +724,8 @@ function FinancesContent() {
             type: r.type,
             category: r.category,
             date: nextDate,
-            due_date: nextDate,
-            notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null),
+            due_date: nextDueDate,
+            notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null, r.costType),
             recurring: r.recurring,
             is_credit_card: r.isCreditCard,
             installments: occurrences,
@@ -720,9 +745,9 @@ function FinancesContent() {
           amount: r.amount,
           type: r.type,
           category: r.category,
-          date: r.dueDate,
-          due_date: r.dueDate,
-          notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null),
+          date: baseDate,
+          due_date: initialDueDate,
+          notes: buildFinanceNotes(r.notes, r.isCreditCard ? r.cardName || "Nubank" : null, null, r.costType),
           recurring: "none",
           is_credit_card: r.isCreditCard,
           installments: 1,
@@ -746,8 +771,9 @@ function FinancesContent() {
     setAmount(String(f.amount));
     setType((f.type === "receita" ? "receita" : "despesa") as any);
     setCategory(f.category);
-    setDueDate(f.due_date || f.date);
+    setDueDate(f.due_date || "");
     const parsed = parseFinanceNotes(f.notes);
+    setCostType(parsed.costType || (f.recurring !== "none" ? "fixo" : "variavel"));
     setNotes(parsed.cleanNotes);
     setRecurring(f.recurring);
     setIsCreditCard(f.is_credit_card);
@@ -810,10 +836,15 @@ function FinancesContent() {
       if (filterCat !== "all" && f.category !== filterCat) return false;
       if (filterStatus === "paid" && !f.paid) return false;
       if (filterStatus === "pending" && f.paid) return false;
+      if (filterCost !== "all") {
+        const parsed = parseFinanceNotes(f.notes);
+        const itemCost = parsed.costType || (f.recurring !== "none" ? "fixo" : "variavel");
+        if (itemCost !== filterCost) return false;
+      }
       if (search && !f.title.toLowerCase().includes(search.toLowerCase())) return false;
       return true;
     });
-  }, [monthItems, filterType, filterCat, filterStatus, search]);
+  }, [monthItems, filterType, filterCat, filterStatus, filterCost, search]);
 
   // Saldo transportado do mês anterior / histórico acumulado
   const carriedOverData = useMemo(
@@ -849,14 +880,37 @@ function FinancesContent() {
   );
   const totalDespesasMes = despesasPagas + despesasAPagar;
 
-  // Lançamentos recorrentes / fixos do mês atual
+  // Despesas Fixas / Recorrentes do mês atual
   const despesasRecorrentesMes = useMemo(
-    () => monthItems.filter((f) => f.type === "despesa" && (f.recurring !== "none" || f.parent_id !== null)),
+    () =>
+      monthItems.filter((f) => {
+        if (f.type !== "despesa") return false;
+        const parsed = parseFinanceNotes(f.notes);
+        return parsed.costType === "fixo" || f.recurring !== "none" || f.parent_id !== null;
+      }),
     [monthItems]
   );
   const totalDespesasRecorrentes = useMemo(
     () => despesasRecorrentesMes.reduce((s, f) => s + Number(f.amount), 0),
     [despesasRecorrentesMes]
+  );
+
+  // Despesas Variáveis do mês atual
+  const despesasVariaveisMes = useMemo(
+    () =>
+      monthItems.filter((f) => {
+        if (f.type !== "despesa") return false;
+        const parsed = parseFinanceNotes(f.notes);
+        return (
+          parsed.costType === "variavel" ||
+          (f.recurring === "none" && !f.parent_id && !f.is_credit_card && !parsed.costType)
+        );
+      }),
+    [monthItems]
+  );
+  const totalDespesasVariaveis = useMemo(
+    () => despesasVariaveisMes.reduce((s, f) => s + Number(f.amount), 0),
+    [despesasVariaveisMes]
   );
 
   // Saldo em caixa realizado
@@ -1091,7 +1145,7 @@ function FinancesContent() {
     const rows = reportItems.map((f) => {
       const parsed = parseFinanceNotes(f.notes);
       return [
-        f.due_date || f.date,
+        f.due_date ? formatDate(f.due_date) : "Sem vencimento",
         f.title,
         f.category,
         f.type === "receita" ? (f.paid ? "Recebido" : "A Receber") : f.paid ? "Pago" : "A Pagar",
@@ -1180,14 +1234,68 @@ function FinancesContent() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Data de Vencimento / Previsão</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs font-medium">Data de Vencimento</Label>
+                      <span className="text-[10px] text-muted-foreground italic">Opcional</span>
+                    </div>
                     <Input
                       type="date"
                       value={dueDate}
                       onChange={(e) => setDueDate(e.target.value)}
+                      placeholder="Deixe em branco se não tiver vencimento"
                       className="h-9 text-xs"
                     />
                   </div>
+                </div>
+
+                {/* Classificação: Custo Fixo ou Variável */}
+                <div className="p-3 rounded-xl border border-border/80 bg-muted/20 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold text-foreground">
+                      Classificação de Custo / Despesa
+                    </Label>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] font-medium ${
+                        costType === "fixo"
+                          ? "bg-blue-500/10 text-blue-600 border-blue-500/30"
+                          : "bg-muted text-muted-foreground border-border/60"
+                      }`}
+                    >
+                      {costType === "fixo" ? "Custo Fixo" : "Custo Variável"}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCostType("fixo")}
+                      className={`py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-between ${
+                        costType === "fixo"
+                          ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-600 font-semibold"
+                          : "border-border/60 hover:bg-muted/60 text-muted-foreground"
+                      }`}
+                    >
+                      <span>Custo Fixo</span>
+                      {costType === "fixo" && <Check className="size-3.5 text-blue-600" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCostType("variavel")}
+                      className={`py-2 px-3 rounded-lg border text-xs font-medium transition flex items-center justify-between ${
+                        costType === "variavel"
+                          ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-600 font-semibold"
+                          : "border-border/60 hover:bg-muted/60 text-muted-foreground"
+                      }`}
+                    >
+                      <span>Custo Variável</span>
+                      {costType === "variavel" && <Check className="size-3.5 text-blue-600" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    {costType === "fixo"
+                      ? "📌 Custo Fixo: Compromissos que ocorrem todo mês (aluguel, condomínio, internet, salário fixo)."
+                      : "🛒 Custo Variável: Despesas flexíveis do dia a dia (supermercado, lazer, combustível, extras)."}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
@@ -1299,7 +1407,15 @@ function FinancesContent() {
                 ) : (
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Recorrência Mensal / Semanal</Label>
-                    <Select value={recurring} onValueChange={setRecurring}>
+                    <Select
+                      value={recurring}
+                      onValueChange={(v) => {
+                        setRecurring(v);
+                        if (v !== "none" && costType === "variavel") {
+                          setCostType("fixo");
+                        }
+                      }}
+                    >
                       <SelectTrigger className="h-9 text-xs">
                         <SelectValue />
                       </SelectTrigger>
@@ -1914,6 +2030,17 @@ function FinancesContent() {
                 ))}
               </SelectContent>
             </Select>
+
+            <Select value={filterCost} onValueChange={setFilterCost}>
+              <SelectTrigger className="w-[145px] h-8 text-xs">
+                <SelectValue placeholder="Custo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs">Todos os Custos</SelectItem>
+                <SelectItem value="fixo" className="text-xs">Custo Fixo</SelectItem>
+                <SelectItem value="variavel" className="text-xs">Custo Variável</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Table */}
@@ -2105,6 +2232,21 @@ function FinancesContent() {
                                       {f.recurring === "monthly" ? "Mensal" : "Semanal"}
                                     </span>
                                   )}
+                                  {/* Classificação Fixo / Variável */}
+                                  {(() => {
+                                    const cost = parsed.costType || (f.recurring !== "none" ? "fixo" : "variavel");
+                                    return (
+                                      <span
+                                        className={`inline-flex items-center px-1.5 py-0.5 rounded font-medium text-[10px] ${
+                                          cost === "fixo"
+                                            ? "bg-blue-500/10 text-blue-700 dark:text-blue-300 border border-blue-500/20"
+                                            : "bg-muted text-muted-foreground border border-border/60"
+                                        }`}
+                                      >
+                                        {cost === "fixo" ? "Fixo" : "Variável"}
+                                      </span>
+                                    );
+                                  })()}
                                   {parsed.cleanNotes && (
                                     <span className="truncate max-w-[220px]" title={parsed.cleanNotes}>
                                       • {parsed.cleanNotes}
@@ -2124,9 +2266,15 @@ function FinancesContent() {
                             {/* Vencimento e Data de Quitação */}
                             <td className="px-4 py-3">
                               <div className="space-y-0.5">
-                                <span className="text-muted-foreground block">
-                                  Venc: {formatDate(f.due_date || f.date)}
-                                </span>
+                                {f.due_date ? (
+                                  <span className="text-muted-foreground block text-xs">
+                                    Venc: {formatDate(f.due_date)}
+                                  </span>
+                                ) : (
+                                  <span className="text-muted-foreground/60 block text-[11px] italic">
+                                    Sem vencimento
+                                  </span>
+                                )}
                                 {f.paid ? (
                                   <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
                                     <CheckCircle2 className="size-3" />
