@@ -1529,85 +1529,199 @@ function VisualManagementPage() {
     }
   };
 
+  // Definição estruturada das metodologias organizadas por grupos temáticos
+  const TOOL_CATEGORIES = [
+    {
+      name: "Diagnóstico & Análise",
+      badge: "Estratégia",
+      tools: [
+        { id: "swot", label: "Matriz SWOT", desc: "Forças e Fraquezas", icon: LayoutGrid, color: "text-blue-500" },
+        { id: "5w2h", label: "Plano 5W2H", desc: "Plano de Ação", icon: ListChecks, color: "text-emerald-500" },
+        { id: "pareto", label: "Pareto", desc: "Princípio 80/20", icon: BarChart3, color: "text-amber-500" },
+      ]
+    },
+    {
+      name: "Priorização & Decisão",
+      badge: "Execução",
+      tools: [
+        { id: "raci", label: "Matriz RACI", desc: "Responsabilidades", icon: Users, color: "text-indigo-500" },
+        { id: "eisenhower", label: "Eisenhower", desc: "Urgência x Impacto", icon: Target, color: "text-red-500" },
+        { id: "gut", label: "Matriz GUT", desc: "Gravidade e Urgência", icon: AlertTriangle, color: "text-orange-500" },
+        { id: "smart", label: "Metas SMART", desc: "Metas Claras", icon: Star, color: "text-yellow-500" },
+      ]
+    },
+    {
+      name: "Visual & Processos",
+      badge: "Diagramas",
+      tools: [
+        { id: "mindmap", label: "Mapa Mental", desc: "Ideias e Nós", icon: Brain, color: "text-purple-500" },
+        { id: "flowchart", label: "Fluxograma", desc: "Mapeamento", icon: Workflow, color: "text-cyan-500" },
+      ]
+    }
+  ];
+
+  // Informações da ferramenta ativa para o HUD superior
+  const currentToolInfo = TOOL_CATEGORIES.flatMap(c => c.tools).find(t => t.id === activeTab) || {
+    id: activeTab,
+    label: "Metodologia",
+    desc: "Ferramenta de gestão visual",
+    icon: LayoutGrid,
+    color: "text-accent"
+  };
+
   return (
-    <div className="p-4 lg:p-6 w-full max-w-none space-y-6 flex-1 flex flex-col min-h-screen">
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="p-4 lg:p-6 w-full max-w-none space-y-5 flex-1 flex flex-col min-h-screen">
+      {/* Top Header com Ações Executivas */}
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-1">
         <div>
-          <p className="text-sm text-accent font-medium uppercase tracking-wider">Metodologias</p>
-          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Gestão Visual</h1>
-          <p className="text-muted-foreground mt-2">Ferramentas estratégicas para análise de alta performance.</p>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-accent font-semibold uppercase tracking-wider bg-accent/10 px-2 py-0.5 rounded-md border border-accent/20">
+              Gestão Visual
+            </span>
+            <span className="text-xs text-muted-foreground">9 Ferramentas Integradas</span>
+          </div>
+          <h1 className="font-display text-2xl lg:text-3xl font-bold mt-1 tracking-tight">Metodologias & Análise</h1>
+          <p className="text-xs text-muted-foreground mt-0.5">Frameworks estratégicos de alta performance para tomada de decisão e planejamento.</p>
         </div>
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2 w-full md:w-auto">
+
+        {/* Toolbar de Ações de Quadro */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[180px] sm:min-w-[220px]">
             <select
-              className="flex h-10 w-full md:w-64 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              className="flex h-9 w-full rounded-lg border border-border/60 bg-background/80 px-3 py-1.5 text-xs ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               value={selectedProjectId}
               onChange={(e) => setSelectedProjectId(e.target.value)}
+              title="Vincular quadro a um projeto"
             >
               <option value="">Nenhum Projeto (Rascunho)</option>
               {projects.map(p => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
-            <Button onClick={handleLoadBoard} variant="outline" className="gap-2" title="Carregar painel salvo deste projeto">
-              Carregar
-            </Button>
-            <Button onClick={handleSaveBoard} className="bg-primary gap-2 text-primary-foreground" title="Salvar painel neste projeto">
-              <Save className="h-4 w-4" /> Salvar
-            </Button>
-            <Button
-              onClick={() => { setSavedBoardsOpen(true); loadSavedBoardsList(); }}
-              variant="outline"
-              className="gap-2"
-              title="Gerenciar quadros salvos"
-            >
-              <FolderOpen className="h-4 w-4" /> Meus Quadros
-            </Button>
           </div>
-          <div className="flex gap-2 self-end">
-            <Button
-              onClick={handleAIAnalysis}
-              disabled={loadingAI}
-              variant="outline"
-              className="gap-2 border-accent/20 text-accent hover:bg-accent/10 shadow-glow-accent"
-            >
-              {loadingAI ? <Loader2 className="h-4 w-4 animate-spin" /> : <Brain className="h-4 w-4" />}
-              Sugerir Análise com IA
-            </Button>
-            <Button
-              onClick={handleExportPDF}
-              disabled={exportingPDF}
-              className="bg-gradient-primary gap-2 shadow-glow"
-            >
-              {exportingPDF ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-              {exportingPDF ? "Exportando..." : "Exportar para PDF"}
-            </Button>
-          </div>
+
+          <Button
+            onClick={handleLoadBoard}
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-xs border-border/60"
+            title="Carregar painel salvo deste projeto"
+          >
+            Carregar
+          </Button>
+
+          <Button
+            onClick={handleSaveBoard}
+            size="sm"
+            className="h-9 bg-primary gap-1.5 text-xs text-primary-foreground shadow-xs"
+            title="Salvar alterações do quadro atual"
+          >
+            <Save className="h-3.5 w-3.5" /> Salvar
+          </Button>
+
+          <Button
+            onClick={() => { setSavedBoardsOpen(true); loadSavedBoardsList(); }}
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-xs border-border/60"
+            title="Gerenciar todos os quadros salvos"
+          >
+            <FolderOpen className="h-3.5 w-3.5" /> Quadros
+          </Button>
+
+          <Button
+            onClick={handleAIAnalysis}
+            disabled={loadingAI}
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-xs border-accent/30 text-accent hover:bg-accent/10 shadow-xs"
+            title="Gerar insights automatizados com inteligência artificial"
+          >
+            {loadingAI ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Brain className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">Análise IA</span>
+          </Button>
+
+          <Button
+            onClick={handleExportPDF}
+            disabled={exportingPDF}
+            size="sm"
+            className="h-9 bg-gradient-primary gap-1.5 text-xs text-primary-foreground shadow-xs"
+            title="Exportar ferramenta visual para documento PDF"
+          >
+            {exportingPDF ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+            <span className="hidden sm:inline">Exportar PDF</span>
+          </Button>
         </div>
       </header>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col">
-        <div className="overflow-x-auto pb-2">
-          <TabsList className="bg-card/50 border border-white/5 p-1 rounded-xl w-fit">
-            <TabsTrigger value="swot" className="rounded-lg gap-2">SWOT</TabsTrigger>
-            <TabsTrigger value="eisenhower" className="rounded-lg gap-2">Eisenhower</TabsTrigger>
-            <TabsTrigger value="5w2h" className="rounded-lg gap-2">5W2H</TabsTrigger>
-            <TabsTrigger value="pareto" className="rounded-lg gap-2">Pareto</TabsTrigger>
-            <TabsTrigger value="smart" className="rounded-lg gap-2">SMART</TabsTrigger>
-            <TabsTrigger value="gut" className="rounded-lg gap-2">GUT</TabsTrigger>
-            <TabsTrigger value="raci" className="rounded-lg gap-2">
-              <Users className="h-4 w-4 text-emerald-500" />
-              Matriz RACI
-            </TabsTrigger>
-            <TabsTrigger value="flowchart" className="rounded-lg gap-2">Fluxograma</TabsTrigger>
-            <TabsTrigger value="mindmap" className="rounded-lg gap-2">
-              <Brain className="h-4 w-4 text-accent" />
-              Mapa Mental
-            </TabsTrigger>
-          </TabsList>
+      {/* NOVO HUD MODERNO DE METODOLOGIAS (Categorizado, sem textos embolados) */}
+      <div className="bg-card/40 border border-border/50 rounded-2xl p-3 backdrop-blur-md shadow-xs space-y-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {TOOL_CATEGORIES.map((cat) => (
+            <div key={cat.name} className="flex flex-col gap-1.5 bg-background/40 border border-border/30 rounded-xl p-2">
+              <div className="flex items-center justify-between px-1.5 py-0.5">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground/80">
+                  {cat.name}
+                </span>
+                <span className="text-[10px] font-semibold text-accent/80 bg-accent/10 px-1.5 py-0.5 rounded">
+                  {cat.badge}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-1">
+                {cat.tools.map((tool) => {
+                  const Icon = tool.icon;
+                  const isActive = activeTab === tool.id;
+                  return (
+                    <button
+                      key={tool.id}
+                      type="button"
+                      onClick={() => setActiveTab(tool.id)}
+                      className={cn(
+                        "flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-all",
+                        isActive
+                          ? "bg-accent text-accent-foreground font-semibold shadow-xs"
+                          : "hover:bg-muted/60 text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-accent-foreground" : tool.color)} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold leading-tight truncate">{tool.label}</p>
+                        <p className={cn("text-[10px] leading-tight truncate", isActive ? "text-accent-foreground/80" : "text-muted-foreground/60")}>
+                          {tool.desc}
+                        </p>
+                      </div>
+                      {isActive && <span className="h-1.5 w-1.5 rounded-full bg-accent-foreground shrink-0" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
         </div>
+      </div>
 
-        <Card ref={printRef} className="mt-4 p-4 lg:p-6 border-white/5 bg-card/30 backdrop-blur-sm flex-1 min-h-[calc(100vh-210px)] shadow-elegant relative overflow-hidden flex flex-col">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col mt-1">
+        {/* Card Principal da Ferramenta Visual */}
+        <Card ref={printRef} className="p-4 lg:p-6 border-border/40 bg-card/30 backdrop-blur-sm flex-1 min-h-[calc(100vh-320px)] shadow-elegant relative overflow-hidden flex flex-col">
+          {/* Header de Contexto da Ferramenta Ativa */}
+          <div className="flex items-center justify-between pb-4 mb-4 border-b border-border/30">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-xl bg-accent/15 flex items-center justify-center text-accent shadow-xs">
+                <currentToolInfo.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-foreground leading-tight">{currentToolInfo.label}</h2>
+                <p className="text-xs text-muted-foreground leading-tight">{currentToolInfo.desc}</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-[11px] font-medium border-border/50 text-muted-foreground hidden sm:inline-flex">
+                Auto-salvamento em rascunho
+              </Badge>
+            </div>
+          </div>
+
           <TabsContent value="swot" className="mt-0 flex-1"><SwotMatrix data={swot} setData={setSwot} /></TabsContent>
           <TabsContent value="eisenhower" className="mt-0 flex-1"><EisenhowerMatrix tasks={eisenhower} setTasks={setEisenhower} /></TabsContent>
           <TabsContent value="5w2h" className="mt-0 flex-1"><FiveWTwoH rows={fiveW} setRows={setFiveW} /></TabsContent>
