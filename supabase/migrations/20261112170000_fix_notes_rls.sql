@@ -28,3 +28,4 @@ DROP POLICY IF EXISTS "Users delete own notes" ON public.notes;
 CREATE POLICY "Users delete own notes" ON public.notes
   FOR DELETE TO authenticated
   USING (auth.uid() = user_id OR public.is_at_least('gestor'));
+
