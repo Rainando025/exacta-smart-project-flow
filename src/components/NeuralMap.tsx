@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTheme } from "@/contexts/ThemeContext";
 import { toast } from "sonner";
 import { RichColorPicker } from "@/components/ui/color-picker";
 
@@ -58,6 +59,8 @@ const DEFAULT_COLORS = [
 
 export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
   const { user } = useAuth();
+  const { theme } = useTheme();
+  const isDark = theme === "dark";
   const [nodes, setNodes] = useState<Node[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [loading, setLoading] = useState(true);
@@ -674,22 +677,28 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
   return (
     <div
       ref={containerRef}
-      className="h-full min-h-[620px] w-full relative overflow-hidden bg-[#0a0e17] text-foreground rounded-2xl border border-white/10 shadow-2xl select-none cursor-grab active:cursor-grabbing flex flex-col"
+      className="h-full min-h-[620px] w-full relative overflow-hidden bg-background dark:bg-[#0a0e17] text-foreground rounded-2xl border border-border shadow-xl select-none cursor-grab active:cursor-grabbing flex flex-col"
       onPointerDown={(e) => handlePointerDown(e)}
       onPointerMove={handlePointerMove}
       onPointerUp={handlePointerUp}
       onPointerLeave={handlePointerUp}
       onDoubleClick={handleBackgroundDoubleClick}
     >
-      {/* Obsidian Constellation Background */}
+      {/* Obsidian Constellation Background (adaptado ao tema claro/escuro) */}
       <div
         className="absolute inset-0 z-0 pointer-events-none transition-transform duration-75"
         style={{
-          backgroundImage: `
-            radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.12) 1.5px, transparent 1.5px),
-            radial-gradient(circle at 20% 30%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
-            radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.08) 0%, transparent 40%)
-          `,
+          backgroundImage: isDark
+            ? `
+              radial-gradient(circle at 50% 50%, rgba(56, 189, 248, 0.14) 1.5px, transparent 1.5px),
+              radial-gradient(circle at 20% 30%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+              radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.08) 0%, transparent 40%)
+            `
+            : `
+              radial-gradient(circle at 50% 50%, rgba(15, 23, 42, 0.12) 1.5px, transparent 1.5px),
+              radial-gradient(circle at 20% 30%, rgba(14, 165, 233, 0.06) 0%, transparent 40%),
+              radial-gradient(circle at 80% 70%, rgba(16, 185, 129, 0.06) 0%, transparent 40%)
+            `,
           backgroundSize: "36px 36px, 100% 100%, 100% 100%",
           transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
           transformOrigin: "0 0",
@@ -715,7 +724,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
           className={`h-8 text-xs font-semibold rounded-xl gap-1.5 transition-all ${
             linkMode
               ? "bg-accent text-accent-foreground shadow-glow-accent border-accent"
-              : "bg-card/70 backdrop-blur-md border-white/10 hover:bg-card/90"
+              : "bg-card/85 backdrop-blur-md border-border hover:bg-card text-foreground"
           }`}
         >
           {linkMode ? <Unlink className="h-3.5 w-3.5" /> : <LinkIcon className="h-3.5 w-3.5" />}
@@ -729,7 +738,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Buscar no mapa..."
-            className="pl-8 pr-7 h-8 w-40 sm:w-48 text-xs rounded-xl bg-card/70 backdrop-blur-md border-white/10 focus:border-accent"
+            className="pl-8 pr-7 h-8 w-40 sm:w-48 text-xs rounded-xl bg-card/85 backdrop-blur-md border-border focus:border-accent"
           />
           {searchQuery && (
             <button
@@ -743,7 +752,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
       </div>
 
       {/* Zoom Controls (Bottom Right) */}
-      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 bg-card/80 backdrop-blur-md p-1 rounded-xl border border-white/10 shadow-elegant pointer-events-auto">
+      <div className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 bg-card/85 backdrop-blur-md p-1 rounded-xl border border-border shadow-elegant pointer-events-auto">
         <Button
           size="icon"
           variant="ghost"
@@ -765,7 +774,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
         >
           <ZoomOut className="h-3.5 w-3.5" />
         </Button>
-        <div className="w-[1px] h-4 bg-white/10 mx-0.5" />
+        <div className="w-[1px] h-4 bg-border mx-0.5" />
         <Button
           size="icon"
           variant="ghost"
@@ -779,7 +788,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
 
       {/* Obsidian Bottom Left Legend */}
       <div className="absolute bottom-4 left-4 z-20 pointer-events-none hidden sm:block">
-        <div className="p-3 rounded-xl bg-card/75 backdrop-blur-md border border-white/10 text-[10px] text-muted-foreground space-y-1 shadow-elegant">
+        <div className="p-3 rounded-xl bg-card/85 backdrop-blur-md border border-border text-[10px] text-muted-foreground space-y-1 shadow-elegant">
           <p className="flex items-center gap-1.5">
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#38bdf8]" />
             Nós Circulares Obsidian: ideias e pensamentos conectados
@@ -863,7 +872,11 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
                   y1={y1}
                   x2={x2}
                   y2={y2}
-                  stroke={isEdgeHighlighted ? "#38bdf8" : "rgba(255, 255, 255, 0.22)"}
+                  stroke={
+                    isEdgeHighlighted
+                      ? isDark ? "#38bdf8" : "#0284c7"
+                      : isDark ? "rgba(255, 255, 255, 0.25)" : "rgba(15, 23, 42, 0.24)"
+                  }
                   strokeWidth={isEdgeHighlighted ? "2.5" : "1.5"}
                   strokeDasharray={isEdgeHighlighted ? undefined : undefined}
                   className="transition-colors duration-200"
@@ -926,7 +939,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
               <div
                 className={`
                   relative rounded-full flex items-center justify-center transition-all duration-200
-                  ${isSelected ? "scale-115 ring-2 ring-white ring-offset-2 ring-offset-black" : "hover:scale-110"}
+                  ${isSelected ? "scale-115 ring-2 ring-accent ring-offset-2 ring-offset-background" : "hover:scale-110"}
                 `}
                 style={{
                   width: `${diameter}px`,
@@ -977,11 +990,11 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
               <div className="absolute top-full mt-1.5 left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none">
                 <span
                   className={`
-                    text-[11px] font-semibold px-2 py-0.5 rounded-full text-center max-w-[130px] truncate leading-tight shadow-md transition-all
+                    text-[11px] font-semibold px-2.5 py-0.5 rounded-full text-center max-w-[130px] truncate leading-tight shadow-sm transition-all
                     ${
                       isSelected
-                        ? "bg-white text-black font-bold shadow-glow"
-                        : "bg-slate-950/85 backdrop-blur-md text-slate-100 border border-white/10"
+                        ? "bg-primary text-primary-foreground font-bold shadow-md"
+                        : "bg-card/90 backdrop-blur-md text-foreground border border-border"
                     }
                   `}
                   title={node.label}
@@ -989,7 +1002,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
                   {node.label}
                 </span>
                 {node.is_note && (
-                  <span className="text-[9px] text-cyan-400 font-mono mt-0.5">anotação</span>
+                  <span className="text-[9px] text-cyan-600 dark:text-cyan-400 font-mono mt-0.5">anotação</span>
                 )}
               </div>
             </div>
@@ -999,9 +1012,9 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
 
       {/* Floating Obsidian Node Inspector Panel (Definir novas ideias dentro do nó) */}
       {selectedNode && (
-        <div className="absolute top-4 right-4 z-20 w-80 sm:w-88 rounded-2xl bg-card/90 backdrop-blur-xl border border-white/15 shadow-2xl p-4 animate-in fade-in slide-in-from-right-4 duration-300 pointer-events-auto flex flex-col gap-3.5 max-h-[calc(100%-32px)] overflow-y-auto">
+        <div className="absolute top-4 right-4 z-20 w-80 sm:w-88 rounded-2xl bg-card/95 backdrop-blur-xl border border-border shadow-2xl p-4 animate-in fade-in slide-in-from-right-4 duration-300 pointer-events-auto flex flex-col gap-3.5 max-h-[calc(100%-32px)] overflow-y-auto">
           {/* Header */}
-          <div className="flex items-start justify-between gap-2 border-b border-white/10 pb-3">
+          <div className="flex items-start justify-between gap-2 border-b border-border pb-3">
             <div className="flex items-center gap-2.5 min-w-0">
               <span
                 className="w-4 h-4 rounded-full shrink-0 shadow-xs"
@@ -1050,7 +1063,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
                 value={branchInput}
                 onChange={(e) => setBranchInput(e.target.value)}
                 placeholder="Ex: Definir arquitetura técnica..."
-                className="h-8 text-xs bg-background/80 border-white/15 focus:border-accent"
+                className="h-8 text-xs bg-background/80 border-border focus:border-accent"
                 disabled={branchingLoading}
               />
               <Button
@@ -1082,7 +1095,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
             </div>
 
             {neighborNodes.length === 0 ? (
-              <p className="text-[11px] text-muted-foreground/70 italic p-2 rounded-lg bg-muted/20 border border-dashed border-white/5 text-center">
+              <p className="text-[11px] text-muted-foreground/70 italic p-2 rounded-lg bg-muted/20 border border-dashed border-border text-center">
                 Este nó ainda está isolado. Ramifique uma ideia acima ou use "Conectar Nós".
               </p>
             ) : (
@@ -1090,7 +1103,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
                 {neighborNodes.map(({ node, edgeId }) => (
                   <div
                     key={node.id}
-                    className="flex items-center justify-between p-2 rounded-lg bg-card/60 hover:bg-card border border-white/5 text-xs transition cursor-pointer group"
+                    className="flex items-center justify-between p-2 rounded-lg bg-card/60 hover:bg-card border border-border text-xs transition cursor-pointer group"
                     onClick={() => setSelectedNodeId(node.id)}
                   >
                     <div className="flex items-center gap-2 truncate">
@@ -1120,13 +1133,13 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
           </div>
 
           {/* Actions Bottom Bar */}
-          <div className="pt-2 border-t border-white/10 flex items-center justify-between gap-2">
+          <div className="pt-2 border-t border-border flex items-center justify-between gap-2">
             {selectedNode.is_note ? (
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => handleNodeDoubleClick(selectedNode)}
-                className="h-8 text-xs gap-1.5 flex-1 border-white/10 hover:bg-accent hover:text-accent-foreground"
+                className="h-8 text-xs gap-1.5 flex-1 border-border hover:bg-accent hover:text-accent-foreground"
               >
                 <FileText className="h-3.5 w-3.5 text-accent" /> Abrir Anotação
               </Button>
@@ -1140,7 +1153,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
                   setNodeColor(selectedNode.color);
                   setNodeModalOpen(true);
                 }}
-                className="h-8 text-xs gap-1.5 flex-1 border-white/10 hover:bg-accent hover:text-accent-foreground"
+                className="h-8 text-xs gap-1.5 flex-1 border-border hover:bg-accent hover:text-accent-foreground"
               >
                 <Edit2 className="h-3.5 w-3.5" /> Editar Nó
               </Button>
@@ -1161,7 +1174,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
 
       {/* Idea Creation / Edit Modal (Para novos nós separados ou edição) */}
       <Dialog open={isNodeModalOpen} onOpenChange={setNodeModalOpen}>
-        <DialogContent className="sm:max-w-[380px] bg-card/95 backdrop-blur-xl border border-white/15">
+        <DialogContent className="sm:max-w-[380px] bg-card/95 backdrop-blur-xl border border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-accent" />
@@ -1208,7 +1221,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
 
       {/* Full Note Editor Modal */}
       <Dialog open={isNoteModalOpen} onOpenChange={setNoteModalOpen}>
-        <DialogContent className="sm:max-w-[550px] max-h-[85vh] flex flex-col bg-card/95 backdrop-blur-xl border border-white/15">
+        <DialogContent className="sm:max-w-[550px] max-h-[85vh] flex flex-col bg-card/95 backdrop-blur-xl border border-border">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-accent" />
@@ -1230,7 +1243,7 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
                 <textarea
                   value={activeNote.content}
                   onChange={(e) => setActiveNote({ ...activeNote, content: e.target.value })}
-                  className="w-full min-h-[220px] p-3 text-xs rounded-xl bg-background border border-white/10 focus:outline-none focus:ring-1 focus:ring-accent resize-none font-mono"
+                  className="w-full min-h-[220px] p-3 text-xs rounded-xl bg-background border border-border focus:outline-none focus:ring-1 focus:ring-accent resize-none font-mono"
                   placeholder="Escreva seus pensamentos e anotações aqui..."
                 />
               </div>
