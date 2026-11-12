@@ -163,7 +163,7 @@ export function ImportCsvDialog({
               <Download className="size-3.5 text-primary" /> Passo 1: Obtenha o Modelo Padrão
             </h4>
             <p className="text-xs text-muted-foreground">
-              Baixe a planilha de exemplo com as colunas certas (descrição, valor, categoria, vencimento, etc.).
+              Baixe a planilha de exemplo com as colunas certas. O campo <strong>valor</strong> já é o valor exato de cada parcela.
             </p>
           </div>
           <Button
@@ -430,7 +430,10 @@ export function ImportCsvDialog({
                           {r.isCreditCard && (
                             <span className="flex items-center gap-0.5 px-1 py-0.5 rounded bg-purple-500/10 text-purple-600">
                               <CreditCard className="size-2.5" />
-                              {r.cardName} {r.installments > 1 ? `(${r.installments}x)` : ""}
+                              {r.cardName}{" "}
+                              {r.installments > 1
+                                ? `(${r.installments}x de ${r.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })})`
+                                : ""}
                             </span>
                           )}
                           {r.recurring !== "none" && (

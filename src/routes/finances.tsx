@@ -361,7 +361,8 @@ function FinancesContent() {
       // Credit card with installments
       if (isCreditCard && parseInt(installments, 10) > 1) {
         const totalInstallments = parseInt(installments, 10);
-        const installmentAmount = Math.round((amountNum / totalInstallments) * 100) / 100;
+        // O valor lançado já é exatamente o valor de cada parcela (não divide pelo número de parcelas)
+        const installmentAmount = amountNum;
         const nextMonthStr = getNextMonth(currentMonth);
         const cardDay = (dueDate || today).split("-")[2] || "10";
         const baseCardDate = `${nextMonthStr}-${cardDay}`;
@@ -426,7 +427,7 @@ function FinancesContent() {
         }
 
         toast.success(
-          `${totalInstallments} parcelas adicionadas na fatura do cartão ${normalizedCard} a partir de ${formatMonthYear(nextMonthStr)}!`
+          `${totalInstallments} parcelas de ${fmt(installmentAmount)} adicionadas na fatura do cartão ${normalizedCard} a partir de ${formatMonthYear(nextMonthStr)}!`
         );
       } else if (recurring !== "none") {
         const occurrences = recurring === "monthly" ? 12 : 52;
@@ -772,7 +773,8 @@ function FinancesContent() {
 
       if (r.isCreditCard && r.installments > 1) {
         const totalInst = r.installments;
-        const instAmount = Math.round((r.amount / totalInst) * 100) / 100;
+        // O valor lançado no CSV já é exatamente o valor de cada parcela (não divide)
+        const instAmount = r.amount;
         const parentRes = await supabase
           .from("personal_finances")
           .insert({
@@ -1704,11 +1706,8 @@ function FinancesContent() {
 
                         {parseInt(installments, 10) > 1 && amount && (
                           <div className="p-2.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-xs text-purple-700 dark:text-purple-300">
-                            <strong>{installments}x</strong> de{" "}
-                            {fmt(
-                              Math.round((parseFloat(amount) / parseInt(installments, 10)) * 100) / 100
-                            )}{" "}
-                            na fatura do cartão <strong>{cardName}</strong>. Cada parcela cairá no mês correspondente!
+                            <strong>{installments} parcelas</strong> de{" "}
+                            <strong>{fmt(parseFloat(amount) || 0)}</strong> cada na fatura do cartão <strong>{cardName}</strong> (Total acumulado: {fmt((parseFloat(amount) || 0) * parseInt(installments, 10))}). Cada parcela de {fmt(parseFloat(amount) || 0)} cairá no mês correspondente!
                           </div>
                         )}
                       </div>
