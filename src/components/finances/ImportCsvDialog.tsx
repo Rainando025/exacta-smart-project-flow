@@ -412,7 +412,11 @@ export function ImportCsvDialog({
 
                       {/* Vencimento */}
                       <td className="p-2">
-                        {r.dueDate ? (
+                        {r.type === "receita" ? (
+                          <span className="text-muted-foreground/60 text-[10px]">
+                            Sem vencimento (Receita)
+                          </span>
+                        ) : r.dueDate ? (
                           <span className="font-mono text-muted-foreground">{r.dueDate}</span>
                         ) : (
                           <span className="text-muted-foreground/60 italic text-[10px]">

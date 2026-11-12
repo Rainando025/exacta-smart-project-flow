@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -32,6 +32,8 @@ import {
   Check,
   X,
   AlertTriangle,
+  AlertCircle,
+  Loader2,
   ChevronLeft,
   ChevronRight,
   CalendarDays,
@@ -174,6 +176,9 @@ function FinancesContent() {
   const [filterCost, setFilterCost] = useState("all"); // all, fixo, variavel
   const [open, setOpen] = useState(false);
   const [importCsvOpen, setImportCsvOpen] = useState(false);
+  const [clearDialogOpen, setClearDialogOpen] = useState(false);
+  const [clearScope, setClearScope] = useState<"month" | "all">("month");
+  const [clearing, setClearing] = useState(false);
   const [editing, setEditing] = useState<Finance | null>(null);
   const [editingInlineId, setEditingInlineId] = useState<string | null>(null);
   const [editRecurringScope, setEditRecurringScope] = useState<"single" | "all_future">("single");
@@ -261,8 +266,10 @@ function FinancesContent() {
     }
 
     const today = new Date().toISOString().split("T")[0];
-    const effectiveDate = dueDate ? dueDate : today;
-    const finalDueDate = dueDate ? dueDate : null;
+    const defaultReceitaDate = currentMonth ? `${currentMonth}-10` : today;
+    const effectiveDate = type === "receita" ? (editing?.date || defaultReceitaDate) : (dueDate ? dueDate : today);
+    // Receitas nunca possuem data de vencimento (vencimento é apenas para despesas/contas a pagar)
+    const finalDueDate = type === "receita" ? null : (dueDate ? dueDate : null);
     const computedNotes = buildFinanceNotes(
       notes,
       isCreditCard ? cardName : null,
@@ -452,11 +459,12 @@ function FinancesContent() {
         const childRows = [];
         for (let i = 2; i <= occurrences; i++) {
           const nextDate = recurring === "monthly" ? addMonths(effectiveDate, i - 1) : addWeeks(effectiveDate, i - 1);
-          const nextDueDate = finalDueDate
-            ? recurring === "monthly"
+          const nextDueDate =
+            type === "receita" || !finalDueDate
+              ? null
+              : recurring === "monthly"
               ? addMonths(finalDueDate, i - 1)
-              : addWeeks(finalDueDate, i - 1)
-            : null;
+              : addWeeks(finalDueDate, i - 1);
 
           childRows.push({
             user_id: user.id,
@@ -523,6 +531,71 @@ function FinancesContent() {
     }
     toast.success("Lançamento removido deste mês!");
     load();
+  };
+
+  /**
+   * Exclui lançamentos: ou apenas do mês atual ou zera todo o banco de finanças
+   */
+  const handleClearFinances = async () => {
+    if (!user) return;
+    setClearing(true);
+    try {
+      if (clearScope === "all") {
+        // Exclui primeiro os registros dependentes (filhos com parent_id)
+        const { error: errChildren } = await supabase
+          .from("personal_finances")
+          .delete()
+          .eq("user_id", user.id)
+          .not("parent_id", "is", null);
+
+        if (errChildren) throw errChildren;
+
+        // Exclui todos os registros restantes do usuário
+        const { error: errAll } = await supabase
+          .from("personal_finances")
+          .delete()
+          .eq("user_id", user.id);
+
+        if (errAll) throw errAll;
+
+        toast.success(`Todos os ${items.length} lançamentos foram excluídos do banco de dados com sucesso!`);
+      } else {
+        const monthIds = monthItems.map((m) => m.id);
+        if (monthIds.length === 0) {
+          toast.info("Não há lançamentos neste mês para excluir.");
+          setClearDialogOpen(false);
+          return;
+        }
+
+        // Exclui dependentes deste mês primeiro
+        const { error: errChildren } = await supabase
+          .from("personal_finances")
+          .delete()
+          .in("id", monthIds)
+          .not("parent_id", "is", null);
+
+        if (errChildren) throw errChildren;
+
+        // Exclui lançamentos deste mês
+        const { error: errMonth } = await supabase
+          .from("personal_finances")
+          .delete()
+          .in("id", monthIds);
+
+        if (errMonth) throw errMonth;
+
+        toast.success(
+          `${monthIds.length} lançamento(s) de ${formatMonthYear(currentMonth)} excluído(s) com sucesso!`
+        );
+      }
+
+      setClearDialogOpen(false);
+      await load();
+    } catch (e: any) {
+      toast.error("Erro ao excluir lançamentos: " + (e?.message || e));
+    } finally {
+      setClearing(false);
+    }
   };
 
   /**
@@ -630,9 +703,9 @@ function FinancesContent() {
     for (const r of rows) {
       if (!r.isValid) continue;
 
-      // Se dueDate for null (não informado no CSV), due_date vai null para o banco!
+      // Se dueDate for null (ou se for receita), due_date vai null para o banco!
       const baseDate = r.dueDate || todayStr;
-      const initialDueDate = r.dueDate || null;
+      const initialDueDate = r.type === "receita" ? null : (r.dueDate || null);
 
       if (r.isCreditCard && r.installments > 1) {
         const totalInst = r.installments;
@@ -711,11 +784,12 @@ function FinancesContent() {
         const childRows = [];
         for (let i = 2; i <= occurrences; i++) {
           const nextDate = r.recurring === "monthly" ? addMonths(baseDate, i - 1) : addWeeks(baseDate, i - 1);
-          const nextDueDate = r.dueDate
-            ? r.recurring === "monthly"
+          const nextDueDate =
+            r.type === "receita" || !r.dueDate
+              ? null
+              : r.recurring === "monthly"
               ? addMonths(r.dueDate, i - 1)
-              : addWeeks(r.dueDate, i - 1)
-            : null;
+              : addWeeks(r.dueDate, i - 1);
 
           childRows.push({
             user_id: user.id,
@@ -771,7 +845,7 @@ function FinancesContent() {
     setAmount(String(f.amount));
     setType((f.type === "receita" ? "receita" : "despesa") as any);
     setCategory(f.category);
-    setDueDate(f.due_date || "");
+    setDueDate(f.type === "receita" ? "" : (f.due_date || ""));
     const parsed = parseFinanceNotes(f.notes);
     setCostType(parsed.costType || (f.recurring !== "none" ? "fixo" : "variavel"));
     setNotes(parsed.cleanNotes);
@@ -970,12 +1044,12 @@ function FinancesContent() {
 
   const totalFaturasCartao = creditCardInvoices.reduce((s, c) => s + c.totalAmount, 0);
 
-  // Due soon alerts
+  // Due soon alerts (Apenas despesas com vencimento próximo, receitas nunca possuem vencimento)
   const dueSoon = useMemo(() => {
     const today = new Date().toISOString().split("T")[0];
     const in3days = new Date(Date.now() + 3 * 86400000).toISOString().split("T")[0];
     return items.filter(
-      (f) => f.due_date && !f.paid && f.due_date >= today && f.due_date <= in3days
+      (f) => f.type === "despesa" && f.due_date && !f.paid && f.due_date >= today && f.due_date <= in3days
     );
   }, [items]);
 
@@ -1181,6 +1255,17 @@ function FinancesContent() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Botão Limpar / Excluir Lançamentos */}
+          <Button
+            variant="outline"
+            onClick={() => setClearDialogOpen(true)}
+            disabled={items.length === 0}
+            className="text-xs gap-1.5 shadow-xs border-destructive/30 text-destructive hover:bg-destructive/10 hover:border-destructive/60 font-medium"
+            title="Excluir lançamentos do mês ou limpar todo o banco de dados"
+          >
+            <Trash2 className="size-3.5" /> Excluir Lançamentos
+          </Button>
+
           {/* Botão Importar CSV */}
           <Button
             variant="outline"
@@ -1219,9 +1304,38 @@ function FinancesContent() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                {type === "despesa" ? (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs font-medium">Valor (R$)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={amount}
+                        onChange={(e) => setAmount(e.target.value)}
+                        placeholder="0,00"
+                        className="h-9 text-xs font-mono"
+                      />
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-medium">Data de Vencimento</Label>
+                        <span className="text-[10px] text-muted-foreground italic">Opcional</span>
+                      </div>
+                      <Input
+                        type="date"
+                        value={dueDate}
+                        onChange={(e) => setDueDate(e.target.value)}
+                        placeholder="Deixe em branco se não tiver vencimento"
+                        className="h-9 text-xs"
+                      />
+                    </div>
+                  </div>
+                ) : (
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-medium">Valor (R$)</Label>
+                    <Label className="text-xs font-medium">Valor da Receita (R$)</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -1231,22 +1345,11 @@ function FinancesContent() {
                       placeholder="0,00"
                       className="h-9 text-xs font-mono"
                     />
+                    <p className="text-[11px] text-muted-foreground">
+                      💡 Receitas não possuem data de vencimento. O valor constará como disponível no caixa ou a receber.
+                    </p>
                   </div>
-
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs font-medium">Data de Vencimento</Label>
-                      <span className="text-[10px] text-muted-foreground italic">Opcional</span>
-                    </div>
-                    <Input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      placeholder="Deixe em branco se não tiver vencimento"
-                      className="h-9 text-xs"
-                    />
-                  </div>
-                </div>
+                )}
 
                 {/* Classificação: Custo Fixo ou Variável */}
                 <div className="p-3 rounded-xl border border-border/80 bg-muted/20 space-y-2">
@@ -1305,7 +1408,10 @@ function FinancesContent() {
                       value={type}
                       onValueChange={(v: "despesa" | "receita") => {
                         setType(v);
-                        if (v === "receita") setIsCreditCard(false);
+                        if (v === "receita") {
+                          setIsCreditCard(false);
+                          setDueDate(""); // Receitas nunca têm vencimento
+                        }
                       }}
                     >
                       <SelectTrigger className="h-9 text-xs">
@@ -2266,7 +2372,11 @@ function FinancesContent() {
                             {/* Vencimento e Data de Quitação */}
                             <td className="px-4 py-3">
                               <div className="space-y-0.5">
-                                {f.due_date ? (
+                                {isReceita ? (
+                                  <span className="text-muted-foreground/60 block text-[11px]">
+                                    Sem vencimento (Receita)
+                                  </span>
+                                ) : f.due_date ? (
                                   <span className="text-muted-foreground block text-xs">
                                     Venc: {formatDate(f.due_date)}
                                   </span>
@@ -2283,7 +2393,7 @@ function FinancesContent() {
                                   </span>
                                 ) : (
                                   <span className="text-[10px] text-amber-600 dark:text-amber-400 flex items-center gap-1">
-                                    <Clock className="size-3" /> Pendente
+                                    <Clock className="size-3" /> {isReceita ? "Aguardando Recebimento" : "Pendente"}
                                   </span>
                                 )}
                               </div>
@@ -2554,6 +2664,138 @@ function FinancesContent() {
         onOpenChange={setImportCsvOpen}
         onImport={handleImportCsv}
       />
+
+      {/* Dialog para Excluir / Limpar Lançamentos */}
+      <Dialog open={clearDialogOpen} onOpenChange={setClearDialogOpen}>
+        <DialogContent className="max-w-md p-6">
+          <DialogHeader>
+            <div className="flex items-center gap-2.5 text-destructive mb-1">
+              <div className="p-2 rounded-xl bg-destructive/10 border border-destructive/20">
+                <AlertTriangle className="size-5" />
+              </div>
+              <DialogTitle className="text-base font-bold text-foreground">
+                Excluir Lançamentos Financeiros
+              </DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Selecione se deseja remover apenas os lançamentos deste mês ou limpar completamente todo o banco de dados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 my-2">
+            {/* Opção 1: Apenas do mês atual */}
+            <div
+              onClick={() => setClearScope("month")}
+              className={`p-3.5 rounded-xl border cursor-pointer transition flex items-start gap-3 ${
+                clearScope === "month"
+                  ? "border-destructive bg-destructive/5 ring-1 ring-destructive/40"
+                  : "border-border/70 hover:bg-muted/40"
+              }`}
+            >
+              <div className="pt-0.5">
+                <div
+                  className={`size-4 rounded-full border flex items-center justify-center ${
+                    clearScope === "month"
+                      ? "border-destructive bg-destructive text-destructive-foreground"
+                      : "border-muted-foreground/40"
+                  }`}
+                >
+                  {clearScope === "month" && <div className="size-1.5 rounded-full bg-white" />}
+                </div>
+              </div>
+              <div className="space-y-0.5 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs text-foreground">
+                    Excluir apenas de {formatMonthYear(currentMonth)}
+                  </span>
+                  <Badge variant="outline" className="text-[10px]">
+                    {monthItems.length} lançamento(s)
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Remove somente as despesas e receitas cadastradas para este mês. Os outros meses permanecem intactos.
+                </p>
+              </div>
+            </div>
+
+            {/* Opção 2: Limpar todo o banco de dados */}
+            <div
+              onClick={() => setClearScope("all")}
+              className={`p-3.5 rounded-xl border cursor-pointer transition flex items-start gap-3 ${
+                clearScope === "all"
+                  ? "border-destructive bg-destructive/10 ring-2 ring-destructive"
+                  : "border-border/70 hover:bg-muted/40"
+              }`}
+            >
+              <div className="pt-0.5">
+                <div
+                  className={`size-4 rounded-full border flex items-center justify-center ${
+                    clearScope === "all"
+                      ? "border-destructive bg-destructive text-destructive-foreground"
+                      : "border-muted-foreground/40"
+                  }`}
+                >
+                  {clearScope === "all" && <div className="size-1.5 rounded-full bg-white" />}
+                </div>
+              </div>
+              <div className="space-y-0.5 flex-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs text-destructive flex items-center gap-1">
+                    <Trash2 className="size-3" /> Limpar TODO o banco de dados (Zerar tudo)
+                  </span>
+                  <Badge variant="destructive" className="text-[10px]">
+                    {items.length} total
+                  </Badge>
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Apaga <strong>todos os meses</strong> e todo o histórico financeiro da sua conta. Ideal para reiniciar os lançamentos do zero.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-[11px] flex items-center gap-2">
+              <AlertCircle className="size-4 shrink-0" />
+              <span>Esta operação é permanente e não poderá ser desfeita após a confirmação.</span>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0 mt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={clearing}
+              onClick={() => setClearDialogOpen(false)}
+              className="text-xs"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              size="sm"
+              disabled={
+                clearing ||
+                (clearScope === "month" && monthItems.length === 0) ||
+                (clearScope === "all" && items.length === 0)
+              }
+              onClick={handleClearFinances}
+              className="text-xs gap-1.5 font-semibold"
+            >
+              {clearing ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" /> Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5" />
+                  {clearScope === "all" ? "Sim, Limpar Todo o Banco" : "Sim, Excluir Deste Mês"}
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

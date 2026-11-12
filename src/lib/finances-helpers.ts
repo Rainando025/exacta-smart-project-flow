@@ -131,7 +131,7 @@ export function generateCsvTemplate(): string {
       "5000.00",
       "receita",
       "salário",
-      "2026-11-05",
+      "", // Receitas não possuem data de vencimento
       "fixo",
       "monthly",
       "nao",
@@ -170,7 +170,7 @@ export function generateCsvTemplate(): string {
       "1200.00",
       "receita",
       "freelance",
-      "2026-11-20",
+      "", // Receitas não possuem data de vencimento
       "variavel",
       "none",
       "nao",
@@ -393,7 +393,8 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
       amount: isNaN(amount) ? 0 : amount,
       type,
       category: rawCategory.toLowerCase() || "outros",
-      dueDate: dateNorm.date, // null se o usuário não preencheu!
+      // Receitas nunca possuem data de vencimento (apenas despesas possuem vencimento)
+      dueDate: type === "receita" ? null : dateNorm.date,
       costType,
       recurring,
       isCreditCard,
