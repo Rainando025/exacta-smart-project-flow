@@ -92,6 +92,221 @@ export const INITIAL_MINDMAP: MindMapData = {
   },
 };
 
+export const LAYOUT_TEMPLATES: Record<LayoutType, MindMapNode> = {
+  radial: {
+    id: "tpl-radial-root",
+    text: "Objetivo Central",
+    children: [
+      {
+        id: "tpl-radial-1",
+        text: "Estratégia",
+        children: [
+          { id: "tpl-radial-1a", text: "Posicionamento", children: [] },
+          { id: "tpl-radial-1b", text: "Diferenciais", children: [] },
+        ],
+      },
+      {
+        id: "tpl-radial-2",
+        text: "Execução",
+        children: [
+          { id: "tpl-radial-2a", text: "Plano de Ação", children: [] },
+          { id: "tpl-radial-2b", text: "Cronograma", children: [] },
+        ],
+      },
+      {
+        id: "tpl-radial-3",
+        text: "Recursos",
+        children: [
+          { id: "tpl-radial-3a", text: "Equipe", children: [] },
+          { id: "tpl-radial-3b", text: "Orçamento", children: [] },
+        ],
+      },
+      {
+        id: "tpl-radial-4",
+        text: "Indicadores",
+        children: [
+          { id: "tpl-radial-4a", text: "Metas (KPIs)", children: [] },
+          { id: "tpl-radial-4b", text: "Resultados", children: [] },
+        ],
+      },
+    ],
+  },
+  "tree-right": {
+    id: "tpl-tree-root",
+    text: "Escopo do Projeto",
+    children: [
+      {
+        id: "tpl-tree-1",
+        text: "1. Descoberta",
+        children: [
+          { id: "tpl-tree-1a", text: "Levantamento", children: [] },
+          { id: "tpl-tree-1b", text: "Requisitos", children: [] },
+        ],
+      },
+      {
+        id: "tpl-tree-2",
+        text: "2. Planejamento",
+        children: [
+          { id: "tpl-tree-2a", text: "Arquitetura", children: [] },
+          { id: "tpl-tree-2b", text: "Alocação", children: [] },
+        ],
+      },
+      {
+        id: "tpl-tree-3",
+        text: "3. Execução",
+        children: [
+          { id: "tpl-tree-3a", text: "Desenvolvimento", children: [] },
+          { id: "tpl-tree-3b", text: "Testes e QA", children: [] },
+        ],
+      },
+      {
+        id: "tpl-tree-4",
+        text: "4. Entrega",
+        children: [
+          { id: "tpl-tree-4a", text: "Implantação", children: [] },
+          { id: "tpl-tree-4b", text: "Acompanhamento", children: [] },
+        ],
+      },
+    ],
+  },
+  "org-chart": {
+    id: "tpl-org-root",
+    text: "Diretoria Executiva",
+    children: [
+      {
+        id: "tpl-org-1",
+        text: "Operações",
+        children: [
+          { id: "tpl-org-1a", text: "Logística", children: [] },
+          { id: "tpl-org-1b", text: "Qualidade", children: [] },
+        ],
+      },
+      {
+        id: "tpl-org-2",
+        text: "Tecnologia",
+        children: [
+          { id: "tpl-org-2a", text: "Engenharia", children: [] },
+          { id: "tpl-org-2b", text: "Produto", children: [] },
+        ],
+      },
+      {
+        id: "tpl-org-3",
+        text: "Comercial",
+        children: [
+          { id: "tpl-org-3a", text: "Vendas", children: [] },
+          { id: "tpl-org-3b", text: "Marketing", children: [] },
+        ],
+      },
+    ],
+  },
+  ishikawa: {
+    id: "tpl-ishi-root",
+    text: "Efeito / Problema",
+    children: [
+      {
+        id: "tpl-ishi-1",
+        text: "Método",
+        children: [
+          { id: "tpl-ishi-1a", text: "Falta de padrão", children: [] },
+          { id: "tpl-ishi-1b", text: "Fluxo lento", children: [] },
+        ],
+      },
+      {
+        id: "tpl-ishi-2",
+        text: "Material",
+        children: [
+          { id: "tpl-ishi-2a", text: "Insumo irregular", children: [] },
+          { id: "tpl-ishi-2b", text: "Atraso entrega", children: [] },
+        ],
+      },
+      {
+        id: "tpl-ishi-3",
+        text: "Mão de Obra",
+        children: [
+          { id: "tpl-ishi-3a", text: "Treinamento", children: [] },
+          { id: "tpl-ishi-3b", text: "Sobrecarga", children: [] },
+        ],
+      },
+      {
+        id: "tpl-ishi-4",
+        text: "Medida",
+        children: [
+          { id: "tpl-ishi-4a", text: "Sem indicadores", children: [] },
+          { id: "tpl-ishi-4b", text: "Erro de medição", children: [] },
+        ],
+      },
+      {
+        id: "tpl-ishi-5",
+        text: "Máquina",
+        children: [
+          { id: "tpl-ishi-5a", text: "Equip. obsoleto", children: [] },
+          { id: "tpl-ishi-5b", text: "Manutenção", children: [] },
+        ],
+      },
+      {
+        id: "tpl-ishi-6",
+        text: "Meio Ambiente",
+        children: [
+          { id: "tpl-ishi-6a", text: "Ruído / Espaço", children: [] },
+          { id: "tpl-ishi-6b", text: "Clima interno", children: [] },
+        ],
+      },
+    ],
+  },
+  timeline: {
+    id: "tpl-time-root",
+    text: "Roadmap do Projeto",
+    children: [
+      {
+        id: "tpl-time-1",
+        text: "Fase 1: Início",
+        children: [
+          { id: "tpl-time-1a", text: "Kick-off", children: [] },
+          { id: "tpl-time-1b", text: "Escopo", children: [] },
+        ],
+      },
+      {
+        id: "tpl-time-2",
+        text: "Fase 2: Construção",
+        children: [
+          { id: "tpl-time-2a", text: "Protótipo", children: [] },
+          { id: "tpl-time-2b", text: "Desenvolvimento", children: [] },
+        ],
+      },
+      {
+        id: "tpl-time-3",
+        text: "Fase 3: Validação",
+        children: [
+          { id: "tpl-time-3a", text: "Testes", children: [] },
+          { id: "tpl-time-3b", text: "Ajustes", children: [] },
+        ],
+      },
+      {
+        id: "tpl-time-4",
+        text: "Fase 4: Go-Live",
+        children: [
+          { id: "tpl-time-4a", text: "Treinamento", children: [] },
+          { id: "tpl-time-4b", text: "Lançamento", children: [] },
+        ],
+      },
+    ],
+  },
+};
+
+function cloneTemplate(node: MindMapNode): MindMapNode {
+  return {
+    ...node,
+    id: `node-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 7)}`,
+    children: node.children.map(cloneTemplate),
+  };
+}
+
+function isTemplateOrEmpty(root: MindMapNode): boolean {
+  if (root.children.length === 0) return true;
+  const tplTexts = Object.values(LAYOUT_TEMPLATES).map((t) => t.text);
+  return tplTexts.includes(root.text);
+}
+
 interface PositionedNode {
   node: MindMapNode;
   x: number;
@@ -102,6 +317,8 @@ interface PositionedNode {
   color: string;
   parentId?: string;
   parentPos?: { x: number; y: number };
+  spineAttach?: { x: number; y: number };
+  isUpper?: boolean;
 }
 
 // Helpers para manipulação de nós na árvore
@@ -524,9 +741,9 @@ export function MindMapTool({
         });
       }
     } else if (layout === "ishikawa") {
-      // Diagrama Espinha de Peixe (Causa e Efeito)
+      // Diagrama Espinha de Peixe Clássico (Causa e Efeito / 6M)
       // Cabeça do peixe à direita
-      const HEAD_X = 350;
+      const HEAD_X = 380;
       positioned.push({
         node: mapData.root,
         x: HEAD_X,
@@ -537,47 +754,60 @@ export function MindMapTool({
         color: colors[0],
       });
 
-      const SPINE_LENGTH = 800;
-      const SPINE_START_X = HEAD_X - SPINE_LENGTH;
       const categories = mapData.root.children;
+      const pairCount = Math.max(1, Math.ceil(categories.length / 2));
+      const colSpacing = Math.min(270, 760 / pairCount);
 
       categories.forEach((cat, idx) => {
         const isUpper = idx % 2 === 0;
-        const segment = (idx + 1) / (categories.length + 1);
-        const attachX = HEAD_X - SPINE_LENGTH * (1 - segment);
+        const pairIndex = Math.floor(idx / 2);
+        // Distribui da esquerda para a direita até perto da cabeça
+        const attachX = HEAD_X - 110 - (pairCount - 1 - pairIndex) * colSpacing - (isUpper ? 45 : 0);
         const attachY = 0;
-        const catY = isUpper ? -140 : 140;
-        const catX = attachX - 80;
+
+        const maxSubs = cat.collapsed ? 0 : cat.children.length;
+        const catDistY = Math.max(200, 75 + maxSubs * 52);
+        const catY = isUpper ? -catDistY : catDistY - NODE_HEIGHT;
+        const catCenterX = attachX - 105;
+        const catX = catCenterX - NODE_WIDTH / 2;
         const catColor = cat.color || colors[idx % colors.length];
 
         positioned.push({
           node: cat,
           x: catX,
-          y: catY - NODE_HEIGHT / 2,
+          y: catY,
           width: NODE_WIDTH,
           height: NODE_HEIGHT,
           level: 1,
           color: catColor,
           parentId: mapData.root.id,
           parentPos: { x: attachX, y: attachY },
+          spineAttach: { x: attachX, y: attachY },
+          isUpper,
         });
 
-        // Sub-causas penduradas verticalmente na espinha da categoria
+        // Sub-causas dispostas ao longo da haste diagonal com espinha horizontal
         if (!cat.collapsed && cat.children.length > 0) {
+          const catAnchorY = isUpper ? catY + NODE_HEIGHT : catY;
+          const subWidth = NODE_WIDTH - 24;
+          const subHeight = 36;
+
           cat.children.forEach((sub, subIdx) => {
-            const subY = isUpper
-              ? catY - 45 * (subIdx + 1)
-              : catY + 45 * (subIdx + 1);
+            const t = (subIdx + 1) / (cat.children.length + 1);
+            const subCenterY = catAnchorY + t * (attachY - catAnchorY);
+            const spineXAtY = catCenterX + t * (attachX - catCenterX);
+
             positioned.push({
               node: sub,
-              x: catX + 25,
-              y: subY - 18,
-              width: NODE_WIDTH - 20,
-              height: 36,
+              x: spineXAtY - subWidth - 26,
+              y: subCenterY - subHeight / 2,
+              width: subWidth,
+              height: subHeight,
               level: 2,
               color: catColor,
               parentId: cat.id,
-              parentPos: { x: catX + 30, y: catY },
+              parentPos: { x: spineXAtY, y: subCenterY },
+              isUpper,
             });
           });
         }
@@ -753,6 +983,7 @@ export function MindMapTool({
     if (target.closest("button") || target.closest("input")) return;
 
     e.stopPropagation();
+    e.preventDefault();
     setSelectedNodeId(nodeId);
     setDraggingNode({
       id: nodeId,
@@ -773,20 +1004,51 @@ export function MindMapTool({
     setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (draggingNode) {
-      const dx = (e.clientX - draggingNode.startX) / zoom;
-      const dy = (e.clientY - draggingNode.startY) / zoom;
-      setNodeOffsets((prev) => ({
-        ...prev,
-        [draggingNode.id]: {
-          x: Math.round(draggingNode.origX + dx),
-          y: Math.round(draggingNode.origY + dy),
-        },
-      }));
-    } else if (isPanning) {
-      setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
-    }
+  // Listener global para arraste de nó e pan 100% fluidos e sem lag
+  useEffect(() => {
+    if (!draggingNode && !isPanning) return;
+
+    let rafId: number | null = null;
+
+    const onWindowMouseMove = (e: MouseEvent) => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      const clientX = e.clientX;
+      const clientY = e.clientY;
+
+      rafId = requestAnimationFrame(() => {
+        if (draggingNode) {
+          const dx = (clientX - draggingNode.startX) / zoom;
+          const dy = (clientY - draggingNode.startY) / zoom;
+          setNodeOffsets((prev) => ({
+            ...prev,
+            [draggingNode.id]: {
+              x: draggingNode.origX + dx,
+              y: draggingNode.origY + dy,
+            },
+          }));
+        } else if (isPanning) {
+          setPan({ x: clientX - startPan.x, y: clientY - startPan.y });
+        }
+      });
+    };
+
+    const onWindowMouseUp = () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      setDraggingNode(null);
+      setIsPanning(false);
+    };
+
+    window.addEventListener("mousemove", onWindowMouseMove);
+    window.addEventListener("mouseup", onWindowMouseUp);
+    return () => {
+      if (rafId !== null) cancelAnimationFrame(rafId);
+      window.removeEventListener("mousemove", onWindowMouseMove);
+      window.removeEventListener("mouseup", onWindowMouseUp);
+    };
+  }, [draggingNode, isPanning, zoom, startPan]);
+
+  const handleMouseMove = (_e: React.MouseEvent) => {
+    // Tratado pelo listener global no window para máxima fluidez
   };
 
   const handleMouseUp = () => {
@@ -1025,9 +1287,23 @@ REQUISITOS OBRIGATÓRIOS:
             </span>
             <Select
               value={mapData.layout}
-              onValueChange={(val: LayoutType) =>
-                updateState((prev) => ({ ...prev, layout: val }))
-              }
+              onValueChange={(val: LayoutType) => {
+                setNodeOffsets({});
+                updateState((prev) => ({
+                  ...prev,
+                  layout: val,
+                  root: isTemplateOrEmpty(prev.root)
+                    ? cloneTemplate(LAYOUT_TEMPLATES[val])
+                    : prev.root,
+                }));
+                if (val === "ishikawa") {
+                  setZoom(0.85);
+                  setPan({ x: 30, y: 0 });
+                } else {
+                  setZoom(1);
+                  setPan({ x: 0, y: 0 });
+                }
+              }}
             >
               <SelectTrigger className="h-8 border-none bg-transparent focus:ring-0 text-xs font-medium w-[170px]">
                 <SelectValue />
@@ -1065,6 +1341,30 @@ REQUISITOS OBRIGATÓRIOS:
                 </SelectItem>
               </SelectContent>
             </Select>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[11px] font-medium text-accent hover:bg-accent/10 gap-1"
+              title="Carregar modelo pronto e estruturado para este layout"
+              onClick={() => {
+                setNodeOffsets({});
+                updateState((prev) => ({
+                  ...prev,
+                  root: cloneTemplate(LAYOUT_TEMPLATES[prev.layout]),
+                }));
+                if (mapData.layout === "ishikawa") {
+                  setZoom(0.85);
+                  setPan({ x: 30, y: 0 });
+                } else {
+                  setZoom(1);
+                  setPan({ x: 0, y: 0 });
+                }
+                toast.success("Modelo padrão aplicado!");
+              }}
+            >
+              <Sparkles className="h-3 w-3" />
+              <span className="hidden sm:inline">Modelo Pronto</span>
+            </Button>
           </div>
 
           {/* Palette Selector */}
@@ -1278,18 +1578,35 @@ REQUISITOS OBRIGATÓRIOS:
               </linearGradient>
             </defs>
 
-            {/* Linha da Espinha Central se layout for Ishikawa */}
-            {mapData.layout === "ishikawa" && (
-              <line
-                x1={350 - 800}
-                y1={0}
-                x2={350}
-                y2={0}
-                stroke="#64748b"
-                strokeWidth={4}
-                strokeLinecap="round"
-              />
-            )}
+            {/* Linha da Espinha Central com Seta se layout for Ishikawa */}
+            {mapData.layout === "ishikawa" && (() => {
+              const rootPos = nodePositionMap.get(mapData.root.id);
+              const headLeftX = rootPos ? rootPos.x : 380;
+              const spineY = rootPos ? rootPos.y + rootPos.height / 2 : 0;
+              const rootOff = nodeOffsets[mapData.root.id] || { x: 0, y: 0 };
+              const minAttachX = positionedNodes
+                .filter((n) => n.level === 1 && n.spineAttach)
+                .reduce((min, n) => Math.min(min, (n.spineAttach?.x ?? 0) + rootOff.x), headLeftX - 750);
+              const spineStartX = Math.min(headLeftX - 780, minAttachX - 90);
+              return (
+                <g>
+                  <line
+                    x1={spineStartX}
+                    y1={spineY}
+                    x2={headLeftX - 8}
+                    y2={spineY}
+                    stroke="#64748b"
+                    strokeWidth={4}
+                    strokeLinecap="round"
+                  />
+                  {/* Seta apontando para a Cabeça do Peixe (Efeito) */}
+                  <polygon
+                    points={`${headLeftX},${spineY} ${headLeftX - 14},${spineY - 7} ${headLeftX - 14},${spineY + 7}`}
+                    fill="#64748b"
+                  />
+                </g>
+              );
+            })()}
 
             {/* Linha da Timeline Central se layout for Timeline */}
             {mapData.layout === "timeline" && (
@@ -1335,9 +1652,31 @@ REQUISITOS OBRIGATÓRIOS:
                 targetX = p.x + p.width / 2;
                 targetY = p.y;
               } else if (mapData.layout === "ishikawa") {
-                sourceX = parentNode.x;
-                sourceY = parentNode.y;
-                targetX = p.x + (p.x < parentNode.x ? p.width : 0);
+                const rootOff = nodeOffsets[mapData.root.id] || { x: 0, y: 0 };
+                if (p.level === 1) {
+                  // Espinha principal: da borda do cartão da categoria até o ponto na espinha central
+                  const spineX = (p.spineAttach?.x ?? parentNode.x) + rootOff.x;
+                  const spineY = (p.spineAttach?.y ?? 0) + rootOff.y;
+                  sourceX = spineX;
+                  sourceY = spineY;
+                  targetX = p.x + p.width / 2;
+                  targetY = p.isUpper ? p.y + p.height : p.y;
+                } else {
+                  // Sub-causa (level >= 2): linha horizontal interceptando a haste diagonal da categoria
+                  const catAnchorX = parentNode.x + parentNode.width / 2;
+                  const catAnchorY = parentNode.isUpper ? parentNode.y + parentNode.height : parentNode.y;
+                  const catSpineX = (parentNode.spineAttach?.x ?? catAnchorX) + rootOff.x;
+                  const catSpineY = (parentNode.spineAttach?.y ?? 0) + rootOff.y;
+
+                  targetY = p.y + p.height / 2;
+                  const denom = catSpineY - catAnchorY;
+                  const t = Math.abs(denom) > 1
+                    ? Math.max(0, Math.min(1, (targetY - catAnchorY) / denom))
+                    : 0.5;
+                  sourceX = catAnchorX + t * (catSpineX - catAnchorX);
+                  sourceY = catAnchorY + t * (catSpineY - catAnchorY);
+                  targetX = p.x + p.width / 2 < sourceX ? p.x + p.width : p.x;
+                }
               }
 
               // Curvas Bézier naturais e limpas
@@ -1362,9 +1701,9 @@ REQUISITOS OBRIGATÓRIOS:
                   fill="none"
                   stroke={p.color || "#06b6d4"}
                   strokeWidth={Math.max(1.8, 3.2 - p.level * 0.7)}
-                  strokeOpacity={0.7}
+                  strokeOpacity={0.75}
                   strokeLinecap="round"
-                  className="transition-all duration-300"
+                  className={draggingNode ? "" : "transition-[stroke,stroke-opacity] duration-200"}
                 />
               );
             })}
@@ -1383,6 +1722,7 @@ REQUISITOS OBRIGATÓRIOS:
             const hasChildren = p.node.children && p.node.children.length > 0;
             const isCurrentInPresentation =
               presentationMode && presentationOrder[presentationStep]?.id === p.node.id;
+            const isBeingDragged = draggingNode?.id === p.node.id;
 
             return (
               <div
@@ -1398,13 +1738,16 @@ REQUISITOS OBRIGATÓRIOS:
                 }}
                 className={cn(
                   "mindmap-node absolute pointer-events-auto rounded-xl flex items-center justify-between px-3.5 select-none",
-                  "shadow-card border text-foreground cursor-grab active:cursor-grabbing",
-                  "transition-all duration-200 group",
+                  "shadow-card border text-foreground cursor-grab active:cursor-grabbing group",
+                  draggingNode
+                    ? "transition-none"
+                    : "transition-[box-shadow,border-color,transform] duration-150",
                   isCurrentInPresentation
                     ? "ring-4 ring-accent ring-offset-4 ring-offset-background scale-105 shadow-2xl z-30 animate-in fade-in zoom-in-90 duration-500"
                     : isSelected
                     ? "ring-2 ring-accent ring-offset-2 ring-offset-background border-accent shadow-md z-10"
                     : "hover:border-accent/60 hover:shadow-md",
+                  isBeingDragged && "z-40 shadow-2xl",
                   isRoot
                     ? "font-bold text-sm tracking-wide text-white border-white/20 shadow-glow"
                     : "text-xs font-medium border-border/80 bg-card"
@@ -1413,6 +1756,7 @@ REQUISITOS OBRIGATÓRIOS:
                   left: p.x,
                   top: p.y,
                   width: p.width,
+                  willChange: isBeingDragged ? "left, top" : undefined,
                   height: p.height,
                   background: isRoot
                     ? currentPalette.rootBg
