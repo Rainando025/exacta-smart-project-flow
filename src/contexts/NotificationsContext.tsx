@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { isOverdue, formatDate } from "@/lib/exacta";
 import { notify } from "@/lib/notify";
 import { toast } from "sonner";
+import { fetchUserReminders } from "@/lib/reminders/reminders-service";
 interface Notification {
   id: string;
   type: string;
@@ -83,75 +84,80 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
 
   const ensureDueNotifications = useCallback(async () => {
     if (!user) return;
+    // Otimização de Log Ingestion: Não gasta requisições se a aba estiver oculta/minimizada
+    if (typeof document !== "undefined" && document.hidden) return;
+
     const now = new Date();
     const in3 = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+    const last24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
 
+    // 1. Busca tarefas do usuário em uma única query enxuta
     const { data: myTasks } = await (supabase
       .from("tasks" as any)
       .select("id,title,due_date,status,assignee_id,creator_id")
       .or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`) as any);
 
-    // Filter locally to avoid complex PostgREST parsing issues if server is picky
     const filteredTasks = (myTasks || []).filter(
       (t: any) => t.status !== "done" && t.due_date !== null,
     );
 
-    if (!filteredTasks) return;
-    for (const t of filteredTasks) {
-      const due = new Date(t.due_date as string);
-      const isSoon = due >= now && due <= in3;
-      const overdue = isOverdue(t.due_date, t.status);
-      if (!isSoon && !overdue) continue;
+    // 2. Busca notificações recentes das últimas 24h em UMA ÚNICA QUERY (evita loop N+1 de requests)
+    const { data: recentNotifs } = await supabase
+      .from("notifications")
+      .select("task_id, type, title")
+      .eq("user_id", user.id)
+      .gte("created_at", last24h);
 
-      const { data: existing } = await supabase
-        .from("notifications")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("task_id", t.id)
-        .eq("type", "task_due")
-        .gte("created_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
-        .limit(1);
-      if (existing && existing.length > 0) continue;
+    const existingTaskIds = new Set((recentNotifs || []).map((n) => n.task_id).filter(Boolean));
+    const existingTitles = new Set((recentNotifs || []).map((n) => n.title));
 
-      await notify({
-        user_id: user.id,
-        type: "task_due",
-        title: overdue ? `Atrasada: ${t.title}` : `Vence em breve: ${t.title}`,
-        message: `Prazo: ${formatDate(t.due_date)}`,
-        link: "/tasks",
-        task_id: t.id,
-      });
+    if (filteredTasks.length > 0) {
+      for (const t of filteredTasks) {
+        const due = new Date(t.due_date as string);
+        const isSoon = due >= now && due <= in3;
+        const overdue = isOverdue(t.due_date, t.status);
+        if (!isSoon && !overdue) continue;
+
+        if (existingTaskIds.has(t.id)) continue;
+
+        await notify({
+          user_id: user.id,
+          type: "task_due",
+          title: overdue ? `Atrasada: ${t.title}` : `Vence em breve: ${t.title}`,
+          message: `Prazo: ${formatDate(t.due_date)}`,
+          link: "/tasks",
+          task_id: t.id,
+        });
+        existingTaskIds.add(t.id);
+      }
     }
 
-    // Check Reminders / Calendar events
-    const { data: myReminders } = await supabase
-      .from("reminders")
-      .select("*")
-      .eq("user_id", user.id)
-      .eq("completed", false)
-      .lte("remind_at", new Date(now.getTime() + 60 * 60 * 1000).toISOString()); // within 1 hour
+    // 3. Checa Lembretes pontuais via cache/service otimizado
+    try {
+      const allReminders = await fetchUserReminders(user.id);
+      const soonRemindTime = now.getTime() + 60 * 60 * 1000; // próximas 1 hora
 
-    if (myReminders) {
-      for (const r of myReminders) {
-        const { data: existing } = await supabase
-          .from("notifications")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("type", "reminder")
-          .like("title", `%${r.title}%`)
-          .gte("created_at", new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
-          .limit(1);
+      const pendingReminders = allReminders.filter((r) => {
+        if (r.completed) return false;
+        const t = new Date(r.remind_at).getTime();
+        return t <= soonRemindTime;
+      });
 
-        if (!existing || existing.length === 0) {
-          await notify({
-            user_id: user.id,
-            type: "reminder",
-            title: `⏰ Compromisso: ${r.title}`,
-            message: `Agendado para ${new Date(r.remind_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
-            link: "/notes",
-          });
-        }
+      for (const r of pendingReminders) {
+        const titleStr = `⏰ Compromisso: ${r.title}`;
+        if (existingTitles.has(titleStr)) continue;
+
+        await notify({
+          user_id: user.id,
+          type: "reminder",
+          title: titleStr,
+          message: `Agendado para ${new Date(r.remind_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`,
+          link: "/notes",
+        });
+        existingTitles.add(titleStr);
       }
+    } catch (e) {
+      console.warn("ensureDueNotifications reminders error:", e);
     }
   }, [user]);
 
@@ -182,7 +188,8 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
     load();
     ensureDueNotifications();
 
-    const channelName = `notif-${user.id}-${Date.now()}`;
+    // Canal estável por usuário (sem Date.now() dinâmico que infla conexões WebSocket)
+    const channelName = `notif-${user.id}`;
     const ch = supabase
       .channel(channelName)
       .on(
@@ -201,11 +208,25 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
-    const interval = setInterval(ensureDueNotifications, 5 * 60 * 1000);
+    // Polling inteligente a cada 5 minutos, apenas com aba ativa
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        ensureDueNotifications();
+      }
+    }, 5 * 60 * 1000);
+
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        load();
+        ensureDueNotifications();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
       supabase.removeChannel(ch);
       clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [user?.id, load, ensureDueNotifications]);
 

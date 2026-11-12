@@ -137,6 +137,8 @@ export function ReminderPopup() {
 
   const check = useCallback(async () => {
     if (!user || !loaded) return;
+    // Otimização de Log Ingestion: Não faz polling se a aba estiver oculta/minimizada
+    if (typeof document !== "undefined" && document.hidden) return;
     const now = Date.now();
 
     // 1. Checa Lembretes pontuais (reminders) via Service (bypass RLS + cache)
@@ -211,8 +213,26 @@ export function ReminderPopup() {
       Notification.requestPermission();
     }
     check();
-    const interval = setInterval(check, 45_000);
-    return () => clearInterval(interval);
+
+    // Polling inteligente: a cada 2.5 minutos (se a aba estiver ativa)
+    const interval = setInterval(() => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        check();
+      }
+    }, 150_000);
+
+    // Quando o usuário volta para a aba, verifica imediatamente
+    const onVisibilityChange = () => {
+      if (typeof document !== "undefined" && !document.hidden) {
+        check();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [user?.id, loaded, check]);
 
   const dismiss = () => {
