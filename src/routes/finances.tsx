@@ -39,6 +39,9 @@ import {
   CheckCircle2,
   Clock,
   RotateCcw,
+  Sparkles,
+  Calculator,
+  PiggyBank,
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/exacta";
@@ -64,6 +67,7 @@ import {
   formatMonthYear,
   getPrevMonth,
   getNextMonth,
+  calculateCarriedOverBalance,
   type CsvParsedRow,
 } from "@/lib/finances-helpers";
 import { ImportCsvDialog } from "@/components/finances/ImportCsvDialog";
@@ -171,10 +175,12 @@ function FinancesContent() {
   const [importCsvOpen, setImportCsvOpen] = useState(false);
   const [editing, setEditing] = useState<Finance | null>(null);
   const [editingInlineId, setEditingInlineId] = useState<string | null>(null);
+  const [editRecurringScope, setEditRecurringScope] = useState<"single" | "all_future">("single");
 
-  // Month navigation state
+  // Month navigation state & carried over balance
   const [currentMonth, setCurrentMonth] = useState<string>(getDefaultMonth);
   const [monthViewMode, setMonthViewMode] = useState<"month" | "all">("month");
+  const [includeCarriedOver, setIncludeCarriedOver] = useState(true);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -229,6 +235,7 @@ function FinancesContent() {
     setDueDate(new Date().toISOString().split("T")[0]);
     setNotes("");
     setEditing(null);
+    setEditRecurringScope("single");
     setRecurring("none");
     setIsCreditCard(false);
     setCardName("Nubank");
@@ -258,26 +265,91 @@ function FinancesContent() {
     );
 
     if (editing) {
-      const payload = {
-        title: title.trim(),
-        amount: amountNum,
-        type,
-        category,
-        date: dueDate,
-        due_date: dueDate,
-        notes: computedNotes,
-        recurring,
-        is_credit_card: isCreditCard,
-        installments: isCreditCard ? parseInt(installments, 10) : 1,
-        paid: isInitialPaid,
-      };
+      const isRecurringItem =
+        editing.recurring !== "none" ||
+        !!editing.parent_id ||
+        items.some((x) => x.parent_id === editing.id);
 
-      const { error } = await supabase.from("personal_finances").update(payload).eq("id", editing.id);
-      if (error) {
-        toast.error(error.message);
-        return;
+      if (isRecurringItem && editRecurringScope === "all_future") {
+        const rootId = editing.parent_id || editing.id;
+        const targetDate = editing.due_date || editing.date;
+
+        // Atualiza o item do mês atual
+        const payloadCurrent = {
+          title: title.trim(),
+          amount: amountNum,
+          type,
+          category,
+          date: dueDate,
+          due_date: dueDate,
+          notes: computedNotes,
+          paid: isInitialPaid,
+        };
+
+        const { error: errCurrent } = await supabase
+          .from("personal_finances")
+          .update(payloadCurrent)
+          .eq("id", editing.id)
+          .eq("user_id", user.id);
+
+        if (errCurrent) {
+          toast.error(errCurrent.message);
+          return;
+        }
+
+        // Replica a alteração para os meses futuros vinculados
+        const { error: errFuture } = await supabase
+          .from("personal_finances")
+          .update({
+            title: title.trim(),
+            amount: amountNum,
+            type,
+            category,
+          })
+          .eq("user_id", user.id)
+          .or(`parent_id.eq.${rootId},id.eq.${rootId}`)
+          .gt("due_date", targetDate);
+
+        if (errFuture) {
+          console.warn("Aviso ao atualizar meses futuros:", errFuture);
+        }
+
+        toast.success("Lançamento e meses futuros atualizados!");
+      } else {
+        // Altera exclusivamente para este mês selecionado
+        const payload = {
+          title: title.trim(),
+          amount: amountNum,
+          type,
+          category,
+          date: dueDate,
+          due_date: dueDate,
+          notes: computedNotes,
+          recurring: editing.recurring,
+          is_credit_card: isCreditCard,
+          installments: editing.installments || 1,
+          paid: isInitialPaid,
+        };
+
+        const { error } = await supabase
+          .from("personal_finances")
+          .update(payload)
+          .eq("id", editing.id)
+          .eq("user_id", user.id);
+
+        if (error) {
+          toast.error(error.message);
+          return;
+        }
+
+        if (isRecurringItem) {
+          toast.success(
+            `Valor atualizado exclusivamente para este mês (${formatMonthYear(currentMonth)})!`
+          );
+        } else {
+          toast.success("Registro financeiro atualizado!");
+        }
       }
-      toast.success("Registro atualizado!");
     } else {
       // Credit card with installments
       if (isCreditCard && parseInt(installments, 10) > 1) {
@@ -431,9 +503,12 @@ function FinancesContent() {
   };
 
   const handleDelete = async (id: string) => {
-    await supabase.from("personal_finances").delete().eq("parent_id", id);
-    await supabase.from("personal_finances").delete().eq("id", id);
-    toast.success("Lançamento removido!");
+    const { error } = await supabase.from("personal_finances").delete().eq("id", id);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Lançamento removido deste mês!");
     load();
   };
 
@@ -679,6 +754,7 @@ function FinancesContent() {
     setCardName(parsed.cardName || "Nubank");
     setInstallments(String(f.installments || 1));
     setIsInitialPaid(f.paid);
+    setEditRecurringScope("single");
     setOpen(true);
   };
 
@@ -714,6 +790,7 @@ function FinancesContent() {
       return;
     }
     setEditingInlineId(null);
+    toast.success("Valor atualizado exclusivamente para este mês!");
     load();
   };
 
@@ -738,6 +815,14 @@ function FinancesContent() {
     });
   }, [monthItems, filterType, filterCat, filterStatus, search]);
 
+  // Saldo transportado do mês anterior / histórico acumulado
+  const carriedOverData = useMemo(
+    () => calculateCarriedOverBalance(items, currentMonth),
+    [items, currentMonth]
+  );
+  const saldoTransportado = carriedOverData.carriedBalance;
+  const prevMonthStr = carriedOverData.prevMonth;
+
   // Aggregated calculations for selected month view
   const receitasRecebidas = useMemo(
     () => monthItems.filter((f) => f.type === "receita" && f.paid).reduce((s, f) => s + Number(f.amount), 0),
@@ -747,7 +832,12 @@ function FinancesContent() {
     () => monthItems.filter((f) => f.type === "receita" && !f.paid).reduce((s, f) => s + Number(f.amount), 0),
     [monthItems]
   );
-  const totalReceitasMes = receitasRecebidas + receitasAReceber;
+  const totalReceitasLancamentos = receitasRecebidas + receitasAReceber;
+
+  // Sobra positiva do mês anterior incorporada como receita no mês atual
+  const saldoAnteriorAplicado = includeCarriedOver && saldoTransportado > 0 ? saldoTransportado : 0;
+  const receitasRealizadasComSobra = receitasRecebidas + saldoAnteriorAplicado;
+  const totalReceitasProjetadasMes = totalReceitasLancamentos + saldoAnteriorAplicado;
 
   const despesasPagas = useMemo(
     () => monthItems.filter((f) => f.type === "despesa" && f.paid).reduce((s, f) => s + Number(f.amount), 0),
@@ -759,8 +849,27 @@ function FinancesContent() {
   );
   const totalDespesasMes = despesasPagas + despesasAPagar;
 
-  const saldoRealizado = receitasRecebidas - despesasPagas;
-  const saldoPrevisto = totalReceitasMes - totalDespesasMes;
+  // Lançamentos recorrentes / fixos do mês atual
+  const despesasRecorrentesMes = useMemo(
+    () => monthItems.filter((f) => f.type === "despesa" && (f.recurring !== "none" || f.parent_id !== null)),
+    [monthItems]
+  );
+  const totalDespesasRecorrentes = useMemo(
+    () => despesasRecorrentesMes.reduce((s, f) => s + Number(f.amount), 0),
+    [despesasRecorrentesMes]
+  );
+
+  // Saldo em caixa realizado
+  const saldoRealizado = receitasRealizadasComSobra - despesasPagas;
+
+  // Previsão de quanto vai sobrar no final do mês:
+  // (Receitas Previstas + Sobra do Mês Anterior) - (Despesas Fixas, Faturas e Contas do Mês)
+  const previsaoSobraFinal = totalReceitasProjetadasMes - totalDespesasMes;
+
+  // Taxa de comprometimento da renda (%)
+  const taxaComprometimento = totalReceitasProjetadasMes > 0
+    ? Math.min(100, Math.round((totalDespesasMes / totalReceitasProjetadasMes) * 100))
+    : 0;
 
   // Credit card grouping by card name in active month
   const creditCardInvoices = useMemo(() => {
@@ -1118,27 +1227,97 @@ function FinancesContent() {
                   </div>
                 </div>
 
-                {/* Recorrência */}
-                <div className="space-y-1.5">
-                  <Label className="text-xs font-medium">Recorrência Mensal / Semanal</Label>
-                  <Select value={recurring} onValueChange={setRecurring}>
-                    <SelectTrigger className="h-9 text-xs">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {RECURRING_OPTIONS.map((o) => (
-                        <SelectItem key={o.value} value={o.value} className="text-xs">
-                          {o.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {recurring !== "none" && (
-                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                      💡 Ao passar os meses na navegação, este lançamento já estará presente nos próximos períodos.
-                    </p>
-                  )}
-                </div>
+                {/* Recorrência / Escopo de Edição */}
+                {editing ? (
+                  (editing.recurring !== "none" ||
+                    !!editing.parent_id ||
+                    items.some((x) => x.parent_id === editing.id)) && (
+                    <div className="p-3.5 rounded-xl border border-blue-500/30 bg-blue-500/5 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-xs font-semibold text-blue-900 dark:text-blue-300 flex items-center gap-1.5">
+                          <Repeat className="size-3.5 text-blue-600" />
+                          Lançamento Recorrente
+                        </Label>
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-500/30 font-medium"
+                        >
+                          {editing.recurring === "monthly"
+                            ? "Mensal"
+                            : editing.recurring === "weekly"
+                            ? "Semanal"
+                            : "Série"}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Como deseja aplicar a edição deste valor?
+                      </p>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-0.5">
+                        <button
+                          type="button"
+                          onClick={() => setEditRecurringScope("single")}
+                          className={`p-2.5 rounded-lg border text-left transition flex flex-col justify-between ${
+                            editRecurringScope === "single"
+                              ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-600"
+                              : "border-border/60 hover:bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-medium text-xs">
+                            <span>Apenas neste mês</span>
+                            {editRecurringScope === "single" && (
+                              <Check className="size-3.5 text-blue-600" />
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground mt-1">
+                            Altera o valor apenas em {formatMonthYear(currentMonth)}. Os outros meses continuam com o valor original.
+                          </span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditRecurringScope("all_future")}
+                          className={`p-2.5 rounded-lg border text-left transition flex flex-col justify-between ${
+                            editRecurringScope === "all_future"
+                              ? "border-blue-600 bg-blue-50/80 dark:bg-blue-950/40 text-blue-950 dark:text-blue-100 ring-1 ring-blue-600"
+                              : "border-border/60 hover:bg-muted/50 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between font-medium text-xs">
+                            <span>Este e meses futuros</span>
+                            {editRecurringScope === "all_future" && (
+                              <Check className="size-3.5 text-blue-600" />
+                            )}
+                          </div>
+                          <span className="text-[10px] text-muted-foreground mt-1">
+                            Atualiza este mês e replica o novo valor para todos os meses seguintes desta recorrência.
+                          </span>
+                        </button>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-medium">Recorrência Mensal / Semanal</Label>
+                    <Select value={recurring} onValueChange={setRecurring}>
+                      <SelectTrigger className="h-9 text-xs">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {RECURRING_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {recurring !== "none" && (
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        💡 Ao passar os meses na navegação, este lançamento já estará presente nos próximos períodos.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* Opções de Cartão de Crédito (apenas para despesa) */}
                 {type === "despesa" && (
@@ -1337,6 +1516,186 @@ function FinancesContent() {
         </Card>
       )}
 
+      {/* Card Executivo de Previsão de Sobra no Final do Mês (Projeção Financeira) */}
+      <Card className="p-5 lg:p-6 shadow-card border border-border/80 bg-gradient-to-br from-card via-card to-muted/20 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+
+        <div className="relative space-y-4">
+          {/* Header do Card */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-border/60">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-primary/10 text-primary">
+                <Sparkles className="size-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="font-display font-bold text-base lg:text-lg text-foreground">
+                    Previsão de Fechamento do Mês
+                  </h2>
+                  <Badge variant="outline" className="text-[10px] font-semibold bg-primary/5 text-primary border-primary/20">
+                    {formatMonthYear(currentMonth)}
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Projeção automática calculada com base nos lançamentos recorrentes, faturas de cartão e sobra do mês anterior
+                </p>
+              </div>
+            </div>
+
+            {/* Status Badge */}
+            <div className="flex items-center gap-2">
+              {previsaoSobraFinal > 0 ? (
+                <Badge className="bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border-emerald-500/30 text-xs py-1 px-2.5 font-semibold gap-1.5 shadow-xs">
+                  <TrendingUp className="size-3.5" /> Superávit Previsto
+                </Badge>
+              ) : previsaoSobraFinal === 0 ? (
+                <Badge className="bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30 text-xs py-1 px-2.5 font-semibold gap-1.5 shadow-xs">
+                  <Calculator className="size-3.5" /> Equilíbrio Orçamentário
+                </Badge>
+              ) : (
+                <Badge className="bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/30 text-xs py-1 px-2.5 font-semibold gap-1.5 shadow-xs">
+                  <AlertTriangle className="size-3.5" /> Déficit Previsto
+                </Badge>
+              )}
+            </div>
+          </div>
+
+          {/* Conteúdo Principal */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-center">
+            {/* Coluna Esquerda: Valor da Previsão de Sobra */}
+            <div className="lg:col-span-5 space-y-2.5">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Previsão de sobra no final do mês:
+              </span>
+              <div className="flex items-baseline gap-2">
+                <p
+                  className={`text-3xl sm:text-4xl font-display font-extrabold tracking-tight ${
+                    previsaoSobraFinal >= 0
+                      ? "text-emerald-600 dark:text-emerald-400"
+                      : "text-rose-600 dark:text-rose-400"
+                  }`}
+                >
+                  {fmt(previsaoSobraFinal)}
+                </p>
+                {previsaoSobraFinal > 0 && (
+                  <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                    de economia prevista
+                  </span>
+                )}
+              </div>
+
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {previsaoSobraFinal > 0 ? (
+                  <>
+                    Quitando todos os fixos recorrentes, parcelas de faturas e contas previstas, você terá uma sobra estimada de{" "}
+                    <strong className="text-emerald-600 dark:text-emerald-400 font-semibold">{fmt(previsaoSobraFinal)}</strong> livre na conta ao fechar o mês.
+                  </>
+                ) : previsaoSobraFinal === 0 ? (
+                  <>
+                    Suas receitas projetadas cobrem exatamente o montante de despesas programadas para este mês.
+                  </>
+                ) : (
+                  <>
+                    As despesas comprometidas excedem a receita total prevista em{" "}
+                    <strong className="text-rose-600 dark:text-rose-400 font-semibold">{fmt(Math.abs(previsaoSobraFinal))}</strong>. Ajuste os fixos pontualmente ou preveja novas receitas.
+                  </>
+                )}
+              </p>
+
+              {/* Barra de comprometimento */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex justify-between text-[11px] text-muted-foreground">
+                  <span>Renda Comprometida</span>
+                  <span className="font-semibold text-foreground">{taxaComprometimento}%</span>
+                </div>
+                <div className="h-2 w-full bg-muted/60 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      taxaComprometimento > 90
+                        ? "bg-rose-500"
+                        : taxaComprometimento > 70
+                        ? "bg-amber-500"
+                        : "bg-emerald-500"
+                    }`}
+                    style={{ width: `${Math.min(100, taxaComprometimento)}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Coluna Direita: Métricas Detalhadas dos Fixos e Fontes */}
+            <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Receitas Projetadas */}
+              <div className="p-3.5 rounded-xl border border-border/70 bg-card/80 space-y-1 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium">Receitas Previstas</span>
+                  <ArrowUpRight className="size-3.5 text-emerald-600" />
+                </div>
+                <p className="text-lg font-bold font-mono text-emerald-600 dark:text-emerald-400">
+                  {fmt(totalReceitasProjetadasMes)}
+                </p>
+                <div className="text-[10px] text-muted-foreground space-y-0.5">
+                  <div>Lançamentos: {fmt(totalReceitasLancamentos)}</div>
+                  {saldoAnteriorAplicado > 0 && (
+                    <div className="text-emerald-600 dark:text-emerald-400 font-medium">
+                      + {fmt(saldoAnteriorAplicado)} mês anterior
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Despesas Fixas / Recorrentes */}
+              <div className="p-3.5 rounded-xl border border-border/70 bg-card/80 space-y-1 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium">Despesas Fixas</span>
+                  <Repeat className="size-3.5 text-blue-600" />
+                </div>
+                <p className="text-lg font-bold font-mono text-foreground">
+                  {fmt(totalDespesasRecorrentes)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {despesasRecorrentesMes.length} conta(s) recorrente(s) no mês
+                </p>
+              </div>
+
+              {/* Faturas de Cartão */}
+              <div className="p-3.5 rounded-xl border border-border/70 bg-card/80 space-y-1 shadow-xs">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
+                  <span className="font-medium">Faturas de Cartão</span>
+                  <CreditCard className="size-3.5 text-purple-600" />
+                </div>
+                <p className="text-lg font-bold font-mono text-purple-600 dark:text-purple-400">
+                  {fmt(totalFaturasCartao)}
+                </p>
+                <p className="text-[10px] text-muted-foreground">
+                  {creditCardInvoices.length} fatura(s) cadastrada(s)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Barra inferior com toggle de saldo transportado */}
+          {saldoTransportado > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/50 text-xs text-muted-foreground">
+              <div className="flex items-center gap-2">
+                <PiggyBank className="size-4 text-emerald-600" />
+                <span>
+                  Sobra do mês anterior ({formatMonthYear(prevMonthStr)}):{" "}
+                  <strong className="text-foreground">{fmt(saldoTransportado)}</strong>
+                </span>
+              </div>
+              <label className="flex items-center gap-1.5 cursor-pointer font-medium text-foreground hover:text-primary transition">
+                <Checkbox
+                  checked={includeCarriedOver}
+                  onCheckedChange={(v) => setIncludeCarriedOver(!!v)}
+                />
+                <span>Incorporar sobra como receita disponível no mês</span>
+              </label>
+            </div>
+          )}
+        </div>
+      </Card>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Receitas */}
@@ -1346,12 +1705,19 @@ function FinancesContent() {
             <div className="space-y-1">
               <span className="text-xs text-muted-foreground font-medium">Receitas (Mês)</span>
               <p className="text-2xl font-display font-bold text-emerald-600 dark:text-emerald-400">
-                {fmt(receitasRecebidas)}
+                {fmt(receitasRealizadasComSobra)}
               </p>
-              <div className="flex items-center gap-1.5 pt-0.5">
-                <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30">
-                  <Clock className="size-2.5 mr-1" /> +{fmt(receitasAReceber)} a receber
-                </Badge>
+              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                {saldoAnteriorAplicado > 0 && (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border-emerald-500/30">
+                    <PiggyBank className="size-2.5 mr-1 text-emerald-600" /> +{fmt(saldoAnteriorAplicado)} anterior
+                  </Badge>
+                )}
+                {receitasAReceber > 0 && (
+                  <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/30">
+                    <Clock className="size-2.5 mr-1" /> +{fmt(receitasAReceber)} a receber
+                  </Badge>
+                )}
               </div>
             </div>
             <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-600">
@@ -1397,7 +1763,7 @@ function FinancesContent() {
                 {fmt(saldoRealizado)}
               </p>
               <p className="text-[11px] text-muted-foreground">
-                Previsto: <strong className="text-foreground">{fmt(saldoPrevisto)}</strong>
+                Previsão no fim do mês: <strong className={previsaoSobraFinal >= 0 ? "text-emerald-600 font-semibold" : "text-rose-600 font-semibold"}>{fmt(previsaoSobraFinal)}</strong>
               </p>
             </div>
             <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
@@ -1565,7 +1931,74 @@ function FinancesContent() {
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {filtered.length === 0 && (
+                  {/* Saldo Transportado do Mês Anterior (entra como receita disponível no mês atual) */}
+                  {includeCarriedOver && saldoTransportado > 0 && (filterType === "all" || filterType === "receita") && (
+                    <tr className="bg-emerald-500/10 dark:bg-emerald-950/25 border-b border-emerald-500/30 hover:bg-emerald-500/15 transition">
+                      {/* Descrição */}
+                      <td className="px-4 py-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-2">
+                            <div className="p-1 rounded bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                              <PiggyBank className="size-3.5" />
+                            </div>
+                            <span className="font-semibold text-emerald-950 dark:text-emerald-100">
+                              Saldo Transportado do Mês Anterior
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-800 dark:text-emerald-200 font-medium text-[10px]">
+                              Sobra em Conta
+                            </span>
+                            <span>
+                              • Sobra de {formatMonthYear(prevMonthStr)} integrada como receita disponível no caixa
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Categoria */}
+                      <td className="px-4 py-3 capitalize text-muted-foreground">
+                        <Badge variant="outline" className="text-[11px] font-normal capitalize bg-background">
+                          Saldo Inicial
+                        </Badge>
+                      </td>
+
+                      {/* Vencimento e Fechamento */}
+                      <td className="px-4 py-3">
+                        <div className="space-y-0.5">
+                          <span className="text-muted-foreground block text-xs">
+                            Fechamento {prevMonthStr}
+                          </span>
+                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                            <CheckCircle2 className="size-3" /> Disponível no Caixa
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3 text-center">
+                        <div className="inline-flex items-center gap-1.5">
+                          <Badge className="bg-emerald-600 hover:bg-emerald-600 text-white border-emerald-500/30 text-[10px] font-semibold">
+                            <Check className="size-3 mr-0.5" /> EM CAIXA
+                          </Badge>
+                        </div>
+                      </td>
+
+                      {/* Valor */}
+                      <td className="px-4 py-3 text-right font-bold font-mono text-sm text-emerald-600 dark:text-emerald-400">
+                        +{fmt(saldoTransportado)}
+                      </td>
+
+                      {/* Opções */}
+                      <td className="px-4 py-3 text-right">
+                        <Badge variant="secondary" className="text-[10px] font-normal text-muted-foreground">
+                          Automático
+                        </Badge>
+                      </td>
+                    </tr>
+                  )}
+
+                  {filtered.length === 0 && (!includeCarriedOver || saldoTransportado <= 0 || filterType === "despesa") && (
                     <tr>
                       <td colSpan={6} className="text-center py-12 text-muted-foreground text-xs">
                         Nenhum lançamento encontrado para o período selecionado.

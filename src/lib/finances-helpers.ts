@@ -271,3 +271,55 @@ export function parseFinancesCsv(csvText: string): CsvParsedRow[] {
   return rows;
 }
 
+/**
+ * Calcula o saldo que sobrou em conta no fechamento do mês anterior (ou histórico acumulado)
+ */
+export function calculateCarriedOverBalance(
+  items: Array<{ amount: number; type: string; paid: boolean; due_date: string | null; date: string }>,
+  currentMonth: string
+): { carriedBalance: number; prevMonthSurplus: number; prevMonth: string } {
+  const prevMonth = getPrevMonth(currentMonth);
+
+  // 1. Itens exclusivamente do mês imediatamente anterior
+  const prevItems = items.filter((f) => {
+    const d = f.due_date || f.date;
+    return d && d.startsWith(prevMonth);
+  });
+  const recPagasPrev = prevItems
+    .filter((f) => f.type === "receita" && f.paid)
+    .reduce((s, f) => s + Number(f.amount), 0);
+  const despPagasPrev = prevItems
+    .filter((f) => f.type === "despesa" && f.paid)
+    .reduce((s, f) => s + Number(f.amount), 0);
+  const prevMonthSurplus = recPagasPrev - despPagasPrev;
+
+  // 2. Itens quitados acumulados antes do mês atual (saldo geral em caixa que transitou)
+  const allPastItems = items.filter((f) => {
+    const d = f.due_date || f.date;
+    return d && d < currentMonth;
+  });
+  const totalRecPast = allPastItems
+    .filter((f) => f.type === "receita" && f.paid)
+    .reduce((s, f) => s + Number(f.amount), 0);
+  const totalDespPast = allPastItems
+    .filter((f) => f.type === "despesa" && f.paid)
+    .reduce((s, f) => s + Number(f.amount), 0);
+  const accumulatedPast = totalRecPast - totalDespPast;
+
+  // Se houver saldo positivo acumulado no histórico, esse é o saldo real transportado em caixa.
+  // Caso contrário, se o mês imediatamente anterior foi positivo, usamos ele.
+  let carried = 0;
+  if (accumulatedPast > 0) {
+    carried = accumulatedPast;
+  } else if (prevMonthSurplus > 0) {
+    carried = prevMonthSurplus;
+  }
+
+  return {
+    carriedBalance: Math.round(carried * 100) / 100,
+    prevMonthSurplus: Math.round(prevMonthSurplus * 100) / 100,
+    prevMonth,
+  };
+}
+
+
