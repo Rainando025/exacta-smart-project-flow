@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import {
   Plus, Trash2, Edit3, Sparkles, ZoomIn, ZoomOut, RotateCcw,
   Download, Eye, EyeOff, Layout, Palette, Check,
-  ChevronRight, Network, Layers, GitFork, ArrowDown, GitBranch,
-  HelpCircle, Copy, Share2, Compass
+  ChevronRight, ChevronLeft, Network, Layers, GitFork, ArrowDown, GitBranch,
+  HelpCircle, Copy, Share2, Compass, Play, Pause, X, Move
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -174,6 +174,21 @@ export function MindMapTool({
   const [aiTopic, setAiTopic] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
+
+  // Estados de Arraste Manual dos Nós
+  const [nodeOffsets, setNodeOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  const [draggingNode, setDraggingNode] = useState<{
+    id: string;
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+  } | null>(null);
+
+  // Estados do Modo Apresentação (Passo a Passo)
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [presentationStep, setPresentationStep] = useState(0);
+  const [autoPlay, setAutoPlay] = useState(false);
 
   // Sincronizar com props se fornecidas
   useEffect(() => {
@@ -623,27 +638,195 @@ export function MindMapTool({
     return positioned;
   }, [mapData, currentPalette]);
 
-  // Manipulação de Pan & Zoom
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.target === canvasRef.current || (e.target as HTMLElement).tagName === "svg") {
-      setIsPanning(true);
-      setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  // Lista de nós com os deslocamentos manuais aplicados (Drag & Drop de nós)
+  const positionedNodes = useMemo(() => {
+    return layoutCalculations.map((p) => {
+      const off = nodeOffsets[p.node.id] || { x: 0, y: 0 };
+      return {
+        ...p,
+        x: p.x + off.x,
+        y: p.y + off.y,
+      };
+    });
+  }, [layoutCalculations, nodeOffsets]);
+
+  // Mapa rápido de ID para nó posicionado
+  const nodePositionMap = useMemo(() => {
+    const map = new Map<string, PositionedNode>();
+    positionedNodes.forEach((p) => map.set(p.node.id, p));
+    return map;
+  }, [positionedNodes]);
+
+  // Ordem de Apresentação Sequencial (Depth-First / Pré-ordem)
+  const presentationOrder = useMemo(() => {
+    const order: MindMapNode[] = [];
+    function traverse(node: MindMapNode) {
+      order.push(node);
+      if (node.children && node.children.length > 0) {
+        node.children.forEach(traverse);
+      }
     }
+    traverse(mapData.root);
+    return order;
+  }, [mapData.root]);
+
+  // Conjunto de nós visíveis na Apresentação
+  const visibleNodeIds = useMemo(() => {
+    if (!presentationMode) return new Set<string>();
+    return new Set(presentationOrder.slice(0, presentationStep + 1).map((n) => n.id));
+  }, [presentationMode, presentationOrder, presentationStep]);
+
+  // Centralização suave no card atual da apresentação
+  useEffect(() => {
+    if (!presentationMode) return;
+    const currentNode = presentationOrder[presentationStep];
+    if (currentNode && nodePositionMap) {
+      const pos = nodePositionMap.get(currentNode.id);
+      if (pos) {
+        setPan({
+          x: -pos.x * zoom,
+          y: -pos.y * zoom,
+        });
+      }
+    }
+  }, [presentationMode, presentationStep]);
+
+  // Timer para Auto-Play na Apresentação (3.2s por card)
+  useEffect(() => {
+    if (!presentationMode || !autoPlay) return;
+    const interval = setInterval(() => {
+      setPresentationStep((prev) => {
+        if (prev >= presentationOrder.length - 1) {
+          setAutoPlay(false);
+          toast.info("Apresentação concluída!");
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 3200);
+    return () => clearInterval(interval);
+  }, [presentationMode, autoPlay, presentationOrder.length]);
+
+  // Teclado na Apresentação (Setas, Espaço, Esc)
+  useEffect(() => {
+    if (!presentationMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "Enter") {
+        e.preventDefault();
+        setPresentationStep((s) => Math.min(presentationOrder.length - 1, s + 1));
+      } else if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setPresentationStep((s) => Math.max(0, s - 1));
+      } else if (e.key === "Escape") {
+        setPresentationMode(false);
+        setAutoPlay(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [presentationMode, presentationOrder.length]);
+
+  // Iniciar Apresentação
+  const startPresentation = () => {
+    if (presentationOrder.length === 0) return;
+    setPresentationMode(true);
+    setPresentationStep(0);
+    setAutoPlay(false);
+    setZoom(1.05);
+    const rootPos = nodePositionMap.get(mapData.root.id);
+    if (rootPos) {
+      setPan({ x: -rootPos.x * 1.05, y: -rootPos.y * 1.05 });
+    } else {
+      setPan({ x: 0, y: 0 });
+    }
+    toast.info("Modo Apresentação iniciado! Use as setas ← → ou Espaço para avançar.");
+  };
+
+  const exitPresentation = () => {
+    setPresentationMode(false);
+    setAutoPlay(false);
+  };
+
+  // Manipulação de Arraste de Nó
+  const handleNodeMouseDown = (e: React.MouseEvent, nodeId: string) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button") || target.closest("input")) return;
+
+    e.stopPropagation();
+    setSelectedNodeId(nodeId);
+    setDraggingNode({
+      id: nodeId,
+      startX: e.clientX,
+      startY: e.clientY,
+      origX: nodeOffsets[nodeId]?.x || 0,
+      origY: nodeOffsets[nodeId]?.y || 0,
+    });
+  };
+
+  // Manipulação de Pan do Canvas
+  const handleCanvasMouseDown = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest(".mindmap-node") || target.closest("button") || target.closest("input")) {
+      return;
+    }
+    setIsPanning(true);
+    setStartPan({ x: e.clientX - pan.x, y: e.clientY - pan.y });
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
-    if (isPanning) {
+    if (draggingNode) {
+      const dx = (e.clientX - draggingNode.startX) / zoom;
+      const dy = (e.clientY - draggingNode.startY) / zoom;
+      setNodeOffsets((prev) => ({
+        ...prev,
+        [draggingNode.id]: {
+          x: Math.round(draggingNode.origX + dx),
+          y: Math.round(draggingNode.origY + dy),
+        },
+      }));
+    } else if (isPanning) {
       setPan({ x: e.clientX - startPan.x, y: e.clientY - startPan.y });
     }
   };
 
   const handleMouseUp = () => {
+    setDraggingNode(null);
     setIsPanning(false);
+  };
+
+  // Suporte a Touch em Dispositivos Móveis
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const target = e.target as HTMLElement;
+      if (target.closest(".mindmap-node") || target.closest("button") || target.closest("input")) {
+        return;
+      }
+      setIsPanning(true);
+      setStartPan({ x: touch.clientX - pan.x, y: touch.clientY - pan.y });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (isPanning && e.touches.length === 1) {
+      const touch = e.touches[0];
+      setPan({ x: touch.clientX - startPan.x, y: touch.clientY - startPan.y });
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setIsPanning(false);
+    setDraggingNode(null);
   };
 
   const resetView = () => {
     setZoom(1);
     setPan({ x: 0, y: 0 });
+  };
+
+  const resetNodePositions = () => {
+    setNodeOffsets({});
+    toast.success("Posições automáticas dos nós restauradas!");
   };
 
   // Funções de Edição
@@ -993,6 +1176,37 @@ REQUISITOS OBRIGATÓRIOS:
             </Button>
           </div>
 
+          {/* Modo Apresentação */}
+          <Button
+            size="sm"
+            variant={presentationMode ? "default" : "outline"}
+            onClick={presentationMode ? exitPresentation : startPresentation}
+            className={cn(
+              "h-8 px-3 text-xs gap-1.5 font-semibold transition-all shadow-sm",
+              presentationMode
+                ? "bg-accent text-accent-foreground border-accent shadow-glow"
+                : "border-accent/40 text-accent hover:bg-accent/10"
+            )}
+            title="Apresentação passo a passo (vai revelando os cards aos poucos)"
+          >
+            <Play className="h-3.5 w-3.5 fill-current" />
+            <span>{presentationMode ? "Sair da Apresentação" : "Apresentação"}</span>
+          </Button>
+
+          {/* Realinhar Nós (se houver posições arrastadas) */}
+          {Object.keys(nodeOffsets).length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={resetNodePositions}
+              className="h-8 px-2.5 text-xs gap-1.5 border-border hover:border-accent text-muted-foreground hover:text-foreground"
+              title="Restaurar posições automáticas do layout"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span className="hidden sm:inline">Realinhar</span>
+            </Button>
+          )}
+
           {/* Botão IA */}
           <Button
             size="sm"
@@ -1029,15 +1243,19 @@ REQUISITOS OBRIGATÓRIOS:
         </div>
       </div>
 
-      {/* Canvas Principal com Arraste, Linhas SVG e Cartões */}
+      {/* Canvas Principal com Arraste Livre (Canvas e Nós), Linhas SVG e Cartões */}
       <div
         ref={canvasRef}
-        onMouseDown={handleMouseDown}
+        onMouseDown={handleCanvasMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
         className={cn(
-          "flex-1 relative overflow-hidden bg-slate-100/90 dark:bg-slate-900/40 cursor-grab active:cursor-grabbing",
+          "flex-1 relative overflow-hidden bg-slate-100/90 dark:bg-slate-900/40 select-none",
+          draggingNode ? "cursor-grabbing" : isPanning ? "cursor-grabbing" : "cursor-grab",
           "bg-[radial-gradient(#64748b33_1px,transparent_1px)] [background-size:24px_24px]"
         )}
       >
@@ -1048,10 +1266,10 @@ REQUISITOS OBRIGATÓRIOS:
               pan.y + (canvasRef.current?.clientHeight || 600) / 2
             }px) scale(${zoom})`,
             transformOrigin: "0 0",
-            transition: isPanning ? "none" : "transform 0.1s ease-out",
+            transition: isPanning || draggingNode ? "none" : "transform 0.15s ease-out",
           }}
         >
-          {/* Conexões SVG Suaves Bezier */}
+          {/* Conexões SVG Suaves Bezier Dinâmicas */}
           <svg className="overflow-visible absolute top-0 left-0 w-1 h-1 pointer-events-none">
             <defs>
               <linearGradient id="lineGrad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1087,42 +1305,54 @@ REQUISITOS OBRIGATÓRIOS:
               />
             )}
 
-            {layoutCalculations.map((p) => {
-              if (!p.parentPos) return null;
-              const sourceX = p.parentPos.x;
-              const sourceY = p.parentPos.y;
+            {positionedNodes.map((p) => {
+              if (!p.parentId) return null;
+              const parentNode = nodePositionMap.get(p.parentId);
+              if (!parentNode) return null;
 
-              // Destino baseado no layout
+              // No modo de apresentação, só mostra a linha se ambos os cartões já apareceram
+              if (presentationMode && (!visibleNodeIds.has(p.node.id) || !visibleNodeIds.has(p.parentId))) {
+                return null;
+              }
+
+              // Posição de origem (do pai) calculada dinamicamente com suporte a nós arrastados
+              let sourceX = parentNode.x + parentNode.width;
+              let sourceY = parentNode.y + parentNode.height / 2;
               let targetX = p.x;
               let targetY = p.y + p.height / 2;
 
               if (mapData.layout === "radial") {
-                if (p.x < 0) {
-                  // Ramo esquerdo
+                if (p.x < parentNode.x) {
+                  sourceX = parentNode.x;
                   targetX = p.x + p.width;
+                } else {
+                  sourceX = parentNode.x + parentNode.width;
+                  targetX = p.x;
                 }
-              } else if (mapData.layout === "org-chart") {
+              } else if (mapData.layout === "org-chart" || mapData.layout === "timeline") {
+                sourceX = parentNode.x + parentNode.width / 2;
+                sourceY = parentNode.y + parentNode.height;
                 targetX = p.x + p.width / 2;
                 targetY = p.y;
+              } else if (mapData.layout === "ishikawa") {
+                sourceX = parentNode.x;
+                sourceY = parentNode.y;
+                targetX = p.x + (p.x < parentNode.x ? p.width : 0);
               }
 
               // Curvas Bézier naturais e limpas
               let pathData = "";
-              if (mapData.layout === "radial") {
-                const dx = (targetX - sourceX) * 0.55;
-                pathData = `M ${sourceX} ${sourceY} C ${sourceX + dx} ${sourceY}, ${targetX - dx} ${targetY}, ${targetX} ${targetY}`;
-              } else if (mapData.layout === "tree-right") {
+              if (mapData.layout === "radial" || mapData.layout === "tree-right") {
                 const dx = (targetX - sourceX) * 0.5;
                 pathData = `M ${sourceX} ${sourceY} C ${sourceX + dx} ${sourceY}, ${targetX - dx} ${targetY}, ${targetX} ${targetY}`;
-              } else if (mapData.layout === "org-chart") {
+              } else if (mapData.layout === "org-chart" || mapData.layout === "timeline") {
                 const dy = (targetY - sourceY) * 0.5;
                 pathData = `M ${sourceX} ${sourceY} C ${sourceX} ${sourceY + dy}, ${targetX} ${targetY - dy}, ${targetX} ${targetY}`;
               } else if (mapData.layout === "ishikawa") {
-                // Diagonais retas técnicas de espinha de peixe
                 pathData = `M ${sourceX} ${sourceY} L ${targetX} ${targetY}`;
               } else {
-                const dy = (targetY - sourceY) * 0.5;
-                pathData = `M ${sourceX} ${sourceY} C ${sourceX} ${sourceY + dy}, ${targetX} ${targetY - dy}, ${targetX} ${targetY}`;
+                const dx = (targetX - sourceX) * 0.5;
+                pathData = `M ${sourceX} ${sourceY} C ${sourceX + dx} ${sourceY}, ${targetX - dx} ${targetY}, ${targetX} ${targetY}`;
               }
 
               return (
@@ -1132,23 +1362,32 @@ REQUISITOS OBRIGATÓRIOS:
                   fill="none"
                   stroke={p.color || "#06b6d4"}
                   strokeWidth={Math.max(1.8, 3.2 - p.level * 0.7)}
-                  strokeOpacity={0.65}
+                  strokeOpacity={0.7}
                   strokeLinecap="round"
+                  className="transition-all duration-300"
                 />
               );
             })}
           </svg>
 
-          {/* Cartões dos Nós */}
-          {layoutCalculations.map((p) => {
+          {/* Cartões dos Nós (com Arraste Livre e Modo Apresentação) */}
+          {positionedNodes.map((p) => {
+            // No modo de apresentação, só renderiza os cards até o passo atual
+            if (presentationMode && !visibleNodeIds.has(p.node.id)) {
+              return null;
+            }
+
             const isRoot = p.level === 0;
             const isSelected = selectedNodeId === p.node.id;
             const isEditing = editingNodeId === p.node.id;
             const hasChildren = p.node.children && p.node.children.length > 0;
+            const isCurrentInPresentation =
+              presentationMode && presentationOrder[presentationStep]?.id === p.node.id;
 
             return (
               <div
                 key={p.node.id}
+                onMouseDown={(e) => handleNodeMouseDown(e, p.node.id)}
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedNodeId(p.node.id);
@@ -1158,14 +1397,17 @@ REQUISITOS OBRIGATÓRIOS:
                   startEditing(p.node);
                 }}
                 className={cn(
-                  "absolute pointer-events-auto rounded-xl flex items-center justify-between px-3.5 transition-all duration-150 group",
-                  "shadow-card border text-foreground",
+                  "mindmap-node absolute pointer-events-auto rounded-xl flex items-center justify-between px-3.5 select-none",
+                  "shadow-card border text-foreground cursor-grab active:cursor-grabbing",
+                  "transition-all duration-200 group",
+                  isCurrentInPresentation
+                    ? "ring-4 ring-accent ring-offset-4 ring-offset-background scale-105 shadow-2xl z-30 animate-in fade-in zoom-in-90 duration-500"
+                    : isSelected
+                    ? "ring-2 ring-accent ring-offset-2 ring-offset-background border-accent shadow-md z-10"
+                    : "hover:border-accent/60 hover:shadow-md",
                   isRoot
                     ? "font-bold text-sm tracking-wide text-white border-white/20 shadow-glow"
-                    : "text-xs font-medium border-border/80 bg-card hover:border-accent/60 hover:shadow-md",
-                  isSelected
-                    ? "ring-2 ring-accent ring-offset-2 ring-offset-background border-accent shadow-md"
-                    : ""
+                    : "text-xs font-medium border-border/80 bg-card"
                 )}
                 style={{
                   left: p.x,
@@ -1175,12 +1417,27 @@ REQUISITOS OBRIGATÓRIOS:
                   background: isRoot
                     ? currentPalette.rootBg
                     : "hsl(var(--card))",
-                  borderColor: isSelected ? p.color : isRoot ? "transparent" : `${p.color}50`,
-                  boxShadow: isSelected
+                  borderColor: isCurrentInPresentation
+                    ? p.color
+                    : isSelected
+                    ? p.color
+                    : isRoot
+                    ? "transparent"
+                    : `${p.color}50`,
+                  boxShadow: isCurrentInPresentation
+                    ? `0 0 25px ${p.color}90, 0 8px 24px rgba(0,0,0,0.18)`
+                    : isSelected
                     ? `0 0 16px ${p.color}50`
                     : `0 2px 8px rgba(0,0,0,0.06)`,
                 }}
               >
+                {/* Badge Flutuante no Card em Destaque na Apresentação */}
+                {isCurrentInPresentation && (
+                  <div className="absolute -top-7 left-1/2 -translate-x-1/2 bg-accent text-accent-foreground text-[10px] font-bold px-2 py-0.5 rounded-full shadow-lg flex items-center gap-1 shrink-0 animate-bounce">
+                    <Sparkles className="size-2.5" /> Destaque
+                  </div>
+                )}
+
                 {/* Indicador de cor à esquerda do nó */}
                 {!isRoot && (
                   <div
@@ -1216,6 +1473,11 @@ REQUISITOS OBRIGATÓRIOS:
                   )}
                 </div>
 
+                {/* Ícone sutil de movimentação (Drag handle) */}
+                <div className="mr-1 opacity-0 group-hover:opacity-40 transition-opacity">
+                  <Move className="size-3 text-muted-foreground" />
+                </div>
+
                 {/* Ações Rápidas no Cartão */}
                 <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button
@@ -1242,7 +1504,7 @@ REQUISITOS OBRIGATÓRIOS:
                 </div>
 
                 {/* Badge de Expansão / Colapso se tiver filhos */}
-                {hasChildren && (
+                {hasChildren && !presentationMode && (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -1264,14 +1526,87 @@ REQUISITOS OBRIGATÓRIOS:
           })}
         </div>
 
+        {/* Barra de Controle de Apresentação (Passo a Passo) */}
+        {presentationMode && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 bg-card/95 backdrop-blur-xl border border-accent/40 shadow-2xl rounded-2xl p-2.5 flex items-center gap-3 animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <div className="flex items-center gap-2 pl-2 pr-3 border-r border-border">
+              <Badge className="bg-accent text-accent-foreground text-[10px] font-bold uppercase tracking-wider">
+                Apresentação
+              </Badge>
+              <span className="text-xs font-mono font-medium text-foreground">
+                {presentationStep + 1} / {presentationOrder.length}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPresentationStep((s) => Math.max(0, s - 1))}
+                disabled={presentationStep === 0}
+                className="h-8 px-2.5 text-xs gap-1"
+                title="Card Anterior (Seta Esquerda)"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Anterior
+              </Button>
+
+              <Button
+                size="sm"
+                variant={autoPlay ? "default" : "outline"}
+                onClick={() => setAutoPlay((p) => !p)}
+                className={cn("h-8 px-3 text-xs gap-1.5", autoPlay && "bg-accent text-accent-foreground font-semibold")}
+                title={autoPlay ? "Pausar avanço automático" : "Avançar automaticamente (3s por card)"}
+              >
+                {autoPlay ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+                <span>{autoPlay ? "Pausar" : "Auto-Play"}</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPresentationStep((s) => Math.min(presentationOrder.length - 1, s + 1))}
+                disabled={presentationStep === presentationOrder.length - 1}
+                className="h-8 px-2.5 text-xs gap-1 font-semibold text-accent border-accent/40 hover:bg-accent/10"
+                title="Próximo Card (Espaço ou Seta Direita)"
+              >
+                Próximo <ChevronRight className="h-3.5 w-3.5" />
+              </Button>
+
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => {
+                  setPresentationStep(0);
+                  setAutoPlay(false);
+                }}
+                className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                title="Reiniciar do Início"
+              >
+                <RotateCcw className="h-3.5 w-3.5" />
+              </Button>
+
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={exitPresentation}
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-destructive gap-1"
+                title="Sair da Apresentação (Esc)"
+              >
+                <X className="h-3.5 w-3.5" /> Sair
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Floating Mini Guide */}
-        <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md border border-white/10 rounded-lg p-2.5 text-[11px] text-muted-foreground space-y-1 hidden md:block">
+        <div className="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md border border-white/10 rounded-lg p-2.5 text-[11px] text-muted-foreground space-y-1 hidden md:block z-20">
           <p className="font-semibold text-white flex items-center gap-1.5">
             <HelpCircle className="h-3 w-3 text-accent" /> Dicas de Navegação:
           </p>
+          <p>• Clique e arraste em qualquer nó para reposicioná-lo.</p>
           <p>• Clique e arraste no fundo para mover o mapa (Pan).</p>
+          <p>• Use <strong>Apresentação</strong> para exibir os cards pouco a pouco.</p>
           <p>• Dê duplo clique em qualquer nó para editar seu texto.</p>
-          <p>• Selecione um nó e use <span className="text-accent font-mono">+ Sub-nó</span> ou <span className="text-accent font-mono">+ Irmão</span>.</p>
         </div>
       </div>
 
