@@ -87,13 +87,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [user]);
 
+  const recordAuthAudit = async (userId: string, email: string | undefined, action: "login" | "logout") => {
+    try {
+      await supabase.from("audit_logs").insert({
+        actor_id: userId,
+        entity_type: "auth",
+        entity_id: userId,
+        action,
+        changes: { email: email ?? null },
+      });
+    } catch {
+      // Never block authentication flow if audit logging fails
+    }
+  };
+
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
       setSession(newSession);
       setUser(newSession?.user ?? null);
       if (newSession?.user) {
         localStorage.setItem(LAST_ACTIVITY_KEY, Date.now().toString());
         setTimeout(() => loadProfile(newSession.user.id), 0);
+        if (event === "SIGNED_IN") {
+          const loginKey = `exacta_audit_login_${newSession.user.id}`;
+          if (!sessionStorage.getItem(loginKey)) {
+            sessionStorage.setItem(loginKey, "1");
+            setTimeout(() => recordAuthAudit(newSession.user.id, newSession.user.email, "login"), 0);
+          }
+        }
       } else {
         setProfile(null);
         localStorage.removeItem(LAST_ACTIVITY_KEY);
@@ -119,6 +140,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    if (user) {
+      sessionStorage.removeItem(`exacta_audit_login_${user.id}`);
+      await recordAuthAudit(user.id, user.email, "logout");
+    }
     localStorage.removeItem(LAST_ACTIVITY_KEY);
     await supabase.auth.signOut();
     window.location.href = "/auth";
