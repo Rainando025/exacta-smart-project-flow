@@ -224,9 +224,20 @@ function SettingsContent() {
 
   const handleChangeDepartment = async (userId: string, deptId: string) => {
     const val = deptId === "none" ? null : deptId;
-    const { error } = await supabase.from("profiles").update({ department_id: val } as any).eq("id", userId);
-    if (error) toast.error(error.message);
-    else { toast.success("Setor atualizado!"); load(); }
+    const { data, error } = await supabase
+      .from("profiles")
+      .update({ department_id: val } as any)
+      .eq("id", userId)
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      toast.error(error.message);
+    } else if (!data) {
+      toast.error("Sem permissão no banco (RLS) para atualizar o setor deste usuário. Execute a migração de profiles.");
+    } else {
+      toast.success("Setor atualizado!");
+      load();
+    }
   };
 
   // Profile save
