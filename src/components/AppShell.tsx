@@ -301,7 +301,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <nav
           ref={navRef}
           onScroll={handleNavScroll}
-          className="flex-1 space-y-3 p-2 overflow-y-auto scrollbar-thin scrollbar-thumb-sidebar-border/50 hover:scrollbar-thumb-sidebar-border"
+          className="flex-1 space-y-3 p-2 overflow-y-auto scrollbar-hide"
         >
           {NAV.map((group) => {
             const isCollapsed = Boolean(collapsedSections[group.title]);
@@ -534,7 +534,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </div>
 
               {/* Lista de Navegação Mobile */}
-              <nav className="flex-1 overflow-y-auto p-3 space-y-4">
+              <nav className="flex-1 overflow-y-auto p-3 space-y-4 scrollbar-hide">
                 {NAV.map((group) => (
                   <div key={group.title} className="space-y-1">
                     <h3 className="px-2 text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/40">
