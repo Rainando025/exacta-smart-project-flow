@@ -63,6 +63,15 @@ function SettingsContent() {
   const [deptColor, setDeptColor] = useState("#6366f1");
   const [savingDept, setSavingDept] = useState(false);
 
+  // Admin Edit / Delete User state
+  const [editingUser, setEditingUser] = useState<Profile | null>(null);
+  const [editUserName, setEditUserName] = useState("");
+  const [editUserJobTitle, setEditUserJobTitle] = useState("");
+  const [editUserDeptId, setEditUserDeptId] = useState("none");
+  const [editUserRole, setEditUserRole] = useState("colaborador");
+  const [savingUser, setSavingUser] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
   // AI Settings state
   const [aiConfig, setAiConfigState] = useState<AIConfig>(getAIConfig);
   const [geminiKey, setGeminiKey] = useState("");
@@ -237,6 +246,77 @@ function SettingsContent() {
     } else {
       toast.success("Setor atualizado!");
       load();
+    }
+  };
+
+  const openEditUser = (p: Profile) => {
+    setEditingUser(p);
+    setEditUserName(p.full_name || "");
+    setEditUserJobTitle(p.job_title || "");
+    setEditUserDeptId(p.department_id || "none");
+    setEditUserRole(getRoleForUser(p.id));
+  };
+
+  const saveEditUser = async () => {
+    if (!editingUser) return;
+    if (!editUserName.trim()) return toast.error("Nome é obrigatório.");
+    setSavingUser(true);
+    try {
+      const deptVal = editUserDeptId === "none" ? null : editUserDeptId;
+      const { data, error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: editUserName.trim(),
+          job_title: editUserJobTitle.trim() || null,
+          department_id: deptVal,
+        } as any)
+        .eq("id", editingUser.id)
+        .select("id")
+        .maybeSingle();
+
+      if (error) {
+        toast.error(error.message);
+        return;
+      }
+      if (!data) {
+        toast.error("Sem permissão no banco (RLS) para editar este usuário. Execute a migração de profiles.");
+        return;
+      }
+
+      if (editingUser.id !== user?.id && editUserRole !== getRoleForUser(editingUser.id)) {
+        const existing = roles.find((r) => r.user_id === editingUser.id);
+        if (existing) await supabase.from("user_roles").delete().eq("id", existing.id);
+        if (editUserRole !== "colaborador") {
+          const { error: roleErr } = await supabase.from("user_roles").insert([{ user_id: editingUser.id, role: editUserRole as any }]);
+          if (roleErr) {
+            toast.error(roleErr.message);
+            return;
+          }
+        }
+      }
+
+      toast.success("Usuário atualizado!");
+      setEditingUser(null);
+      load();
+    } finally {
+      setSavingUser(false);
+    }
+  };
+
+  const handleDeleteUser = async (p: Profile) => {
+    if (p.id === user?.id) return toast.error("Você não pode excluir a própria conta.");
+    if (!confirm(`Excluir permanentemente o usuário "${p.full_name || "Sem nome"}"? Esta ação não pode ser desfeita.`)) return;
+    setDeletingUserId(p.id);
+    try {
+      const { error } = await (supabase as any).rpc("admin_delete_user", { target_user_id: p.id });
+      if (error) {
+        toast.error("Erro ao excluir usuário: " + error.message);
+      } else {
+        toast.success(`Usuário "${p.full_name || "Sem nome"}" excluído!`);
+        load();
+      }
+    } finally {
+      setDeletingUserId(null);
     }
   };
 
@@ -522,16 +602,47 @@ function SettingsContent() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground text-xs">{new Date(p.created_at).toLocaleDateString("pt-BR")}</td>
-                        {isAdmin && <td className="px-4 py-3 text-right">{!isSelf && (
-                          <Select value={role} onValueChange={(v) => handleChangeRole(p.id, v)}>
-                            <SelectTrigger className="h-8 w-[130px] text-xs ml-auto"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="colaborador">Colaborador</SelectItem>
-                              <SelectItem value="gestor">Gestor</SelectItem>
-                              <SelectItem value="admin">Administrador</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}</td>}
+                        {isAdmin && (
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {!isSelf && (
+                                <Select value={role} onValueChange={(v) => handleChangeRole(p.id, v)}>
+                                  <SelectTrigger className="h-8 w-[125px] text-xs"><SelectValue /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="colaborador">Colaborador</SelectItem>
+                                    <SelectItem value="gestor">Gestor</SelectItem>
+                                    <SelectItem value="admin">Administrador</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                title="Editar usuário"
+                                onClick={() => openEditUser(p)}
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                              </Button>
+                              {!isSelf && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                                  title="Excluir usuário"
+                                  disabled={deletingUserId === p.id}
+                                  onClick={() => handleDeleteUser(p)}
+                                >
+                                  {deletingUserId === p.id ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -539,6 +650,51 @@ function SettingsContent() {
               </table>
             </div>
           </Card>
+
+          <Dialog open={!!editingUser} onOpenChange={(open) => { if (!open) setEditingUser(null); }}>
+            <DialogContent>
+              <DialogHeader><DialogTitle>Editar Usuário</DialogTitle></DialogHeader>
+              <div className="space-y-4 mt-2">
+                <div className="space-y-1.5">
+                  <Label>Nome Completo *</Label>
+                  <Input value={editUserName} onChange={(e) => setEditUserName(e.target.value)} placeholder="Nome completo" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Cargo / Título</Label>
+                  <Input value={editUserJobTitle} onChange={(e) => setEditUserJobTitle(e.target.value)} placeholder="Ex: Desenvolvedor" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Setor</Label>
+                  <Select value={editUserDeptId} onValueChange={setEditUserDeptId}>
+                    <SelectTrigger><SelectValue placeholder="Sem setor" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Sem setor</SelectItem>
+                      {departments.map((d) => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {editingUser?.id !== user?.id && (
+                  <div className="space-y-1.5">
+                    <Label>Função</Label>
+                    <Select value={editUserRole} onValueChange={setEditUserRole}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="colaborador">Colaborador</SelectItem>
+                        <SelectItem value="gestor">Gestor</SelectItem>
+                        <SelectItem value="admin">Administrador</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+              <DialogFooter className="mt-4">
+                <Button variant="outline" onClick={() => setEditingUser(null)}>Cancelar</Button>
+                <Button onClick={saveEditUser} disabled={savingUser}>
+                  {savingUser ? "Salvando..." : "Salvar alterações"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
 
         {/* ÔöÇÔöÇ INVITES TAB ÔöÇÔöÇ */}
