@@ -69,3 +69,4 @@ $$;
 
 REVOKE ALL ON FUNCTION public.admin_delete_user(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.admin_delete_user(uuid) TO authenticated;
+

@@ -123,3 +123,4 @@ CREATE POLICY "Neural edges viewable by owner or same team"
     auth.uid() = user_id
     OR (is_team = true AND public.same_department(user_id))
   );
+
