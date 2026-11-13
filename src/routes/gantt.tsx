@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useRole } from "@/hooks/useRole";
 import { Textarea } from "@/components/ui/textarea";
+import { fetchTeamScope, canSeeTeamTask, canSeeProject } from "@/lib/team-scope";
 
 export const Route = createFileRoute("/gantt")({
   component: () => (
@@ -67,18 +68,23 @@ function GanttPage() {
   const dayWidth = viewMode === "days" ? 40 : viewMode === "weeks" ? 12 : 3;
 
   const load = async () => {
-    const t = await supabase.from("tasks").select("*").eq("is_personal", false).not("due_date", "is", null).order("due_date");
-    const p = await supabase.from("projects").select("*");
-    const pr = await supabase.from("profiles").select("id, full_name");
-    const d = await supabase.from("task_dependencies").select("*");
-    
-    if (t.data) setTasks(t.data);
-    if (p.data) setProjects(p.data);
+    if (!user) return;
+    const [scope, t, p, pr, d] = await Promise.all([
+      fetchTeamScope(user.id),
+      supabase.from("tasks").select("*").eq("is_personal", false).not("due_date", "is", null).order("due_date"),
+      supabase.from("projects").select("*"),
+      supabase.from("profiles").select("id, full_name, department_id"),
+      supabase.from("task_dependencies").select("*"),
+    ]);
+
+    if (t.data) setTasks(t.data.filter((task: any) => canSeeTeamTask(task, user.id, scope)));
+    if (p.data) setProjects(p.data.filter((proj: any) => canSeeProject(proj, user.id, scope.myDeptId, scope.deptByUser)));
     if (pr.data) setProfiles(pr.data);
     if (d.data) setDeps(d.data as Dep[]);
   };
 
   useEffect(() => {
+    if (!user) return;
     load();
     const ch = supabase
       .channel("gantt-deps")
@@ -88,7 +94,7 @@ function GanttPage() {
     return () => {
       supabase.removeChannel(ch);
     };
-  }, []);
+  }, [user?.id]);
 
   const filteredTasks = useMemo(() => {
     if (selectedProjectId === "all") return tasks;

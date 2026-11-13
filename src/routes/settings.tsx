@@ -410,21 +410,30 @@ function SettingsContent() {
   return (
     <div className="p-6 lg:p-10 space-y-8 max-w-5xl mx-auto">
       <header>
-        <p className="text-sm text-accent font-medium uppercase tracking-wider">{isGestor ? "Sistema" : "Conta"}</p>
-        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">{isGestor ? "Configurações" : "Meu Perfil"}</h1>
+        <p className="text-sm text-accent font-medium uppercase tracking-wider">{isAdmin ? "Sistema" : isGestor ? "Gestão do Setor" : "Conta"}</p>
+        <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">{isAdmin || isGestor ? "Configurações" : "Meu Perfil"}</h1>
         <p className="text-muted-foreground mt-1">
-          {isGestor ? "Gerencie usuários, setores, convites e auditoria." : "Gerencie suas informações pessoais e foto de perfil."}
+          {isAdmin
+            ? "Gerencie usuários, setores, convites, IA e auditoria."
+            : isGestor
+            ? "Visualize os membros do seu setor e gerencie seu perfil."
+            : "Gerencie suas informações pessoais e foto de perfil."}
         </p>
       </header>
 
-      <Tabs defaultValue={isGestor ? "users" : "profile"} className="space-y-6">
-        {isGestor && (
+      <Tabs
+        key={`${isAdmin}-${isGestor}`}
+        defaultValue={isAdmin ? "users" : isGestor ? "sector-members" : "profile"}
+        className="space-y-6"
+      >
+        {(isAdmin || isGestor) && (
           <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>
+            {isAdmin && <TabsTrigger value="users"><Users className="h-4 w-4 mr-1.5" />Usuários</TabsTrigger>}
+            {isGestor && !isAdmin && <TabsTrigger value="sector-members"><Users className="h-4 w-4 mr-1.5" />Membros do Setor</TabsTrigger>}
             <TabsTrigger value="profile"><User className="h-4 w-4 mr-1.5" />Meu Perfil</TabsTrigger>
-            <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Inteligência Artificial</TabsTrigger>
-            <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>
-            <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>
+            {isAdmin && <TabsTrigger value="ai"><Sparkles className="h-4 w-4 mr-1.5 text-accent" />Inteligência Artificial</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="invites"><Mail className="h-4 w-4 mr-1.5" />Convites</TabsTrigger>}
+            {isAdmin && <TabsTrigger value="sectors"><Building2 className="h-4 w-4 mr-1.5" />Setores</TabsTrigger>}
             {isAdmin && <TabsTrigger value="audit"><ScrollText className="h-4 w-4 mr-1.5" />Auditoria & Logs</TabsTrigger>}
           </TabsList>
         )}
@@ -488,7 +497,70 @@ function SettingsContent() {
           </Card>
         </TabsContent>
 
-        {isGestor && (
+        {isGestor && !isAdmin && (
+          <TabsContent value="sector-members" className="space-y-6">
+            <div>
+              <h2 className="font-display text-xl font-bold">Membros do Meu Setor</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Setor atual: <span className="font-medium text-foreground">{getDeptName((profile as any)?.department_id ?? null)}</span>
+              </p>
+            </div>
+            <Card className="shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead><tr className="border-b bg-muted/30">
+                    <th className="text-left px-4 py-3 font-semibold">Nome</th>
+                    <th className="text-left px-4 py-3 font-semibold">Cargo</th>
+                    <th className="text-left px-4 py-3 font-semibold">Função</th>
+                    <th className="text-left px-4 py-3 font-semibold">Setor</th>
+                  </tr></thead>
+                  <tbody className="divide-y">
+                    {(() => {
+                      const myDept = (profile as any)?.department_id ?? null;
+                      const sectorMembers = myDept
+                        ? profiles.filter((p) => p.department_id === myDept)
+                        : profiles.filter((p) => p.id === user?.id);
+                      if (sectorMembers.length === 0) {
+                        return <tr><td colSpan={4} className="text-center py-12 text-muted-foreground">Nenhum membro encontrado no seu setor.</td></tr>;
+                      }
+                      return sectorMembers.map((p) => {
+                        const role = getRoleForUser(p.id);
+                        return (
+                          <tr key={p.id} className="hover:bg-muted/30">
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                {p.avatar_url ? (
+                                  <img src={p.avatar_url} alt={p.full_name} className="h-9 w-9 rounded-full object-cover" />
+                                ) : (
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-accent text-accent-foreground text-xs font-bold">
+                                    {(p.full_name || "U").slice(0, 2).toUpperCase()}
+                                  </div>
+                                )}
+                                <div>
+                                  <p className="font-medium">{p.full_name || "Sem nome"}</p>
+                                  {p.id === user?.id && <span className="text-[10px] text-accent">(você)</span>}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{p.job_title || "--"}</td>
+                            <td className="px-4 py-3">
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent">
+                                <Shield className="h-3 w-3" />{roleLabel(role)}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground text-xs">{getDeptName(p.department_id)}</td>
+                          </tr>
+                        );
+                      });
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </TabsContent>
+        )}
+
+        {isAdmin && (
           <>
         {/* USERS TAB */}
         <TabsContent value="users" className="space-y-6">
@@ -738,7 +810,7 @@ function SettingsContent() {
         </TabsContent>
 
         {/* ÔöÇÔöÇ SETORES TAB ÔöÇÔöÇ */}
-        {isGestor && (
+        {isAdmin && (
           <TabsContent value="sectors" className="space-y-6">
             <div className="flex items-center justify-between">
               <div>
@@ -879,6 +951,7 @@ function SettingsContent() {
         )}
 
         {/* ÔöÇÔöÇ AI SETTINGS TAB ÔöÇÔöÇ */}
+        {isAdmin && (
         <TabsContent value="ai" className="space-y-6">
           <div className="max-w-3xl space-y-6">
             <Card className="p-6 shadow-card border-accent/20 bg-card/80 backdrop-blur-sm">
@@ -1026,6 +1099,7 @@ function SettingsContent() {
             </Card>
           </div>
         </TabsContent>
+        )}
           </>
         )}
       </Tabs>

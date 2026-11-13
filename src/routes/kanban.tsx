@@ -17,6 +17,7 @@ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, use
 import { toast } from "sonner";
 import { Plus, MoreVertical, Pencil, Trash2, Filter, RotateCcw, Wifi, FolderOpen, Calendar, Layers, Sparkles, Tag } from "lucide-react";
 import { ProjectSelector } from "@/components/ProjectSelector";
+import { fetchTeamScope, canSeeTeamTask } from "@/lib/team-scope";
 
 export const Route = createFileRoute("/kanban")({
   component: () => <AppShell><KanbanPage /></AppShell>,
@@ -89,11 +90,18 @@ function KanbanPage() {
   }, [columns, selectedProjectId]);
 
   const load = async () => {
-    const { data } = await supabase.from("tasks").select("*").eq("is_personal", false).order("position");
-    if (data) setTasks(data);
+    if (!user) return;
+    const [scope, { data }] = await Promise.all([
+      fetchTeamScope(user.id),
+      supabase.from("tasks").select("*").eq("is_personal", false).order("position"),
+    ]);
+    if (data) {
+      setTasks(data.filter((t: any) => canSeeTeamTask(t, user.id, scope)));
+    }
   };
 
   useEffect(() => {
+    if (!user) return;
     load();
     const ch = supabase
       .channel("kanban-tasks")
@@ -102,7 +110,7 @@ function KanbanPage() {
         if (status === "SUBSCRIBED") setRealtime(true);
       });
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [user?.id]);
 
   const filtered = useMemo(() => tasks.filter((t) => {
     if (selectedProjectId !== "all" && t.project_id !== selectedProjectId) return false;

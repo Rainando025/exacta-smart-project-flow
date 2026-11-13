@@ -23,6 +23,7 @@ import { CommentsPanel } from "@/components/CommentsPanel";
 import { notify } from "@/lib/notify";
 import { generateStructuredTasks } from "@/lib/ai";
 import { recalculateProjectProgress, autoSyncItemToCalendarAndGantt } from "@/lib/project-ecosystem";
+import { fetchTeamScope, canSeeTeamTask } from "@/lib/team-scope";
 
 interface SubtaskCount { task_id: string; total: number; done: number; }
 
@@ -76,59 +77,12 @@ function TasksPage() {
     } else {
       // Modo equipe: NUNCA inclui tarefas pessoais (is_personal=false garante isso)
       query = query.eq("is_personal", false);
-
-      if (role === "admin" || role === "gestor") {
-        // Admin / Gestor: vê tarefas de equipe apenas do próprio setor
-        const { data: userProfile } = await supabase
-          .from("profiles")
-          .select("department_id")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (userProfile?.department_id) {
-          const { data: deptProfiles } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("department_id", userProfile.department_id);
-          const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
-          if (deptMemberIds.length > 0) {
-            query = query.or(
-              `creator_id.in.(${deptMemberIds.join(",")}),assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`
-            );
-          } else {
-            query = query.or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`);
-          }
-        } else {
-          // Gestor/Admin sem setor definido: vê apenas as suas próprias tarefas de equipe
-          query = query.or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`);
-        }
-      } else {
-        // Colaborador: vê tarefas atribuídas a ele, criadas por ele, ou de membros do mesmo setor
-        const { data: userProfile } = await supabase
-          .from("profiles")
-          .select("department_id")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (userProfile?.department_id) {
-          const { data: deptProfiles } = await supabase
-            .from("profiles")
-            .select("id")
-            .eq("department_id", userProfile.department_id);
-          const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
-          if (deptMemberIds.length > 0) {
-            query = query.or(
-              `assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`
-            );
-          } else {
-            query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
-          }
-        } else {
-          // Colaborador sem setor: apenas as suas próprias
-          query = query.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
-        }
-      }
     }
 
-    const { data, error } = await query.order("created_at", { ascending: false });
+    const [scope, { data, error }] = await Promise.all([
+      mode === "team" ? fetchTeamScope(user.id) : Promise.resolve(null),
+      query.order("created_at", { ascending: false }),
+    ]);
     if (error) {
       console.error("Error loading tasks:", error);
       // Fallback seguro: filtra apenas as tarefas do próprio usuário no modo correto
@@ -141,9 +95,13 @@ function TasksPage() {
         .limit(150);
       if (fallbackData) setTasks(fallbackData);
     } else if (data) {
-      setTasks(data);
+      const visibleTasks =
+        mode === "team" && scope
+          ? data.filter((t: any) => canSeeTeamTask(t, user.id, scope))
+          : data;
+      setTasks(visibleTasks);
       // Carrega contagens de subtarefas e anexos
-      const ids = data.map((t: any) => t.id);
+      const ids = visibleTasks.map((t: any) => t.id);
       if (ids.length > 0) {
         const [{ data: subs }, { data: atts }] = await Promise.all([
           supabase.from("subtasks").select("task_id,completed").in("task_id", ids),

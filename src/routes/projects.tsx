@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useProject } from "@/contexts/ProjectContext";
 import { useRole } from "@/hooks/useRole";
+import { canSeeProject } from "@/lib/team-scope";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -39,37 +40,39 @@ function ProjectsPage() {
   const { selectedProjectId, setSelectedProjectId, reloadProjects } = useProject();
   const { isAdmin, canCreateProject } = useRole();
   const [projects, setProjects] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
+  const [myDeptId, setMyDeptId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<any | null>(null);
   const [filesProject, setFilesProject] = useState<any | null>(null);
   const [collabProject, setCollabProject] = useState<any | null>(null);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
+  const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0], shared_department_ids: [] as string[] });
 
   const load = async () => {
     if (!user) return;
-    const [{ data, error }, { data: profData }] = await Promise.all([
+    const [{ data, error }, { data: profData }, { data: deptData }] = await Promise.all([
       supabase
         .from("projects")
         .select("*")
         .order("created_at", { ascending: false }),
       supabase.from("profiles").select("id, department_id"),
+      supabase.from("departments").select("id, name").order("name"),
     ]);
     if (error) {
       console.error("Error loading projects:", error);
     }
+    if (deptData) setDepartments(deptData as any[]);
     if (data) {
       const deptByUser = new Map<string, string | null>(
         (profData || []).map((p: any) => [p.id, p.department_id ?? null])
       );
-      const myDeptId = deptByUser.get(user.id) ?? null;
-      const visible = (data as any[]).filter((p) => {
-        if (p.owner_id === user.id) return true;
-        if (!myDeptId) return false;
-        const projDeptId = p.department_id ?? deptByUser.get(p.owner_id) ?? null;
-        return projDeptId === myDeptId;
-      });
+      const userDept = deptByUser.get(user.id) ?? null;
+      setMyDeptId(userDept);
+      const visible = (data as any[]).filter((p) =>
+        canSeeProject(p, user.id, userDept, deptByUser)
+      );
       setProjects(visible);
 
       // Checar se veio convite colaborativo na URL
@@ -102,12 +105,14 @@ function ProjectsPage() {
       status: "ativo",
       progress: 0,
       owner_id: user.id,
-    });
+      department_id: myDeptId,
+      shared_department_ids: form.shared_department_ids,
+    } as any);
     setCreating(false);
     if (error) return toast.error(error.message);
     toast.success("Projeto criado com sucesso!");
     setOpen(false);
-    setForm({ name: "", description: "", due_date: "", color: COLORS[0] });
+    setForm({ name: "", description: "", due_date: "", color: COLORS[0], shared_department_ids: [] });
     await load();
   };
 
@@ -120,7 +125,8 @@ function ProjectsPage() {
       color: editing.color,
       status: editing.status || "ativo",
       progress: editing.progress || 0,
-    }).eq("id", editing.id);
+      shared_department_ids: editing.shared_department_ids || [],
+    } as any).eq("id", editing.id);
     if (error) return toast.error(error.message);
     toast.success("Projeto atualizado");
     setEditing(null);
@@ -245,6 +251,39 @@ function ProjectsPage() {
                     />
                   </div>
                 </div>
+                {departments.length > 0 && (
+                  <div>
+                    <Label>Compartilhar com outros setores</Label>
+                    <div className="mt-1.5 flex flex-wrap gap-1.5">
+                      {departments
+                        .filter((d) => d.id !== myDeptId)
+                        .map((d) => {
+                          const selected = form.shared_department_ids.includes(d.id);
+                          return (
+                            <button
+                              key={d.id}
+                              type="button"
+                              onClick={() =>
+                                setForm((prev) => ({
+                                  ...prev,
+                                  shared_department_ids: selected
+                                    ? prev.shared_department_ids.filter((id) => id !== d.id)
+                                    : [...prev.shared_department_ids, d.id],
+                                }))
+                              }
+                              className={`px-2.5 py-1 rounded-full text-xs border transition ${
+                                selected
+                                  ? "bg-accent text-accent-foreground border-accent font-semibold"
+                                  : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                              }`}
+                            >
+                              {d.name}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button onClick={create} disabled={creating} className="bg-gradient-primary text-primary-foreground">
@@ -389,6 +428,40 @@ function ProjectsPage() {
                   />
                 </div>
               </div>
+              {departments.length > 0 && (
+                <div>
+                  <Label>Compartilhar com outros setores</Label>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {departments
+                      .filter((d) => d.id !== (editing.department_id ?? myDeptId))
+                      .map((d) => {
+                        const sharedList: string[] = editing.shared_department_ids || [];
+                        const selected = sharedList.includes(d.id);
+                        return (
+                          <button
+                            key={d.id}
+                            type="button"
+                            onClick={() =>
+                              setEditing({
+                                ...editing,
+                                shared_department_ids: selected
+                                  ? sharedList.filter((id) => id !== d.id)
+                                  : [...sharedList, d.id],
+                              })
+                            }
+                            className={`px-2.5 py-1 rounded-full text-xs border transition ${
+                              selected
+                                ? "bg-accent text-accent-foreground border-accent font-semibold"
+                                : "bg-muted/40 text-muted-foreground border-border hover:bg-muted"
+                            }`}
+                          >
+                            {d.name}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter><Button onClick={saveEdit} className="bg-gradient-primary text-primary-foreground">Salvar alterações</Button></DialogFooter>

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { canSeeProject } from "@/lib/team-scope";
 
 export interface Project {
   id: string;
@@ -12,6 +13,7 @@ export interface Project {
   due_date?: string | null;
   owner_id?: string;
   department_id?: string | null;
+  shared_department_ids?: string[] | null;
   created_at?: string;
 }
 
@@ -47,7 +49,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       const [{ data: projData }, { data: profData }] = await Promise.all([
         supabase
           .from("projects")
-          .select("id, name, description, color, status, progress, due_date, owner_id, created_at")
+          .select("id, name, description, color, status, progress, due_date, owner_id, department_id, shared_department_ids, created_at")
           .order("name"),
         supabase.from("profiles").select("id, department_id"),
       ]);
@@ -56,12 +58,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
           (profData || []).map((p: any) => [p.id, p.department_id ?? null])
         );
         const myDeptId = deptByUser.get(user.id) ?? null;
-        const visible = (projData as any[]).filter((p) => {
-          if (p.owner_id === user.id) return true;
-          if (!myDeptId) return false;
-          const projDeptId = p.department_id ?? deptByUser.get(p.owner_id) ?? null;
-          return projDeptId === myDeptId;
-        });
+        const visible = (projData as any[]).filter((p) =>
+          canSeeProject(p, user.id, myDeptId, deptByUser)
+        );
         setProjects(visible as Project[]);
       }
     } catch (err) {

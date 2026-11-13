@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { toCSV, downloadCSV } from "@/lib/csv";
 import { CalendarWidget } from "@/components/CalendarWidget";
 import { BottleneckAnalysis } from "@/components/BottleneckAnalysis";
+import { fetchTeamScope, canSeeTeamTask, canSeeProject } from "@/lib/team-scope";
 
 export const Route = createFileRoute("/dashboard")({
   component: DashboardPage,
@@ -54,9 +55,9 @@ function Dashboard() {
   const [members, setMembers] = useState<any[]>([]);
   const [roles, setRoles] = useState<Record<string, string>>({});
 
-  // Filters
-  const [from, setFrom] = useState<string>(startOfMonthISO());
-  const [to, setTo] = useState<string>(todayISO());
+  // Filters (default empty = show all periods so tasks from previous months are not hidden)
+  const [from, setFrom] = useState<string>("");
+  const [to, setTo] = useState<string>("");
   const [memberFilter, setMemberFilter] = useState<string[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
 
@@ -84,48 +85,34 @@ function Dashboard() {
 
       if (isPersonal) {
         tasksQuery = tasksQuery.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
-      } else {
-        const { data: roleData } = await supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle();
-        const role = roleData?.role || "colaborador";
-
-        if (role === "gestor") {
-          const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
-          if (userProfile?.department_id) {
-            const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
-            const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
-            if (deptMemberIds.length > 0) {
-              tasksQuery = tasksQuery.or(`creator_id.in.(${deptMemberIds.join(",")}),assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`);
-            }
-          }
-        } else if (role === "colaborador") {
-          const { data: userProfile } = await supabase.from("profiles").select("department_id").eq("id", user.id).maybeSingle();
-          if (userProfile?.department_id) {
-            const { data: deptProfiles } = await supabase.from("profiles").select("id").eq("department_id", userProfile.department_id);
-            const deptMemberIds = (deptProfiles || []).map((p) => p.id).filter(Boolean);
-            if (deptMemberIds.length > 0) {
-              tasksQuery = tasksQuery.or(`assignee_id.in.(${deptMemberIds.join(",")}),creator_id.eq.${user.id}`);
-            }
-          } else {
-            tasksQuery = tasksQuery.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
-          }
-        }
       }
 
-      const [t, p, m, r] = await Promise.all([
-        tasksQuery.order("due_date", { ascending: true, nullsFirst: false }).limit(100),
+      const [scope, t, p, m, r] = await Promise.all([
+        fetchTeamScope(user.id),
+        tasksQuery.order("due_date", { ascending: true, nullsFirst: false }).limit(200),
         supabase
           .from("projects")
-          .select("id, name, status, color, progress, due_date, created_at")
+          .select("id, name, status, color, progress, due_date, owner_id, department_id, shared_department_ids, created_at")
           .order("created_at", { ascending: false })
-          .limit(25),
+          .limit(50),
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, job_title, department_id"),
         supabase.from("user_roles").select("user_id,role"),
       ]);
-      if (t.data) setAllTasks(t.data);
-      if (p.data) setProjects(p.data);
-      if (m.data) setMembers(m.data);
+      if (t.data) {
+        setAllTasks(isPersonal ? t.data : t.data.filter((task: any) => canSeeTeamTask(task, user.id, scope)));
+      }
+      if (p.data) {
+        setProjects(p.data.filter((proj: any) => canSeeProject(proj, user.id, scope.myDeptId, scope.deptByUser)));
+      }
+      if (m.data) {
+        setMembers(
+          scope.myDeptId
+            ? m.data.filter((prof: any) => prof.department_id === scope.myDeptId || prof.id === user.id)
+            : m.data.filter((prof: any) => prof.id === user.id)
+        );
+      }
       if (r.data) setRoles(Object.fromEntries(r.data.map((x: any) => [x.user_id, x.role])));
     })();
   }, [user]);
