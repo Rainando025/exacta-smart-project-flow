@@ -17,3 +17,4 @@ CREATE POLICY "Managers update profiles"
         AND role IN ('admin', 'gestor')
     )
   );
+
