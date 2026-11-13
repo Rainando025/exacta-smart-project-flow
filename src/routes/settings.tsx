@@ -280,13 +280,24 @@ function SettingsContent() {
 
   const saveDept = async () => {
     if (!deptName.trim()) return toast.error("Nome do setor é obrigatório.");
+    if (!user) return toast.error("Usuário não autenticado.");
     setSavingDept(true);
     if (editingDept) {
       const { error } = await supabase.from("departments").update({ name: deptName.trim(), color: deptColor }).eq("id", editingDept.id);
-      if (error) toast.error(error.message); else toast.success("Setor atualizado!");
+      if (error) {
+        toast.error(error.message);
+        setSavingDept(false);
+        return;
+      }
+      toast.success("Setor atualizado!");
     } else {
-      const { error } = await supabase.from("departments").insert({ name: deptName.trim(), color: deptColor });
-      if (error) toast.error(error.message); else toast.success("Setor criado!");
+      const { error } = await supabase.from("departments").insert({ name: deptName.trim(), color: deptColor, created_by: user.id });
+      if (error) {
+        toast.error(error.message);
+        setSavingDept(false);
+        return;
+      }
+      toast.success("Setor criado!");
     }
     setSavingDept(false);
     setDeptDialog(false);
