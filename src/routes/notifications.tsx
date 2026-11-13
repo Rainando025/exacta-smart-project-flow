@@ -40,7 +40,7 @@ const TYPE_LABELS: Record<string, string> = {
 function NotificationsPage() {
   const { user } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
-  const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
+  const [filter, setFilter] = useState<"unread" | "read" | "all">("unread");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [search, setSearch] = useState("");
 
@@ -72,21 +72,28 @@ function NotificationsPage() {
   }, [user?.id]);
 
   const markRead = async (id: string) => {
-    await supabase.from("notifications").update({ read: true }).eq("id", id);
+    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    const { error } = await supabase.from("notifications").update({ read: true }).eq("id", id);
+    if (!error) {
+      toast.success("Notificação lida e arquivada.");
+    }
   };
 
   const markAllRead = async () => {
     if (!user) return;
+    setItems((prev) => prev.map((n) => ({ ...n, read: true })));
     await supabase.from("notifications").update({ read: true }).eq("user_id", user.id).eq("read", false);
-    toast.success("Todas marcadas como lidas");
+    toast.success("Todas marcadas como lidas e arquivadas");
   };
 
   const remove = async (id: string) => {
+    setItems((prev) => prev.filter((n) => n.id !== id));
     await supabase.from("notifications").delete().eq("id", id);
   };
 
   const clearAll = async () => {
     if (!user || !confirm("Excluir todas as notificações?")) return;
+    setItems([]);
     await supabase.from("notifications").delete().eq("user_id", user.id);
     toast.success("Histórico limpo");
   };
@@ -106,9 +113,9 @@ function NotificationsPage() {
       <header className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <p className="text-sm text-accent font-medium uppercase tracking-wider">Notificações</p>
-          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Central de avisos</h1>
+          <h1 className="font-display text-3xl lg:text-4xl font-bold mt-1">Central de notificações</h1>
           <p className="text-muted-foreground mt-2">
-            {unread > 0 ? `${unread} não lida${unread === 1 ? "" : "s"} • ` : ""}
+            {unread > 0 ? `${unread} ativa${unread === 1 ? "" : "s"} • ` : "Nenhuma pendente • "}
             {items.length} no histórico
           </p>
         </div>
@@ -126,11 +133,11 @@ function NotificationsPage() {
         <Filter className="h-4 w-4 text-muted-foreground" />
         <Input placeholder="Buscar…" value={search} onChange={(e) => setSearch(e.target.value)} className="max-w-xs h-9" />
         <Select value={filter} onValueChange={(v: any) => setFilter(v)}>
-          <SelectTrigger className="w-[150px] h-9"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-[180px] h-9"><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="unread">Ativas (Não lidas)</SelectItem>
+            <SelectItem value="read">Arquivadas (Lidas)</SelectItem>
             <SelectItem value="all">Todas</SelectItem>
-            <SelectItem value="unread">Não lidas</SelectItem>
-            <SelectItem value="read">Lidas</SelectItem>
           </SelectContent>
         </Select>
         <Select value={typeFilter} onValueChange={setTypeFilter}>

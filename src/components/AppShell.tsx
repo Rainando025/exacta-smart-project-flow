@@ -98,7 +98,7 @@ const TEAM_NAV: readonly NavGroup[] = [
       { to: "/docs", label: "Documentos", icon: FileText },
       { to: "/whiteboards", label: "Quadros", icon: Presentation },
       { to: "/announcements", label: "Mural", icon: Megaphone },
-      { to: "/notifications", label: "Avisos", icon: Bell },
+      { to: "/notifications", label: "Notificações", icon: Bell },
     ]
   },
   {
