@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createFileRoute } from "@tanstack/react-router";
 import { AppShell } from "@/components/AppShell";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -146,9 +146,7 @@ function SettingsContent() {
     if (newPassword.length < 6) return toast.error("Senha mínima de 6 caracteres.");
     setCreating(true);
     try {
-      const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || "";
-      const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || "";
-      const tempClient = createClient(supabaseUrl, supabaseAnonKey, { auth: { persistSession: false } });
+      const tempClient = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: false } });
 
       const { data, error } = await tempClient.auth.signUp({
         email: newEmail, password: newPassword,
