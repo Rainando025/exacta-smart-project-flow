@@ -338,16 +338,22 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
           }
         }
 
-        // 3. Gentle center gravity + velocity damping
-        let totalEnergy = 0;
-        for (const n of next) {
+        // 3. Gentle center gravity + organic ambient drift + velocity damping
+        for (let idx = 0; idx < next.length; idx++) {
+          const n = next[idx];
           if (n.id === draggingNode) {
             n.vx = 0;
             n.vy = 0;
             continue;
           }
-          n.vx = (n.vx! - n.x * 0.008) * 0.78;
-          n.vy = (n.vy! - n.y * 0.008) * 0.78;
+
+          // Continuous gentle organic breathing/floating motion
+          const phase = (idx + 1) * 1.618 + (n.id.charCodeAt(0) || 1) * 0.37;
+          const driftX = Math.sin(tickCount * 0.022 + phase) * 0.14;
+          const driftY = Math.cos(tickCount * 0.019 + phase * 1.3) * 0.14;
+
+          n.vx = (n.vx! - n.x * 0.008 + driftX) * 0.78;
+          n.vy = (n.vy! - n.y * 0.008 + driftY) * 0.78;
 
           // Clamp max speed per frame
           const speed = Math.hypot(n.vx!, n.vy!);
@@ -357,12 +363,6 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
           }
           n.x += n.vx!;
           n.y += n.vy!;
-          totalEnergy += speed;
-        }
-
-        // Stop updating if system settled and not dragging
-        if (totalEnergy < 0.08 && !draggingNode && tickCount > 30) {
-          return prevNodes;
         }
         return next;
       });
@@ -1184,17 +1184,39 @@ export function NeuralMap({ isTeam = false }: { isTeam?: boolean }) {
             const highlightStroke = isDark ? "#38bdf8" : "#0284c7";
 
             return (
-              <line
-                key={edge.id}
-                x1={sourceNode.x}
-                y1={sourceNode.y}
-                x2={targetNode.x}
-                y2={targetNode.y}
-                stroke={isEdgeHighlighted ? highlightStroke : defaultStroke}
-                strokeWidth={isEdgeHighlighted ? Math.max(1.8, lineWidth * 1.5) : lineWidth}
-                strokeOpacity={isDimmed ? 0.12 : isEdgeHighlighted ? 0.95 : 0.75}
-                strokeLinecap="round"
-              />
+              <g key={edge.id}>
+                <line
+                  x1={sourceNode.x}
+                  y1={sourceNode.y}
+                  x2={targetNode.x}
+                  y2={targetNode.y}
+                  stroke={isEdgeHighlighted ? highlightStroke : defaultStroke}
+                  strokeWidth={isEdgeHighlighted ? Math.max(1.8, lineWidth * 1.5) : lineWidth}
+                  strokeOpacity={isDimmed ? 0.12 : isEdgeHighlighted ? 0.95 : 0.75}
+                  strokeLinecap="round"
+                />
+                {!isDimmed && (
+                  <line
+                    x1={sourceNode.x}
+                    y1={sourceNode.y}
+                    x2={targetNode.x}
+                    y2={targetNode.y}
+                    stroke={isEdgeHighlighted ? highlightStroke : isDark ? "rgba(56, 189, 248, 0.45)" : "rgba(2, 132, 199, 0.35)"}
+                    strokeWidth={isEdgeHighlighted ? Math.max(2, lineWidth * 1.6) : Math.max(1, lineWidth)}
+                    strokeDasharray="4 14"
+                    strokeLinecap="round"
+                    strokeOpacity={isEdgeHighlighted ? 0.9 : 0.45}
+                  >
+                    <animate
+                      attributeName="stroke-dashoffset"
+                      from="18"
+                      to="0"
+                      dur={isEdgeHighlighted ? "1.1s" : "2.8s"}
+                      repeatCount="indefinite"
+                    />
+                  </line>
+                )}
+              </g>
             );
           })}
         </svg>

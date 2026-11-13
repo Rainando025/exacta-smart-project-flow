@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 
 export interface Project {
   id: string;
@@ -9,6 +10,8 @@ export interface Project {
   status?: string;
   progress?: number;
   due_date?: string | null;
+  owner_id?: string;
+  department_id?: string | null;
   created_at?: string;
 }
 
@@ -24,6 +27,7 @@ interface ProjectContextType {
 const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
 
 export function ProjectProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedProjectId, setSelectedProjectIdState] = useState<string>(() => {
@@ -34,20 +38,38 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   });
 
   const reloadProjects = useCallback(async () => {
+    if (!user) {
+      setProjects([]);
+      setLoading(false);
+      return;
+    }
     try {
-      const { data } = await supabase
-        .from("projects")
-        .select("id, name, description, color, status, progress, due_date, created_at")
-        .order("name");
-      if (data) {
-        setProjects(data as Project[]);
+      const [{ data: projData }, { data: profData }] = await Promise.all([
+        supabase
+          .from("projects")
+          .select("id, name, description, color, status, progress, due_date, owner_id, created_at")
+          .order("name"),
+        supabase.from("profiles").select("id, department_id"),
+      ]);
+      if (projData) {
+        const deptByUser = new Map<string, string | null>(
+          (profData || []).map((p: any) => [p.id, p.department_id ?? null])
+        );
+        const myDeptId = deptByUser.get(user.id) ?? null;
+        const visible = (projData as any[]).filter((p) => {
+          if (p.owner_id === user.id) return true;
+          if (!myDeptId) return false;
+          const projDeptId = p.department_id ?? deptByUser.get(p.owner_id) ?? null;
+          return projDeptId === myDeptId;
+        });
+        setProjects(visible as Project[]);
       }
     } catch (err) {
       console.error("Error loading projects context:", err);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     reloadProjects();

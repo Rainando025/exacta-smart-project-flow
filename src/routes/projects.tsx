@@ -48,22 +48,36 @@ function ProjectsPage() {
   const [form, setForm] = useState({ name: "", description: "", due_date: "", color: COLORS[0] });
 
   const load = async () => {
-    const { data, error } = await supabase
-      .from("projects")
-      .select("*")
-      .order("created_at", { ascending: false });
+    if (!user) return;
+    const [{ data, error }, { data: profData }] = await Promise.all([
+      supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase.from("profiles").select("id, department_id"),
+    ]);
     if (error) {
       console.error("Error loading projects:", error);
     }
     if (data) {
-      setProjects(data);
+      const deptByUser = new Map<string, string | null>(
+        (profData || []).map((p: any) => [p.id, p.department_id ?? null])
+      );
+      const myDeptId = deptByUser.get(user.id) ?? null;
+      const visible = (data as any[]).filter((p) => {
+        if (p.owner_id === user.id) return true;
+        if (!myDeptId) return false;
+        const projDeptId = p.department_id ?? deptByUser.get(p.owner_id) ?? null;
+        return projDeptId === myDeptId;
+      });
+      setProjects(visible);
 
       // Checar se veio convite colaborativo na URL
       if (typeof window !== "undefined") {
         const urlParams = new URLSearchParams(window.location.search);
         const pid = urlParams.get("pid");
         if (pid) {
-          const target = data.find((p) => p.id === pid);
+          const target = visible.find((p) => p.id === pid);
           if (target) {
             setCollabProject(target);
             toast.success(`Abrindo colaboração do projeto "${target.name}"`);
