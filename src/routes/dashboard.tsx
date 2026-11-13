@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles, FileDown, FileSpreadsheet, Filter } from "lucide-react";
+import { CheckSquare, FolderKanban, Clock, AlertTriangle, TrendingUp, Sparkles, FileDown, FileSpreadsheet, Filter, Target, CheckCircle2 } from "lucide-react";
 import { addBrandedHeader, addBrandedFooter } from "@/lib/pdf";
 import { isOverdue, priorityColor, priorityLabel, formatDate } from "@/lib/exacta";
 import { Link } from "@tanstack/react-router";
@@ -52,6 +52,7 @@ function Dashboard() {
   const { isGestor } = useRole();
   const [allTasks, setAllTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [okrs, setOkrs] = useState<any[]>([]);
   const [members, setMembers] = useState<any[]>([]);
   const [roles, setRoles] = useState<Record<string, string>>({});
 
@@ -87,24 +88,38 @@ function Dashboard() {
         tasksQuery = tasksQuery.or(`assignee_id.eq.${user.id},creator_id.eq.${user.id}`);
       }
 
-      const [scope, t, p, m, r] = await Promise.all([
+      const [scope, t, p, m, r, o] = await Promise.all([
         fetchTeamScope(user.id),
         tasksQuery.order("due_date", { ascending: true, nullsFirst: false }).limit(200),
         supabase
           .from("projects")
           .select("id, name, status, color, progress, due_date, owner_id, department_id, shared_department_ids, created_at")
           .order("created_at", { ascending: false })
-          .limit(50),
+          .limit(200),
         supabase
           .from("profiles")
           .select("id, full_name, avatar_url, job_title, department_id"),
         supabase.from("user_roles").select("user_id,role"),
+        (supabase.from("okrs" as any))
+          .select("id, title, status, progress, owner_id, project_id, created_at")
+          .order("created_at", { ascending: false })
+          .limit(200),
       ]);
       if (t.data) {
         setAllTasks(isPersonal ? t.data : t.data.filter((task: any) => canSeeTeamTask(task, user.id, scope)));
       }
       if (p.data) {
         setProjects(p.data.filter((proj: any) => canSeeProject(proj, user.id, scope.myDeptId, scope.deptByUser)));
+      }
+      if (o.data) {
+        setOkrs(
+          (o.data as any[]).filter((okr) => {
+            if (okr.owner_id === user.id) return true;
+            if (scope.myDeptId && okr.owner_id && scope.deptByUser.get(okr.owner_id) === scope.myDeptId) return true;
+            if (okr.project_id && scope.visibleProjectIds.has(okr.project_id)) return true;
+            return false;
+          })
+        );
       }
       if (m.data) {
         setMembers(
@@ -133,6 +148,33 @@ function Dashboard() {
 
   const total = tasks.length;
   const done = tasks.filter((t) => t.status === "done").length;
+
+  const filteredProjects = useMemo(() => {
+    return projects.filter((p) => {
+      const d = p.created_at ? new Date(p.created_at) : null;
+      if (d) {
+        if (from && d < new Date(from + "T00:00:00")) return false;
+        if (to && d > new Date(to + "T23:59:59")) return false;
+      }
+      return true;
+    });
+  }, [projects, from, to]);
+
+  const filteredOkrs = useMemo(() => {
+    return okrs.filter((o) => {
+      const d = o.created_at ? new Date(o.created_at) : null;
+      if (d) {
+        if (from && d < new Date(from + "T00:00:00")) return false;
+        if (to && d > new Date(to + "T23:59:59")) return false;
+      }
+      return true;
+    });
+  }, [okrs, from, to]);
+
+  const totalProjects = filteredProjects.length;
+  const doneProjects = filteredProjects.filter((p) => p.status === "concluido" || (p.progress ?? 0) >= 100).length;
+  const totalOkrs = filteredOkrs.length;
+  const doneOkrs = filteredOkrs.filter((o) => o.status === "concluido" || (o.progress ?? 0) >= 100).length;
   const overdue = tasks.filter((t) => isOverdue(t.due_date, t.status));
   const myTasks = tasks.filter((t) => t.assignee_id === user?.id && t.status !== "done").slice(0, 5);
   const productivity = total ? Math.round((done / total) * 100) : 0;
@@ -361,6 +403,13 @@ function Dashboard() {
         <StatCard icon={TrendingUp} label="Concluídas" value={done} accent="success" />
         <StatCard icon={Clock} label="Em andamento" value={tasks.filter((t) => t.status !== "done").length} accent="accent" />
         <StatCard icon={AlertTriangle} label="Atrasadas" value={overdue.length} accent="destructive" />
+      </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={FolderKanban} label="Projetos criados" value={totalProjects} accent="primary" />
+        <StatCard icon={CheckCircle2} label="Projetos concluídos" value={doneProjects} accent="success" />
+        <StatCard icon={Target} label="Metas (OKRs) criadas" value={totalOkrs} accent="accent" />
+        <StatCard icon={CheckCircle2} label="Metas concluídas" value={doneOkrs} accent="success" />
       </div>
 
       <Card className="p-6 bg-gradient-hero text-white border-0 shadow-elegant overflow-hidden relative">
