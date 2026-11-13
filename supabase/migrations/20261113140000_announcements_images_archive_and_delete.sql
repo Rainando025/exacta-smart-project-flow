@@ -15,3 +15,4 @@ DROP POLICY IF EXISTS "Author or admin delete announcements" ON public.announcem
 CREATE POLICY "Author or gestor delete announcements"
   ON public.announcements FOR DELETE TO authenticated
   USING (auth.uid() = author_id OR public.is_at_least('gestor'));
+
