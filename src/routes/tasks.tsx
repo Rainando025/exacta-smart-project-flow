@@ -77,11 +77,8 @@ function TasksPage() {
       // Modo equipe: NUNCA inclui tarefas pessoais (is_personal=false garante isso)
       query = query.eq("is_personal", false);
 
-      if (role === "admin") {
-        // Admin: vê todas as tarefas de equipe de todos os setores
-        // Nenhum filtro adicional necessário — is_personal=false já impede ver tarefas pessoais
-      } else if (role === "gestor") {
-        // Gestor: vê tarefas de equipe apenas do próprio setor
+      if (role === "admin" || role === "gestor") {
+        // Admin / Gestor: vê tarefas de equipe apenas do próprio setor
         const { data: userProfile } = await supabase
           .from("profiles")
           .select("department_id")
@@ -101,7 +98,7 @@ function TasksPage() {
             query = query.or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`);
           }
         } else {
-          // Gestor sem setor definido: vê apenas as suas próprias tarefas de equipe
+          // Gestor/Admin sem setor definido: vê apenas as suas próprias tarefas de equipe
           query = query.or(`creator_id.eq.${user.id},assignee_id.eq.${user.id}`);
         }
       } else {

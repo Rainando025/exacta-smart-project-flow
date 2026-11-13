@@ -1279,16 +1279,14 @@ function VisualManagementPage() {
 
   const [activeTab, setActiveTab] = useState("swot");
   const { selectedProjectId, setSelectedProjectId, projects } = useProject();
+  const [isCollaborative, setIsCollaborative] = useState(false);
 
   const printRef = useRef<HTMLDivElement>(null);
   const [exportingPDF, setExportingPDF] = useState(false);
 
   const handleSaveBoard = async () => {
-    if (!selectedProjectId) {
-      toast.error("Selecione um projeto para salvar.");
-      return;
-    }
     if (!user) return;
+    const projectIdToSave = selectedProjectId && selectedProjectId !== "all" ? selectedProjectId : null;
 
     let dataToSave;
     let name = "";
@@ -1307,35 +1305,41 @@ function VisualManagementPage() {
     const { error } = await (supabase.from("visual_boards" as any)).insert({
       name,
       tool_type: activeTab,
-      project_id: selectedProjectId,
+      project_id: projectIdToSave,
       data: dataToSave,
-      user_id: user.id
+      user_id: user.id,
+      is_collaborative: isCollaborative,
     });
 
     if (error) {
-      toast.error("Erro ao salvar o painel.");
+      toast.error("Erro ao salvar o painel: " + error.message);
     } else {
-      toast.success(`${name} salvo com sucesso no projeto!`);
+      toast.success(
+        isCollaborative
+          ? `${name} salvo como colaborativo para a equipe!`
+          : `${name} salvo como restrito ao gestor!`
+      );
     }
   };
 
   const handleLoadBoard = async () => {
-    if (!selectedProjectId) {
-      toast.error("Selecione um projeto primeiro.");
-      return;
-    }
-    const { data, error }: any = await (supabase.from("visual_boards" as any))
-      .select("id, data")
-      .eq("project_id", selectedProjectId)
+    const projectIdToLoad = selectedProjectId && selectedProjectId !== "all" ? selectedProjectId : null;
+    let query = (supabase.from("visual_boards" as any))
+      .select("id, data, is_collaborative")
       .eq("tool_type", activeTab)
       .order("created_at", { ascending: false })
       .limit(1);
+    if (projectIdToLoad) {
+      query = query.eq("project_id", projectIdToLoad);
+    }
+    const { data, error }: any = await query;
 
     if (error || !data || data.length === 0) {
       toast.error("Nenhum painel salvo encontrado para este projeto e ferramenta.");
       return;
     }
 
+    setIsCollaborative(Boolean(data[0].is_collaborative));
     const savedData = data[0].data;
     switch (activeTab) {
       case "swot": setSwot(savedData); break;
@@ -1370,10 +1374,23 @@ function VisualManagementPage() {
   const loadSavedBoardsList = async () => {
     setLoadingSavedBoards(true);
     const { data } = await (supabase.from("visual_boards" as any))
-      .select("id, name, tool_type, project_id, created_at, projects(name)")
+      .select("id, name, tool_type, project_id, is_collaborative, created_at, projects(name)")
       .order("created_at", { ascending: false });
     if (data) setSavedBoardsList(data);
     setLoadingSavedBoards(false);
+  };
+
+  const handleToggleBoardCollaborative = async (board: any) => {
+    const nextVal = !board.is_collaborative;
+    const { error } = await (supabase.from("visual_boards" as any))
+      .update({ is_collaborative: nextVal })
+      .eq("id", board.id);
+    if (error) {
+      toast.error("Erro ao alterar visibilidade: " + error.message);
+    } else {
+      toast.success(nextVal ? "Quadro agora é colaborativo com a equipe." : "Quadro agora é restrito ao gestor.");
+      loadSavedBoardsList();
+    }
   };
 
   const handleDeleteBoard = async (id: string) => {
@@ -1389,7 +1406,7 @@ function VisualManagementPage() {
 
   const handleLoadBoardById = async (boardItem: any) => {
     const { data, error } = await (supabase.from("visual_boards" as any))
-      .select("data, tool_type, project_id")
+      .select("data, tool_type, project_id, is_collaborative")
       .eq("id", boardItem.id)
       .single();
 
@@ -1400,6 +1417,7 @@ function VisualManagementPage() {
 
     const savedData = (data as any).data;
     const toolType = (data as any).tool_type;
+    setIsCollaborative(Boolean((data as any).is_collaborative));
     if ((data as any).project_id) setSelectedProjectId((data as any).project_id);
     if (toolType) setActiveTab(toolType);
 
@@ -1599,6 +1617,25 @@ function VisualManagementPage() {
               ))}
             </select>
           </div>
+
+          <label
+            className={cn(
+              "flex items-center gap-2 h-9 px-3 rounded-lg border text-xs cursor-pointer select-none transition-colors",
+              isCollaborative
+                ? "border-accent/60 bg-accent/10 text-accent font-semibold"
+                : "border-border/60 bg-background/80 text-muted-foreground hover:text-foreground"
+            )}
+            title="Quando marcado, toda a equipe do seu setor poderá visualizar e colaborar. Se desmarcado, fica restrito ao gestor."
+          >
+            <input
+              type="checkbox"
+              checked={isCollaborative}
+              onChange={(e) => setIsCollaborative(e.target.checked)}
+              className="h-3.5 w-3.5 rounded accent-current cursor-pointer"
+            />
+            <Users className="h-3.5 w-3.5" />
+            <span>Colaborativo</span>
+          </label>
 
           <Button
             onClick={handleLoadBoard}
@@ -1812,11 +1849,24 @@ function VisualManagementPage() {
                   >
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold truncate">{board.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         <span className="text-xs text-muted-foreground uppercase tracking-wide">{board.tool_type}</span>
                         {board.projects?.name && (
                           <span className="text-xs text-accent">{board.projects.name}</span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => handleToggleBoardCollaborative(board)}
+                          title="Clique para alternar visibilidade entre equipe e gestor"
+                          className={cn(
+                            "text-[10px] font-semibold px-2 py-0.5 rounded-full border transition",
+                            board.is_collaborative
+                              ? "bg-accent/10 text-accent border-accent/30 hover:bg-accent/20"
+                              : "bg-muted text-muted-foreground border-border hover:bg-muted/80"
+                          )}
+                        >
+                          {board.is_collaborative ? "Colaborativo (Equipe)" : "Restrito (Gestor)"}
+                        </button>
                         <span className="text-xs text-muted-foreground">
                           {new Date(board.created_at).toLocaleDateString('pt-BR')}
                         </span>
