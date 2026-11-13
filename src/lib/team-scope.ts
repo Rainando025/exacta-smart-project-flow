@@ -60,3 +60,4 @@ export async function fetchTeamScope(userId: string): Promise<TeamScope> {
 
   return { myDeptId, deptByUser, deptMemberIds, visibleProjectIds };
 }
+

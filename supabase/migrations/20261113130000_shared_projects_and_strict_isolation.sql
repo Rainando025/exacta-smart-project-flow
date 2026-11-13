@@ -67,3 +67,4 @@ CREATE POLICY "Documents viewable by same department or shared project"
     OR public.same_department(owner_id)
     OR (project_id IS NOT NULL AND public.can_access_project(project_id))
   );
+
