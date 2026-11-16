@@ -397,14 +397,14 @@ function FinancesContent() {
         const baseCardDate = `${nextMonthStr}-${cardDay}`;
         const normalizedCard = normalizeCreditCardName(cardName);
 
-        // Create parent (parcela 1) que entra na fatura do próximo mês
+        // Create parent (parcela 1): data da compra no mês atual, fatura no próximo mês
         const parentPayload = {
           user_id: user.id,
           title: `${title.trim()} (1/${totalInstallments})`,
           amount: installmentAmount,
           type: "despesa",
           category,
-          date: baseCardDate,
+          date: effectiveDate,
           due_date: baseCardDate,
           notes: buildFinanceNotes(notes, normalizedCard, null, costType),
           recurring: "none",
@@ -428,15 +428,16 @@ function FinancesContent() {
         // Create remaining installments (parcelas 2..N nos meses subsequentes)
         const childRows = [];
         for (let i = 2; i <= totalInstallments; i++) {
-          const installDate = addMonths(baseCardDate, i - 1);
+          const installPurchaseDate = addMonths(effectiveDate, i - 1);
+          const installDueDate = addMonths(baseCardDate, i - 1);
           childRows.push({
             user_id: user.id,
             title: `${title.trim()} (${i}/${totalInstallments})`,
             amount: installmentAmount,
             type: "despesa",
             category,
-            date: installDate,
-            due_date: installDate,
+            date: installPurchaseDate,
+            due_date: installDueDate,
             notes: buildFinanceNotes(notes, normalizedCard, null, costType),
             recurring: "none",
             is_credit_card: true,
@@ -528,7 +529,7 @@ function FinancesContent() {
         const baseCardDate = `${nextMonthStr}-${cardDay}`;
         const normalizedCard = normalizeCreditCardName(cardName);
 
-        const finalDate = isCreditCard ? baseCardDate : effectiveDate;
+        const finalDate = effectiveDate;
         const finalDue = isCreditCard ? baseCardDate : finalDueDate;
         const finalPaid = isCreditCard ? false : isInitialPaid;
         const finalNotes = buildFinanceNotes(
@@ -1159,20 +1160,37 @@ function FinancesContent() {
       .sort((a, b) => Number(b.amount) - Number(a.amount));
   }, [filtered]);
 
-  // Lançamentos em Cartões de Crédito (Nubank, Caixa e PicPay) ordenados por valor decrescente
+  // Lançamentos em Cartões de Crédito (Nubank, Caixa e PicPay) no mês da compra, ordenados por valor decrescente
   const filteredCardItems = useMemo(() => {
-    return filtered
+    return items
       .filter((f) => {
         if (!f.is_credit_card) return false;
+        if (monthViewMode === "month") {
+          const purchaseMonth = f.date || f.due_date || "";
+          if (!purchaseMonth.startsWith(currentMonth)) return false;
+        }
+        if (filterCat !== "all" && f.category !== filterCat) return false;
+        if (filterStatus === "paid" && !f.paid) return false;
+        if (filterStatus === "pending" && f.paid) return false;
+        const parsed = parseFinanceNotes(f.notes);
+        if (filterCost !== "all") {
+          const cType = parsed.costType || (f.recurring !== "none" ? "fixo" : "variavel");
+          if (cType !== filterCost) return false;
+        }
         if (filterCardChoice !== "all") {
-          const parsed = parseFinanceNotes(f.notes);
           const cName = normalizeCreditCardName(parsed.cardName);
           if (cName !== filterCardChoice) return false;
+        }
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          const matchTitle = f.title.toLowerCase().includes(q);
+          const matchNotes = (parsed.cleanNotes || "").toLowerCase().includes(q);
+          if (!matchTitle && !matchNotes) return false;
         }
         return true;
       })
       .sort((a, b) => Number(b.amount) - Number(a.amount));
-  }, [filtered, filterCardChoice]);
+  }, [items, monthViewMode, currentMonth, filterCat, filterStatus, filterCost, filterCardChoice, search]);
 
   // Due soon alerts (Apenas despesas com vencimento próximo, receitas nunca possuem vencimento)
   const dueSoon = useMemo(() => {
@@ -2818,7 +2836,7 @@ function FinancesContent() {
             <span>
               Exibindo <strong>{filteredCardItems.length}</strong> compra(s) no cartão ordenadas por valor (maior para o menor){" "}
               {monthViewMode === "month" ? (
-                <>na fatura de <strong>{formatMonthYear(currentMonth)}</strong></>
+                <>lançadas em <strong>{formatMonthYear(currentMonth)}</strong></>
               ) : (
                 <>em todo o histórico</>
               )}
