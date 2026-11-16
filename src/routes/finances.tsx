@@ -28,6 +28,7 @@ import {
   BarChart3,
   Download,
   CreditCard,
+  FileText,
   Repeat,
   Check,
   X,
