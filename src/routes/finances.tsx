@@ -245,10 +245,38 @@ function FinancesContent() {
     setIsInitialPaid(false);
   };
 
+  const [detailCardInvoice, setDetailCardInvoice] = useState<string | null>(null);
+
   const parseAmount = (val: string): number => {
     if (!val) return NaN;
-    const cleaned = String(val).replace(/R\$\s?/gi, "").replace(/\./g, "").replace(",", ".");
+    let cleaned = String(val).replace(/R\$\s?/gi, "").replace(/\s+/g, "").trim();
+    const hasComma = cleaned.includes(",");
+    const hasDot = cleaned.includes(".");
+
+    if (hasComma && hasDot) {
+      if (cleaned.lastIndexOf(",") > cleaned.lastIndexOf(".")) {
+        cleaned = cleaned.replace(/\./g, "").replace(",", ".");
+      } else {
+        cleaned = cleaned.replace(/,/g, "");
+      }
+    } else if (hasComma) {
+      cleaned = cleaned.replace(",", ".");
+    } else if (hasDot) {
+      const dotParts = cleaned.split(".");
+      if (dotParts.length > 2) {
+        cleaned = cleaned.replace(/\./g, "");
+      }
+    }
     return parseFloat(cleaned);
+  };
+
+  const getLastInstallmentLabel = (f: Finance): string => {
+    if (!f.installments || f.installments <= 1) return "À vista";
+    const base = f.due_date || f.date;
+    if (!base) return "--";
+    const remaining = Math.max(0, f.installments - (f.installment_number || 1));
+    const lastDate = addMonths(base, remaining);
+    return formatMonthYear(lastDate.slice(0, 7));
   };
 
   const handleSave = async () => {
@@ -909,7 +937,7 @@ function FinancesContent() {
   const openEdit = (f: Finance) => {
     setEditing(f);
     setTitle(f.title);
-    setAmount(String(f.amount));
+    setAmount(Number(f.amount).toFixed(2).replace(".", ","));
     setType((f.type === "receita" ? "receita" : "despesa") as any);
     setCategory(f.category);
     setDueDate(f.type === "receita" ? "" : (f.due_date || ""));
@@ -928,7 +956,7 @@ function FinancesContent() {
   const startInlineEdit = (f: Finance) => {
     setEditingInlineId(f.id);
     setInlineTitle(f.title);
-    setInlineAmount(String(f.amount));
+    setInlineAmount(Number(f.amount).toFixed(2).replace(".", ","));
     setInlineCategory(f.category);
     setInlineDate(f.due_date || f.date);
   };
@@ -1422,9 +1450,8 @@ function FinancesContent() {
                     <div className="space-y-1.5">
                       <Label className="text-xs font-medium">Valor (R$)</Label>
                       <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
+                        type="text"
+                        inputMode="decimal"
                         value={amount}
                         onChange={(e) => setAmount(e.target.value)}
                         placeholder="0,00"
@@ -1450,9 +1477,8 @@ function FinancesContent() {
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium">Valor da Receita (R$)</Label>
                     <Input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                      type="text"
+                      inputMode="decimal"
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       placeholder="0,00"
@@ -2688,33 +2714,45 @@ function FinancesContent() {
                       )}
                     </div>
 
-                    <div className="pt-2 border-t border-border/50">
+                    <div className="pt-2 border-t border-border/50 space-y-1.5">
                       {inv.totalAmount === 0 ? (
                         <span className="text-[11px] text-muted-foreground italic block text-center py-1">
                           Sem compras nesta fatura
                         </span>
-                      ) : !inv.allPaid ? (
-                        <Button
-                          size="sm"
-                          onClick={() => handlePayCardInvoice(inv.cardName)}
-                          className={`w-full h-8 text-xs font-semibold ${cardTheme.button} gap-1.5 shadow-xs`}
-                        >
-                          <Check className="size-3.5" /> Pagar Fatura ({fmt(inv.openAmount)})
-                        </Button>
                       ) : (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-                            <CheckCircle2 className="size-3.5" /> Fatura quitada
-                          </span>
+                        <>
+                          {!inv.allPaid ? (
+                            <Button
+                              size="sm"
+                              onClick={() => handlePayCardInvoice(inv.cardName)}
+                              className={`w-full h-8 text-xs font-semibold ${cardTheme.button} gap-1.5 shadow-xs`}
+                            >
+                              <Check className="size-3.5" /> Pagar Fatura ({fmt(inv.openAmount)})
+                            </Button>
+                          ) : (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+                                <CheckCircle2 className="size-3.5" /> Fatura quitada
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleRevertCardInvoice(inv.cardName)}
+                                className="h-7 text-[10px] text-muted-foreground hover:text-foreground"
+                              >
+                                Reverter
+                              </Button>
+                            </div>
+                          )}
                           <Button
                             size="sm"
-                            variant="ghost"
-                            onClick={() => handleRevertCardInvoice(inv.cardName)}
-                            className="h-7 text-[10px] text-muted-foreground hover:text-foreground"
+                            variant="outline"
+                            onClick={() => setDetailCardInvoice(inv.cardName)}
+                            className="w-full h-7 text-[11px] gap-1.5"
                           >
-                            Reverter
+                            <FileText className="size-3" /> Detalhar Fatura ({inv.items.length})
                           </Button>
-                        </div>
+                        </>
                       )}
                     </div>
                   </Card>
@@ -2799,6 +2837,7 @@ function FinancesContent() {
                     <th className="text-left px-4 py-3">Cartão</th>
                     <th className="text-left px-4 py-3">Categoria</th>
                     <th className="text-left px-4 py-3">Fatura / Vencimento</th>
+                    <th className="text-left px-4 py-3">Última Parcela</th>
                     <th className="text-center px-4 py-3">Status da Fatura</th>
                     <th className="text-right px-4 py-3">Valor</th>
                     <th className="text-right px-4 py-3 w-28">Opções</th>
@@ -2807,7 +2846,7 @@ function FinancesContent() {
                 <tbody className="divide-y">
                   {filteredCardItems.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-12 text-muted-foreground text-xs">
+                      <td colSpan={8} className="text-center py-12 text-muted-foreground text-xs">
                         <div className="space-y-2 max-w-sm mx-auto">
                           <CreditCard className="size-8 mx-auto text-purple-400/50" />
                           <p className="font-medium text-foreground">
@@ -2896,6 +2935,13 @@ function FinancesContent() {
                               {f.due_date ? formatDate(f.due_date) : `Fatura ${formatMonthYear(currentMonth)}`}
                             </span>
                           </div>
+                        </td>
+
+                        {/* Última Parcela */}
+                        <td className="px-4 py-3">
+                          <span className={`text-xs font-medium ${f.installments > 1 ? "text-foreground" : "text-muted-foreground"}`}>
+                            {getLastInstallmentLabel(f)}
+                          </span>
                         </td>
 
                         {/* Status da Fatura (Sem botões individuais de pago/não pago, pois é no cartão) */}
@@ -3248,6 +3294,91 @@ function FinancesContent() {
               )}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Detalhar Fatura do Cartão */}
+      <Dialog open={!!detailCardInvoice} onOpenChange={(o) => !o && setDetailCardInvoice(null)}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          {(() => {
+            const inv = creditCardInvoices.find((c) => c.cardName === detailCardInvoice);
+            if (!inv) return null;
+            const sortedItems = [...inv.items].sort((a, b) => Number(b.amount) - Number(a.amount));
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <CreditCard className="size-5 text-purple-600" />
+                    Detalhamento da Fatura — {inv.cardName} ({formatMonthYear(currentMonth)})
+                  </DialogTitle>
+                </DialogHeader>
+
+                <div className="grid grid-cols-3 gap-3 my-2">
+                  <Card className="p-3 bg-muted/30">
+                    <span className="text-[11px] text-muted-foreground block">Total da Fatura</span>
+                    <span className="text-lg font-bold font-mono">{fmt(inv.totalAmount)}</span>
+                  </Card>
+                  <Card className="p-3 bg-muted/30">
+                    <span className="text-[11px] text-muted-foreground block">Em Aberto</span>
+                    <span className="text-lg font-bold font-mono text-purple-600">{fmt(inv.openAmount)}</span>
+                  </Card>
+                  <Card className="p-3 bg-muted/30">
+                    <span className="text-[11px] text-muted-foreground block">Lançamentos</span>
+                    <span className="text-lg font-bold">{inv.items.length} item(ns)</span>
+                  </Card>
+                </div>
+
+                <div className="border rounded-lg overflow-hidden">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b bg-muted/40 text-muted-foreground font-semibold">
+                        <th className="text-left px-3 py-2.5">Compra</th>
+                        <th className="text-left px-3 py-2.5">Parcela</th>
+                        <th className="text-left px-3 py-2.5">Última Parcela</th>
+                        <th className="text-left px-3 py-2.5">Categoria</th>
+                        <th className="text-right px-3 py-2.5">Valor</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y">
+                      {sortedItems.map((item) => (
+                        <tr key={item.id} className="hover:bg-muted/20">
+                          <td className="px-3 py-2.5 font-medium">{item.title}</td>
+                          <td className="px-3 py-2.5 font-mono">
+                            {item.installments > 1 ? `${item.installment_number}/${item.installments}` : "À vista"}
+                          </td>
+                          <td className="px-3 py-2.5 text-muted-foreground">
+                            {getLastInstallmentLabel(item)}
+                          </td>
+                          <td className="px-3 py-2.5 capitalize text-muted-foreground">{item.category}</td>
+                          <td className="px-3 py-2.5 text-right font-mono font-bold text-purple-600 dark:text-purple-400">
+                            {fmt(Number(item.amount))}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <DialogFooter className="mt-4">
+                  <Button variant="outline" size="sm" onClick={() => setDetailCardInvoice(null)}>
+                    Fechar
+                  </Button>
+                  {!inv.allPaid && inv.totalAmount > 0 && (
+                    <Button
+                      size="sm"
+                      onClick={() => {
+                        handlePayCardInvoice(inv.cardName);
+                        setDetailCardInvoice(null);
+                      }}
+                      className="bg-purple-600 hover:bg-purple-700 text-white gap-1.5"
+                    >
+                      <Check className="size-3.5" /> Pagar Fatura ({fmt(inv.openAmount)})
+                    </Button>
+                  )}
+                </DialogFooter>
+              </>
+            );
+          })()}
         </DialogContent>
       </Dialog>
     </div>
