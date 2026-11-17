@@ -34,6 +34,8 @@ import {
   ShieldCheck,
   Search,
   Code2,
+  Copy,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -91,6 +93,7 @@ export function SqlDatabaseDialog({
   // State for Tables & Schema
   const [testingConnection, setTestingConnection] = useState(false);
   const [serverVersion, setServerVersion] = useState<string | null>(null);
+  const [lastConnectionError, setLastConnectionError] = useState<string | null>(null);
   const [tables, setTables] = useState<SqlTableInfo[]>([]);
   const [loadingTables, setLoadingTables] = useState(false);
   const [searchTable, setSearchTable] = useState("");
@@ -198,10 +201,12 @@ export function SqlDatabaseDialog({
 
     setTestingConnection(true);
     setServerVersion(null);
+    setLastConnectionError(null);
     try {
       const res = await testSqlConnectionFn({ data: connectionPayload });
       if (res.success) {
         setServerVersion(res.version || "MariaDB / MySQL");
+        setLastConnectionError(null);
         toast.success("Conexão estabelecida com sucesso!", {
           description: `Servidor: ${res.version || "MariaDB/MySQL"} · Banco: ${res.database || database}`,
         });
@@ -210,10 +215,13 @@ export function SqlDatabaseDialog({
           void fetchTables();
         }
       } else {
-        toast.error("Erro na conexão SQL", { description: res.error });
+        setLastConnectionError(res.error || "Erro na conexão SQL.");
+        toast.error("Erro na conexão SQL", { description: "Verifique o diagnóstico detalhado na tela." });
       }
     } catch (e: any) {
-      toast.error("Falha ao testar conexão", { description: e?.message });
+      const errMsg = e?.message || "Falha ao testar conexão.";
+      setLastConnectionError(errMsg);
+      toast.error("Falha ao testar conexão", { description: "Verifique o diagnóstico detalhado na tela." });
     } finally {
       setTestingConnection(false);
     }
@@ -462,13 +470,37 @@ export function SqlDatabaseDialog({
               {/* Connection Credentials Form */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5 md:col-span-2">
-                  <Label className="text-xs font-medium">Host / Endereço IP do Servidor</Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Host / Endereço IP do Servidor</Label>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setHost("127.0.0.1")}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-primary/10 hover:text-primary transition text-muted-foreground font-mono"
+                      >
+                        127.0.0.1
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setHost("localhost")}
+                        className="text-[10px] px-1.5 py-0.5 rounded bg-muted hover:bg-primary/10 hover:text-primary transition text-muted-foreground font-mono"
+                      >
+                        localhost
+                      </button>
+                    </div>
+                  </div>
                   <Input
-                    placeholder="localhost ou 127.0.0.1 ou rds.amazonaws.com"
+                    placeholder="127.0.0.1 ou db.minhaempresa.com.br"
                     value={host}
-                    onChange={(e) => setHost(e.target.value)}
+                    onChange={(e) => {
+                      setHost(e.target.value);
+                      if (lastConnectionError) setLastConnectionError(null);
+                    }}
                     className="h-9 text-xs font-mono"
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Dica: Para conexões locais use <code className="text-primary font-mono">127.0.0.1</code>. Para servidores externos, garanta que a porta 3306 e o IP estejam liberados no firewall.
+                  </p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -477,7 +509,10 @@ export function SqlDatabaseDialog({
                     type="number"
                     placeholder="3306"
                     value={port}
-                    onChange={(e) => setPort(Number(e.target.value) || 3306)}
+                    onChange={(e) => {
+                      setPort(Number(e.target.value) || 3306);
+                      if (lastConnectionError) setLastConnectionError(null);
+                    }}
                     className="h-9 text-xs font-mono"
                   />
                 </div>
@@ -487,7 +522,10 @@ export function SqlDatabaseDialog({
                   <Input
                     placeholder="ex: vendas_erp, sistema_exacta, bi_financeiro"
                     value={database}
-                    onChange={(e) => setDatabase(e.target.value)}
+                    onChange={(e) => {
+                      setDatabase(e.target.value);
+                      if (lastConnectionError) setLastConnectionError(null);
+                    }}
                     className="h-9 text-xs font-mono"
                   />
                 </div>
@@ -497,7 +535,10 @@ export function SqlDatabaseDialog({
                   <Input
                     placeholder="root ou usuario_bi"
                     value={user}
-                    onChange={(e) => setUser(e.target.value)}
+                    onChange={(e) => {
+                      setUser(e.target.value);
+                      if (lastConnectionError) setLastConnectionError(null);
+                    }}
                     className="h-9 text-xs font-mono"
                   />
                 </div>
@@ -508,7 +549,10 @@ export function SqlDatabaseDialog({
                     type="password"
                     placeholder="••••••••••••"
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (lastConnectionError) setLastConnectionError(null);
+                    }}
                     className="h-9 text-xs font-mono"
                   />
                 </div>
@@ -533,8 +577,69 @@ export function SqlDatabaseDialog({
                     <p className="text-[11px] text-muted-foreground">Recomendado para servidores em nuvem como AWS, DigitalOcean, Hostinger.</p>
                   </div>
                 </div>
-                <Switch checked={ssl} onCheckedChange={setSsl} />
+                <Switch
+                  checked={ssl}
+                  onCheckedChange={(val) => {
+                    setSsl(val);
+                    if (lastConnectionError) setLastConnectionError(null);
+                  }}
+                />
               </div>
+
+              {/* Diagnostic Box on Error */}
+              {lastConnectionError && (
+                <div className="p-4 rounded-xl border border-destructive/40 bg-destructive/10 text-xs space-y-2.5 animate-in fade-in duration-200">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 font-medium text-destructive">
+                      <AlertCircle className="size-4 shrink-0" />
+                      <span>Diagnóstico de Falha na Conexão SQL</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        void navigator.clipboard.writeText(lastConnectionError);
+                        toast.info("Diagnóstico copiado para a área de transferência.");
+                      }}
+                      className="h-6 px-2 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <Copy className="size-3 mr-1" /> Copiar
+                    </Button>
+                  </div>
+
+                  <div className="bg-background/80 p-3 rounded-lg border border-destructive/20 font-mono text-[11px] whitespace-pre-wrap leading-relaxed text-foreground max-h-48 overflow-y-auto">
+                    {lastConnectionError}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px] text-muted-foreground">
+                    <span>Ações rápidas:</span>
+                    {host.toLowerCase() === "localhost" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-[11px] border-primary/40 text-primary hover:bg-primary/10"
+                        onClick={() => {
+                          setHost("127.0.0.1");
+                          setTimeout(() => void handleTestConnection(false), 50);
+                        }}
+                      >
+                        Trocar para 127.0.0.1 e Retestar
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-6 text-[11px]"
+                      onClick={() => {
+                        setSsl(!ssl);
+                        setTimeout(() => void handleTestConnection(false), 50);
+                      }}
+                    >
+                      {ssl ? "Desativar SSL e Retestar" : "Ativar SSL e Retestar"}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {/* Actions Footer for Connection */}
               <div className="flex items-center justify-between pt-2">

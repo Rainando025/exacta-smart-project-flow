@@ -29,9 +29,9 @@ export interface Database {
         Relationships: []
       }
       brainstorming_sessions: {
-        Row: { id: string; title: string; description: string | null; created_by: string; created_at: string; updated_at: string; tags: string[] | null }
-        Insert: { id?: string; title: string; description?: string | null; created_by: string; created_at?: string; updated_at?: string; tags?: string[] | null }
-        Update: { id?: string; title?: string; description?: string | null; created_by?: string; created_at?: string; updated_at?: string; tags?: string[] | null }
+        Row: { id: string; title: string; description: string | null; created_by: string; created_at: string; updated_at: string; tags: string[] | null; template?: string | null; meet_url?: string | null; data?: Json | null; department_id?: string | null }
+        Insert: { id?: string; title: string; description?: string | null; created_by: string; created_at?: string; updated_at?: string; tags?: string[] | null; template?: string | null; meet_url?: string | null; data?: Json | null; department_id?: string | null }
+        Update: { id?: string; title?: string; description?: string | null; created_by?: string; created_at?: string; updated_at?: string; tags?: string[] | null; template?: string | null; meet_url?: string | null; data?: Json | null; department_id?: string | null }
         Relationships: []
       }
       departments: {

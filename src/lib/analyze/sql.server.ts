@@ -35,14 +35,67 @@ export interface SqlQueryResult {
   truncated: boolean;
 }
 
+export function formatSqlError(err: any, cfg?: SqlConnectionConfig): string {
+  const code = err?.code || "";
+  const msg = err?.message || "";
+  const host = cfg?.host || "servidor";
+  const port = cfg?.port || 3306;
+  const user = cfg?.user || "usuário";
+  const db = cfg?.database || "banco";
+
+  if (code === "ETIMEDOUT" || msg.includes("ETIMEDOUT") || code === "PROTOCOL_CONNECTION_LOST") {
+    return [
+      `Tempo limite de conexão esgotado (ETIMEDOUT) com ${host}:${port}.`,
+      "",
+      "Diagnóstico e Soluções:",
+      "1. Se o banco estiver no seu computador local e o app estiver rodando na nuvem (Vercel, servidor web, etc.): Servidores na nuvem não conseguem alcançar 'localhost' ou IPs locais (como 192.168.x.x) sem um túnel público (como ngrok ou Cloudflare Tunnel) ou um IP público válido.",
+      "2. Se estiver rodando a aplicação localmente: experimente usar '127.0.0.1' no campo Host em vez de 'localhost'.",
+      `3. Firewall / Roteador: Verifique se a porta ${port} está liberada para conexões de entrada no servidor host.`,
+      "4. Configuração do MySQL/MariaDB: O arquivo my.cnf / my.ini pode estar configurado com 'bind-address = 127.0.0.1', impedindo conexões externas. Altere para 'bind-address = 0.0.0.0' e reinicie o MySQL.",
+      "5. Provedores em nuvem (AWS RDS, DigitalOcean, Hostinger): Lembre-se de liberar o IP nas regras de firewall (Security Groups / Whitelist de IP).",
+      "6. Conexão SSL: Experimente alternar a opção 'Habilitar Conexão SSL / TLS' caso o servidor exija ou recuse certificados.",
+    ].join("\n");
+  }
+
+  if (code === "ECONNREFUSED" || msg.includes("ECONNREFUSED")) {
+    return `Conexão recusada (ECONNREFUSED) em ${host}:${port}. O serviço MySQL/MariaDB pode estar desligado ou escutando em outra porta.`;
+  }
+
+  if (code === "ENOTFOUND" || msg.includes("ENOTFOUND")) {
+    return `Endereço não encontrado (ENOTFOUND): '${host}'. Verifique se o nome de host ou IP foi digitado corretamente.`;
+  }
+
+  if (code === "ER_ACCESS_DENIED_ERROR" || msg.includes("Access denied")) {
+    return `Acesso negado para o usuário '${user}'. Verifique se a senha está correta e se o usuário tem privilégios concedidos para conectar a partir de hosts remotos (ex: GRANT ALL PRIVILEGES ON \`${db}\`.* TO '${user}'@'%' IDENTIFIED BY '***'; FLUSH PRIVILEGES;).`;
+  }
+
+  if (code === "ER_BAD_DB_ERROR" || msg.includes("Unknown database")) {
+    return `Banco de dados '${db}' não existe no servidor ${host}. Verifique a grafia do nome do banco.`;
+  }
+
+  if (code === "HANDSHAKE_ERROR" || msg.includes("SSL") || msg.includes("handshake")) {
+    return `Erro de negociação SSL/TLS. Tente ativar ou desativar a opção 'Habilitar Conexão SSL / TLS' e verifique os certificados do servidor.`;
+  }
+
+  return msg || "Falha ao conectar com o banco de dados SQL.";
+}
+
 function createConnectionOptions(cfg: SqlConnectionConfig): mysql.ConnectionOptions {
+  let host = (cfg.host || "").trim();
+  // Se for localhost, no Node.js/Windows pode resolver para ::1 (IPv6) e dar timeout caso o MySQL escute apenas em IPv4
+  if (host.toLowerCase() === "localhost") {
+    host = "127.0.0.1";
+  }
+
   return {
-    host: cfg.host.trim(),
+    host,
     port: Number(cfg.port) || 3306,
     user: cfg.user.trim(),
     password: cfg.password || "",
     database: cfg.database.trim(),
-    connectTimeout: 8000,
+    connectTimeout: 20000,
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
     ssl: cfg.ssl ? { rejectUnauthorized: false } : undefined,
     multipleStatements: false,
     dateStrings: true,
@@ -71,7 +124,7 @@ export async function testSqlConnection(cfg: SqlConnectionConfig): Promise<{
   } catch (err: any) {
     return {
       success: false,
-      error: err?.message || "Falha ao conectar com o banco de dados.",
+      error: formatSqlError(err, cfg),
     };
   } finally {
     if (conn) {
@@ -107,6 +160,8 @@ export async function listSqlTables(cfg: SqlConnectionConfig): Promise<SqlTableI
       dataSize: Number(r.dataSize) || 0,
       comment: r.comment ? String(r.comment) : undefined,
     }));
+  } catch (err: any) {
+    throw new Error(formatSqlError(err, cfg));
   } finally {
     if (conn) {
       try {
@@ -174,6 +229,8 @@ export async function describeSqlTable(cfg: SqlConnectionConfig, tableName: stri
         defaultValue: col.defaultValue != null ? String(col.defaultValue) : null,
       };
     });
+  } catch (err: any) {
+    throw new Error(formatSqlError(err, cfg));
   } finally {
     if (conn) {
       try {
@@ -320,6 +377,8 @@ export async function executeSqlQuery(
       executionTimeMs,
       truncated: rows.length >= limitToUse,
     };
+  } catch (err: any) {
+    throw new Error(formatSqlError(err, cfg));
   } finally {
     if (conn) {
       try {
